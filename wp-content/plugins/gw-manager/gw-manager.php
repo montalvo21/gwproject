@@ -666,7 +666,7 @@ function gw_login_home_shortcode() {
         if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
             wp_redirect(site_url('/panel-administrativo')); exit;
         } else {
-            wp_redirect(site_url('/academia')); exit;
+            wp_redirect(site_url('/index.php/portal-voluntario')); exit;
         }
     }
 
@@ -682,7 +682,7 @@ function gw_login_home_shortcode() {
     </style>
     <div style="position:relative;">
         <div style="position:absolute;top:18px;right:32px;z-index:2;">
-            <a href="<?php echo site_url('/academia'); ?>" class="button" style="margin-right:10px;background:#2962ff;color:#fff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;">Ir a Academia</a>
+            <a href="<?php echo site_url('/index.php/portal-voluntario'); ?>" class="button" style="margin-right:10px;background:#2962ff;color:#fff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;">Ir a Academia</a>
             <a href="<?php echo site_url('/panel-administrativo'); ?>" class="button" style="background:#00c853;color:#fff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;">Ir al Panel</a>
         </div>
     </div>
@@ -770,7 +770,7 @@ function gw_redireccionar_por_rol($redirect_to, $request, $user) {
         return site_url('/panel-administrativo');
     }
     if (in_array('voluntario', $user->roles)) {
-        return site_url('/academia');
+        return site_url('/index.php/portal-voluntario');
     }
     // Por defecto
     return site_url('/');
@@ -782,7 +782,7 @@ add_filter('nsl_login_redirect_url', function($url, $provider, $user) {
             return site_url('/panel-administrativo');
         }
         if (in_array('voluntario', $user->roles)) {
-            return site_url('/academia');
+            return site_url('/index.php/portal-voluntario');
         }
     }
     return $url;
@@ -819,7 +819,7 @@ add_action('wp_footer', function() {
     $show_step5 = false;
     $show_step6 = false;
     // Detectar si estamos en paso 5 (charlas) o paso 6 (capacitaciones)
-    if (preg_match('#/charlas#', $url) || preg_match('#/academia#', $url) || preg_match('#/paso-5#', $url)) {
+    if (preg_match('#/charlas#', $url) || preg_match('#/index.php/portal-voluntario#', $url) || preg_match('#/paso-5#', $url)) {
         $show_step5 = true;
     }
     if (preg_match('#/capacitacion#', $url) || preg_match('#/paso-6#', $url)) {
@@ -844,7 +844,7 @@ add_action('wp_footer', function() {
             var data = new FormData();
             data.append('action', 'gw_admin_reset_charlas');
             fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
-            .then(function(){ window.location.href = '<?php echo site_url('/academia'); ?>'; });
+            .then(function(){ window.location.href = '<?php echo site_url('/index.php/portal-voluntario'); ?>'; });
         }
         function gwStep5TestingContinue() {
             // Solo recarga la página, puedes mejorar para avanzar si hay lógica
@@ -869,7 +869,7 @@ add_action('wp_footer', function() {
             var data = new FormData();
             data.append('action', 'gw_admin_reset_step6_and_charlas');
             fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
-            .then(function(){ window.location.href = '<?php echo site_url('/academia'); ?>'; });
+            .then(function(){ window.location.href = '<?php echo site_url('/index.php/portal-voluntario'); ?>'; });
         }
         function gwStep6AdminBackToMenu() {
             // Borra solo meta de step6 y recarga en menú de capacitaciones

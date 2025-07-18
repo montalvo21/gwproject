@@ -130,7 +130,7 @@
      $subject = 'Recordatorio: Completa tu registro como voluntario Glasswing';
      $message = '<h2>¡Bienvenido a Glasswing!</h2>
          <p>Te recordamos que para finalizar tu proceso como voluntario, debes completar el formulario de datos personales en tu portal:</p>
-         <p><a href="' . site_url('/portal-voluntario/') . '">Completar registro aquí</a></p>
+         <p><a href="' . site_url('/index.php/portal-voluntario/') . '">Completar registro aquí</a></p>
          <p>Si ya lo completaste, ignora este mensaje. ¡Gracias!</p>';
      $headers = array('Content-Type: text/html; charset=UTF-8');
  
@@ -161,7 +161,7 @@
             update_user_meta($user_id, 'gw_step2_completo', 1);
             // Cancela recordatorios
             gw_cancelar_recordatorios_aspirante($user_id);
-            wp_safe_redirect(site_url('/portal-voluntario/'));
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
             exit;
         }
      } else {
@@ -412,7 +412,7 @@ function gw_step_5_charla($user_id) {
                     <strong>¡Has completado todas tus charlas asignadas!</strong>
                 </div>
                 <div style="text-align:center;margin-top:20px;">
-                    <a href="<?php echo esc_url(site_url('/portal-voluntario/?paso5_menu=1')); ?>" class="gw-charla-my-btn" style="padding:13px 40px;background:#27b84c;border:none;border-radius:13px;color:#fff;font-weight:bold;font-size:1.13rem;margin-left:20px;box-shadow:0 2px 8px #e3f0e9;cursor:pointer;transition:background .18s;">Ir a capacitaciones</a>
+                    <a href="<?php echo esc_url(site_url('/index.php/portal-voluntario/?paso5_menu=1')); ?>" class="gw-charla-my-btn" style="padding:13px 40px;background:#27b84c;border:none;border-radius:13px;color:#fff;font-weight:bold;font-size:1.13rem;margin-left:20px;box-shadow:0 2px 8px #e3f0e9;cursor:pointer;transition:background .18s;">Ir a capacitaciones</a>
                 </div>
                 <?php
                 // BOTÓN ADMIN: REGRESAR (ADMIN) en menú principal cuando ya completó todas las charlas
@@ -455,7 +455,7 @@ function gw_step_5_charla($user_id) {
             return ob_get_clean();
         } else {
             // Usuario normal sin charlas pendientes: avanzar a paso 6
-            wp_safe_redirect(site_url('/portal-voluntario/?paso5_menu=1'));
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso5_menu=1'));
             exit;
         }
     }
@@ -580,7 +580,7 @@ function gw_step_5_charla($user_id) {
                 update_user_meta($user_id, 'gw_step5_completo', 1);
             }
             // Asegurar recarga a siguiente charla (redirigir siempre)
-            wp_safe_redirect(site_url('/portal-voluntario/'));
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
             exit;
         }
         // Procesar marcar asistencia al hacer clic en "Ir a capacitación"
@@ -602,10 +602,10 @@ function gw_step_5_charla($user_id) {
             // Decidir redirección según charlas restantes
             if (!empty($charlas_completadas) && count($charlas_asignadas) > count($charlas_completadas)) {
                 // Quedan charlas: recargar para mostrar la siguiente
-                wp_safe_redirect(site_url('/portal-voluntario/'));
+                wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
             } else {
                 // Última charla completada: avanzar a capacitaciones
-                wp_safe_redirect(site_url('/portal-voluntario/?paso5_menu=1'));
+                wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso5_menu=1'));
             }
             exit;
         }
@@ -644,7 +644,7 @@ function gw_step_5_charla($user_id) {
         $charla_idx = intval($_GET['charla_idx']);
         // Solo permitir seleccionar de la charla pendiente
         if ($charla_id != $charla_actual->ID) {
-            return '<div class="notice notice-error">Solo puedes seleccionar sesiones de tu charla pendiente.<br><a href="'.esc_url(site_url('/portal-voluntario/')).'" class="gw-charla-my-btn">MI CUENTA</a></div>';
+            return '<div class="notice notice-error">Solo puedes seleccionar sesiones de tu charla pendiente.<br><a href="'.esc_url(site_url('/index.php/portal-voluntario/')).'" class="gw-charla-my-btn">MI CUENTA</a></div>';
         }
         // Buscar la sesión exacta
         $sesion = null;
@@ -655,7 +655,7 @@ function gw_step_5_charla($user_id) {
             }
         }
         if (!$sesion) {
-            return '<div class="notice notice-error">La sesión seleccionada ya no está disponible.<br><a href="'.esc_url(site_url('/portal-voluntario/')).'" class="gw-charla-my-btn">MI CUENTA</a></div>';
+            return '<div class="notice notice-error">La sesión seleccionada ya no está disponible.<br><a href="'.esc_url(site_url('/index.php/portal-voluntario/')).'" class="gw-charla-my-btn">MI CUENTA</a></div>';
         }
         $error = '';
         $success = false;
@@ -703,7 +703,7 @@ function gw_step_5_charla($user_id) {
         <div class="gw-charla-menu-box">
             <div class="gw-charla-header-flex">
                 <div class="gw-charla-title"><?php echo esc_html($charla_actual->post_title); ?></div>
-                <a href="<?php echo esc_url(site_url('/portal-voluntario/')); ?>" class="gw-charla-my-btn">MI CUENTA</a>
+                <a href="<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>" class="gw-charla-my-btn">MI CUENTA</a>
             </div>
             <?php if ($error): ?><div class="notice notice-error" style="margin-bottom:20px;"><?php echo esc_html($error); ?></div><?php endif; ?>
             <?php if ($success): ?>
@@ -772,7 +772,7 @@ function gw_step_5_charla($user_id) {
     <div class="gw-charla-menu-box">
         <div class="gw-charla-header-flex">
             <div class="gw-charla-title"><?php echo esc_html($charla_actual->post_title); ?></div>
-            <a href="<?php echo esc_url(add_query_arg('paso5_menu',1,site_url('/portal-voluntario/'))); ?>" class="gw-charla-my-btn">MI CUENTA</a>
+            <a href="<?php echo esc_url(add_query_arg('paso5_menu',1,site_url('/index.php/portal-voluntario/'))); ?>" class="gw-charla-my-btn">MI CUENTA</a>
         </div>
         <?php if (empty($charla_sesiones)): ?>
             <div class="notice notice-error">Actualmente no hay sesiones disponibles para registro.</div>
@@ -853,7 +853,7 @@ function gw_step_6_capacitacion($user_id) {
             update_user_meta($user_id, $admin_flag, 1);
         }
         // No marcar como completado, solo simular disponibilidad
-        wp_safe_redirect(site_url('/portal-voluntario/'));
+        wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
         exit;
     }
 
@@ -870,7 +870,7 @@ function gw_step_6_capacitacion($user_id) {
         delete_user_meta($user_id, 'gw_capacitacion_agendada');
         delete_user_meta($user_id, 'gw_step5_completo');
         delete_user_meta($user_id, 'gw_charla_agendada');
-        wp_safe_redirect(add_query_arg('paso6_menu',1,site_url('/portal-voluntario/')));
+        wp_safe_redirect(add_query_arg('paso6_menu',1,site_url('/index.php/portal-voluntario/')));
         exit;
     }
 
@@ -1087,7 +1087,7 @@ function gw_step_6_capacitacion($user_id) {
     <div class="gw-charla-menu-box">
         <div class="gw-charla-header-flex">
             <div class="gw-charla-title">CAPACITACIONES</div>
-            <a href="<?php echo esc_url(add_query_arg('paso6_menu',1,site_url('/portal-voluntario/'))); ?>" class="gw-charla-my-btn">MI CUENTA</a>
+            <a href="<?php echo esc_url(add_query_arg('paso6_menu',1,site_url('/index.php/portal-voluntario/'))); ?>" class="gw-charla-my-btn">MI CUENTA</a>
         </div>
         <div style="margin-bottom:26px;">
             <strong>Capacitaciones agendadas:</strong>
@@ -1142,7 +1142,7 @@ function gw_step_6_capacitacion($user_id) {
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <a href="<?php echo esc_url(add_query_arg('cancelar_capacitacion', $key, site_url('/portal-voluntario/'))); ?>" class="gw-charla-btn" onclick="return confirm('¿Seguro que quieres cancelar esta capacitación?');">Cancelar capacitación</a>
+                                <a href="<?php echo esc_url(add_query_arg('cancelar_capacitacion', $key, site_url('/index.php/portal-voluntario/'))); ?>" class="gw-charla-btn" onclick="return confirm('¿Seguro que quieres cancelar esta capacitación?');">Cancelar capacitación</a>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -2378,3 +2378,25 @@ document.addEventListener('DOMContentLoaded', function(){
     <?php
     return ob_get_clean();
 }
+// Redirigir por rol automáticamente al iniciar sesión
+add_action('wp_login', 'gw_redireccion_por_rol', 10, 2);
+function gw_redireccion_por_rol($user_login, $user) {
+    $roles = $user->roles;
+    $rol = isset($roles[0]) ? $roles[0] : '';
+
+    if ($rol === 'voluntario') {
+        wp_redirect(site_url('/index.php/portal-voluntario/'));
+        exit;
+    } elseif (in_array($rol, ['administrator', 'coordinador_pais', 'coach'])) {
+        wp_redirect(site_url('/panel-administrativo/'));
+        exit;
+    }
+}
+
+// Bloquear acceso al admin a los voluntarios
+add_action('admin_init', function () {
+    if (current_user_can('voluntario') && !current_user_can('manage_options')) {
+        wp_redirect(site_url('/index.php/portal-voluntario/'));
+        exit;
+    }
+});
