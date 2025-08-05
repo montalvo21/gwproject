@@ -1,77 +1,143 @@
 <?php
 /**
  * Plugin Name: Glasswing Admin Manager
- * Description: Módulos avanzados de administración y gestión para ONG Glasswing.
+ * Description: Módulos avanzados de administración para el progreso del voluntario de Glasswing.
  * Version: 1.0
  * Author: Carlos Montalvo
  */
+function gw_guardar_documentos_voluntario($user_id, $escuela_id, $file_names, $cons1, $cons2) {
+    global $wpdb;
+    $table = $wpdb->prefix . 'voluntario_docs';
+
+    // Verifica si ya existe un registro para este usuario y escuela
+    $docs = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM " . ($wpdb->prefix . 'voluntario_docs') . " WHERE user_id = %d AND escuela_id = %d", $user_id, $escuela_id
+    ));
+
+    if ($docs) {
+        // Actualiza el registro existente
+        $wpdb->update(
+            $wpdb->prefix . 'voluntario_docs',
+            [
+                'documento_1_url' => esc_url_raw($file_names[0]),
+                'documento_2_url' => esc_url_raw($file_names[1]),
+                'consent_1' => $cons1,
+                'consent_2' => $cons2,
+                'status' => 'pendiente',
+                'fecha_revision' => current_time('mysql', 1)
+            ],
+            [
+                'user_id' => $user_id,
+                'escuela_id' => $escuela_id
+            ],
+            ['%s','%s','%d','%d','%s','%s'],
+            ['%d','%d']
+        );
+    } else {
+        // Inserta un nuevo registro
+        $wpdb->insert(
+            $wpdb->prefix . 'voluntario_docs',
+            [
+                'user_id' => $user_id,
+                'escuela_id' => $escuela_id,
+                'documento_1_url' => esc_url_raw($file_names[0]),
+                'documento_2_url' => esc_url_raw($file_names[1]),
+                'consent_1' => $cons1,
+                'consent_2' => $cons2,
+                'status' => 'pendiente',
+                'fecha_subida' => current_time('mysql', 1),
+                'fecha_revision' => current_time('mysql', 1)
+            ],
+            ['%d','%d','%s','%s','%d','%d','%s','%s','%s']
+        );
+    }
+}
 
  if (!defined('ABSPATH')) exit;
 
  // --- SHORTCODE PRINCIPAL ---
- add_shortcode('gw_portal_voluntario', 'gw_portal_voluntario_shortcode');
- 
- function gw_portal_voluntario_shortcode() {
-     if (!is_user_logged_in()) {
-         return '<p>Debes iniciar sesión con tu cuenta para continuar.</p>';
-     }
- 
+add_shortcode('gw_portal_voluntario', 'gw_portal_voluntario_shortcode');
+
+function gw_portal_voluntario_shortcode() {
+    if (!is_user_logged_in()) {
+        return '<p>Debes iniciar sesión con tu cuenta para continuar.</p>';
+    }
+
     $user_id = get_current_user_id();
+    // Si viene de "Regresar a capacitaciones", resetear paso 7
+    if (isset($_GET['paso7_menu']) && $_GET['paso7_menu'] == 1) {
+        delete_user_meta($user_id, 'gw_step7_completo');
+    }
     // DEBUG: Mostrar paso y meta de paso5 en pantalla
     echo '<div style="background:#ffc;padding:10px 18px;margin:12px 0 24px 0;border:2px solid #e2ad00;border-radius:8px;color:#333;">'.
         '<b>DEBUG:</b> Paso actual: <b>' . gw_get_voluntario_step($user_id) . '</b> | '.
         'Meta step5_completo: <b>' . get_user_meta($user_id, 'gw_step5_completo', true) . '</b>'.
         '</div>';
     $current_step = gw_get_voluntario_step($user_id);
+
+    ob_start();
+    echo '<div class="gw-voluntario-onboarding">';
+
+    // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
+    if ($current_step == 1) {
+        echo gw_step_1_registro($user_id);
+    }
+    // ===== PASO 2: FORMULARIO DE DATOS =====
+    elseif ($current_step == 2) {
+        echo gw_step_2_form_datos($user_id);
+    }
+    // ===== PASO 3: VIDEO INTRODUCTORIO =====
+    elseif ($current_step == 3) {
+        echo gw_step_3_video_intro($user_id);
+    }
+    // ===== PASO 4: FORMULARIO DE INDUCCIÓN =====
+    elseif ($current_step == 4) {
+        echo gw_step_4_form_induccion($user_id);
+    }
+    // ===== PASO 5: CHARLA/PRIMERA SESIÓN EN VIVO =====
+    elseif ($current_step == 5) {
+        echo gw_step_5_charla($user_id);
+    }
+    // ===== PASO 6: SELECCIÓN DE PROYECTO =====
+    elseif ($current_step == 6) {
+        echo gw_step_6_proyecto($user_id);
+    }
+    // ===== PASO 7: CAPACITACIONES =====
+    elseif ($current_step == 7) {
+        echo gw_step_7_capacitacion($user_id);
+    }
+    // ===== PASO 8: SUBIDA DE DOCUMENTOS Y SELECCIÓN DE ESCUELA =====
+    elseif ($current_step == 8) {
+        echo gw_step_8_documentos($user_id);
+    }
+    // ===== FLUJO COMPLETADO =====
+    else {
+        echo '<div class="notice notice-success"><p>¡Bienvenido/a! Has completado tu onboarding. Ya puedes participar en todas las actividades.</p></div>';
+    }
+    echo '</div>';
+    return ob_get_clean();
+}
  
-     ob_start();
-     echo '<div class="gw-voluntario-onboarding">';
- 
-     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
-     if ($current_step == 1) {
-         // Aquí ejecutas lo de guardar en la tabla de aspirantes y agendar correos.
-         echo gw_step_1_registro($user_id);
-     }
-     // ===== PASO 2: FORMULARIO DE DATOS =====
-     elseif ($current_step == 2) {
-         echo gw_step_2_form_datos($user_id);
-     }
-     // ===== PASO 3: VIDEO INTRODUCTORIO =====
-     elseif ($current_step == 3) {
-         echo gw_step_3_video_intro($user_id);
-     }
-     // ===== PASO 4: FORMULARIO DE INDUCCIÓN =====
-     elseif ($current_step == 4) {
-         echo gw_step_4_form_induccion($user_id);
-     }
-     // ===== PASO 5: CHARLA/PRIMERA SESIÓN EN VIVO =====
-     elseif ($current_step == 5) {
-         echo gw_step_5_charla($user_id);
-     }
-    // ===== PASO 6: FLUJO DE CAPACITACIONES =====
-     elseif ($current_step == 6) {
-         // Aquí puedes llamar el shortcode o función del paso de capacitaciones.
-         echo gw_step_6_capacitacion($user_id);
-     }
-     // ===== FLUJO COMPLETADO =====
-     else {
-         echo '<div class="notice notice-success"><p>¡Bienvenido/a! Has completado tu onboarding. Ya puedes participar en todas las actividades.</p></div>';
-     }
-     echo '</div>';
-     return ob_get_clean();
- }
- 
- // --- Lógica para saber en qué paso va el usuario ---
- function gw_get_voluntario_step($user_id) {
-     // Cambia esta lógica según el meta/user fields que vayas guardando por paso completado
-     if (!get_user_meta($user_id, 'gw_step1_completo', true)) return 1;
-     if (!get_user_meta($user_id, 'gw_step2_completo', true)) return 2;
-     if (!get_user_meta($user_id, 'gw_step3_completo', true)) return 3;
-     if (!get_user_meta($user_id, 'gw_step4_completo', true)) return 4;
-     if (!get_user_meta($user_id, 'gw_step5_completo', true)) return 5;
-     // Paso 6 = Formulario de capacitaciones (ya existente)
-     return 6;
- }
+// --- Lógica para saber en qué paso va el usuario ---
+function gw_get_voluntario_step($user_id) {
+    // Flujo de pasos:
+    // 1: Registro
+    // 2: Formulario de datos
+    // 3: Video introductorio
+    // 4: Formulario de inducción
+    // 5: Charlas
+    // 6: Selección de proyecto
+    // 7: Capacitaciones
+    // 8: Finalizado
+    if (!get_user_meta($user_id, 'gw_step1_completo', true)) return 1;
+    if (!get_user_meta($user_id, 'gw_step2_completo', true)) return 2;
+    if (!get_user_meta($user_id, 'gw_step3_completo', true)) return 3;
+    if (!get_user_meta($user_id, 'gw_step4_completo', true)) return 4;
+    if (!get_user_meta($user_id, 'gw_step5_completo', true)) return 5;
+    if (!get_user_meta($user_id, 'gw_proyecto_id', true)) return 6;
+    if (!get_user_meta($user_id, 'gw_step7_completo', true)) return 7; // opcional: marcar como completo al final de capacitaciones
+    return 8;
+}
  
  
  // --- Aquí van las funciones gw_step_1_registro, gw_step_2_form_datos, etc. ---
@@ -267,7 +333,7 @@
                      }
                  }
              }
-         });
+        });
      }
      </script>
      <style>
@@ -386,9 +452,26 @@ function gw_step_5_charla($user_id) {
 
     // --- Cargar arrays de charlas asignadas y completadas ---
     $charlas_asignadas = get_user_meta($user_id, 'gw_charlas_asignadas', true);
-    if (!is_array($charlas_asignadas)) $charlas_asignadas = [];
+    // Si no es array, inicializar
+    if (!is_array($charlas_asignadas)) {
+        $charlas_asignadas = [];
+    }
+    // Si no hay charlas asignadas y no es admin, asignar todas las charlas publicadas
+    if (empty($charlas_asignadas) && !in_array('administrator', $current_user->roles)) {
+        $all_charlas = get_posts([
+            'post_type'   => 'charla',
+            'post_status' => 'publish',
+            'numberposts' => -1,
+            'orderby'     => 'menu_order',  // o 'title' según prefieras
+            'order'       => 'ASC',
+        ]);
+        $charlas_asignadas = wp_list_pluck($all_charlas, 'ID');
+    }
+
+    // --- Obtener charlas completadas y agendada ---
     $charlas_completadas = get_user_meta($user_id, 'gw_charlas_completadas', true);
     if (!is_array($charlas_completadas)) $charlas_completadas = [];
+    $charla_agendada = get_user_meta($user_id, 'gw_charla_agendada', true);
 
     // Determinar la siguiente charla pendiente
     $charla_pendiente_id = null;
@@ -454,19 +537,20 @@ function gw_step_5_charla($user_id) {
             }
             return ob_get_clean();
         } else {
-            // Usuario normal sin charlas pendientes: avanzar a paso 6
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso5_menu=1'));
+            // Usuario normal sin charlas pendientes: avanzar a selección de proyecto si no tiene proyecto seleccionado
+            // El flujo de selección de proyecto ahora es un paso independiente (6), así que aquí solo avanzar.
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
             exit;
         }
     }
 
-    // --- Listar todas las charlas y sesiones ---
+    // Obtener charlas en el orden asignado
     $charlas = get_posts([
-        'post_type' => 'charla',
+        'post_type'   => 'charla',
         'post_status' => 'publish',
+        'post__in'    => $charlas_asignadas,
+        'orderby'     => 'post__in',
         'numberposts' => -1,
-        'orderby' => 'title',
-        'order' => 'ASC',
     ]);
     // Buscar la charla pendiente
     $charla_actual = null;
@@ -489,6 +573,10 @@ function gw_step_5_charla($user_id) {
     // Sesiones de la charla pendiente
     $charla_sesiones = [];
     $sesiones = get_post_meta($charla_actual->ID, '_gw_fechas_horas', true);
+    // DEBUG SOLO ADMIN: mostrar $sesiones
+    if ($is_admin) {
+        echo '<pre>'; var_dump($sesiones); echo '</pre>';
+    }
     if (is_array($sesiones)) {
         foreach ($sesiones as $idx => $ses) {
             $ts = strtotime($ses['fecha'].' '.$ses['hora']);
@@ -533,7 +621,7 @@ function gw_step_5_charla($user_id) {
                 </div>
                 <div style="font-size:1rem;color:#333;margin-bottom:6px;">TE RECORDAMOS QUE TE REGISTRASTE A</div>
                 <div style="color:#ff9800;font-size:2.2rem;font-weight:bold;margin-bottom:12px;">
-                    <?php echo esc_html($agendada['charla_title']) . ' / OPCIÓN ' . ($agendada['idx']+1); ?>
+                <?php echo esc_html($agendada['charla_title']) . ' / OPCIÓN ' . (isset($agendada['idx']) ? ($agendada['idx']+1) : ''); ?>
                 </div>
                 <div style="font-size:1rem;color:#333;margin-bottom:22px; line-height:1.4;">
                     Hora: <?php echo esc_html($agendada['hora']); ?><br>
@@ -828,8 +916,77 @@ function gw_step_5_charla_admin_form($user_id, $charlas_asignadas, $admin_output
     return ob_get_clean();
 }
 
-function gw_step_6_capacitacion($user_id) {
-    $forzar_menu = isset($_GET['paso6_menu']) && $_GET['paso6_menu'] == 1;
+// === NUEVO PASO 6: Selección de proyecto ===
+function gw_step_6_proyecto($user_id) {
+    // Si ya tiene proyecto, redirige
+    if (get_user_meta($user_id, 'gw_proyecto_id', true)) {
+        return '<meta http-equiv="refresh" content="0">';
+    }
+
+    $error = '';
+    $success = false;
+    $user_pais = get_user_meta($user_id, 'gw_pais', true);
+    $selected_proyecto = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_proyecto_nonce']) && wp_verify_nonce($_POST['gw_proyecto_nonce'], 'gw_proyecto_seleccion')) {
+        $selected_proyecto = sanitize_text_field($_POST['gw_proyecto_id']);
+        if (!$selected_proyecto) {
+            $error = 'Por favor selecciona un proyecto.';
+        } else {
+            update_user_meta($user_id, 'gw_proyecto_id', $selected_proyecto);
+            $success = true;
+            // Redirigir a siguiente paso (capacitaciones)
+            return '<div class="notice notice-success"><p>¡Proyecto seleccionado correctamente! Redirigiendo…</p></div><meta http-equiv="refresh" content="1">';
+        }
+    }
+    // Obtener lista de proyectos (CPT 'proyecto'), filtrar por país si existe
+    $args = [
+        'post_type' => 'proyecto',
+        'post_status' => 'publish',
+        'numberposts' => -1,
+        'orderby' => 'title',
+        'order' => 'ASC'
+    ];
+    $proyectos = get_posts($args);
+    // Filtrar por país si corresponde
+    if ($user_pais) {
+        $proyectos = array_filter($proyectos, function($p) use ($user_pais) {
+            $pais = get_post_meta($p->ID, '_gw_pais', true);
+            return !$pais || strtolower(trim($pais)) === strtolower(trim($user_pais));
+        });
+    }
+    ob_start();
+    ?>
+    <h3>Paso 6: Selección de proyecto</h3>
+    <?php if ($error): ?>
+        <div class="notice notice-error"><p><?php echo $error; ?></p></div>
+    <?php endif; ?>
+    <form method="post">
+        <?php wp_nonce_field('gw_proyecto_seleccion', 'gw_proyecto_nonce'); ?>
+        <p>
+            <label for="gw_proyecto_id">Selecciona el proyecto en el que deseas participar:</label><br>
+            <select name="gw_proyecto_id" id="gw_proyecto_id" required>
+                <option value="">Selecciona un proyecto</option>
+                <?php foreach($proyectos as $proy): ?>
+                    <option value="<?php echo esc_attr($proy->ID); ?>" <?php selected($selected_proyecto, $proy->ID); ?>>
+                        <?php echo esc_html($proy->post_title); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </p>
+        <p>
+            <button type="submit" class="button button-primary">Guardar y continuar</button>
+        </p>
+    </form>
+    <div style="margin-top:20px;">
+        <a href="<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>" class="gw-charla-my-btn">MI CUENTA</a>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+// === PASO 7: Capacitaciones ===
+function gw_step_7_capacitacion($user_id) {
+    $forzar_menu = isset($_GET['paso7_menu']) && $_GET['paso7_menu'] == 1;
     // Cargar arrays de capacitaciones agendadas y completadas
     $capacitaciones_agendadas = get_user_meta($user_id, 'gw_capacitaciones_agendadas', true);
     if (!is_array($capacitaciones_agendadas)) $capacitaciones_agendadas = [];
@@ -840,19 +997,26 @@ function gw_step_6_capacitacion($user_id) {
     $current_user = wp_get_current_user();
     $is_admin = in_array('administrator', $current_user->roles);
 
+    // Testing shortcut: force advance to step 8 for volunteers
+    if (
+        !current_user_can('manage_options') &&
+        isset($_GET['test_step8']) && $_GET['test_step8'] == 1
+    ) {
+        // Marcar paso 7 como completo
+        update_user_meta($user_id, 'gw_step7_completo', 1);
+        // Redirigir a paso 8 (limpiar query para que recalcule current_step)
+        wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
+        exit;
+    }
+
     // --- Procesar botón CONTINUAR (ADMIN) ---
     if (
         $_SERVER['REQUEST_METHOD'] === 'POST' &&
-        isset($_POST['admin_skip_step6']) &&
+        isset($_POST['admin_skip_step7']) &&
         ($is_admin || defined('GW_TESTING_MODE'))
     ) {
-        // Buscar la primera capacitación agendada (próxima)
-        if (!empty($capacitaciones_agendadas)) {
-            $next_cap = $capacitaciones_agendadas[0];
-            $admin_flag = 'gw_admin_cap_ready_'.$next_cap['cap_id'].'_'.$next_cap['idx'];
-            update_user_meta($user_id, $admin_flag, 1);
-        }
-        // No marcar como completado, solo simular disponibilidad
+        // Forzar avance al paso 8
+        update_user_meta($user_id, 'gw_step7_completo', 1);
         wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
         exit;
     }
@@ -864,19 +1028,21 @@ function gw_step_6_capacitacion($user_id) {
         wp_verify_nonce($_POST['gw_capacitacion_regresar_admin_nonce'], 'gw_capacitacion_regresar_admin') &&
         ($is_admin || defined('GW_TESTING_MODE'))
     ) {
-        delete_user_meta($user_id, 'gw_step6_completo');
+        delete_user_meta($user_id, 'gw_step7_completo');
         delete_user_meta($user_id, 'gw_capacitaciones_agendadas');
         delete_user_meta($user_id, 'gw_capacitaciones_completadas');
         delete_user_meta($user_id, 'gw_capacitacion_agendada');
         delete_user_meta($user_id, 'gw_step5_completo');
         delete_user_meta($user_id, 'gw_charla_agendada');
-        wp_safe_redirect(add_query_arg('paso6_menu',1,site_url('/index.php/portal-voluntario/')));
+        delete_user_meta($user_id, 'gw_proyecto_id');
+        wp_safe_redirect(add_query_arg('paso7_menu',1,site_url('/index.php/portal-voluntario/')));
         exit;
     }
 
     // Si ya completó todas las capacitaciones (todas las sesiones disponibles), marcar como completo
-    // Obtener todas las capacitaciones disponibles para el país del usuario
+    // Obtener todas las capacitaciones SOLO para el proyecto seleccionado por el usuario
     $user_pais = get_user_meta($user_id, 'gw_pais', true);
+    $proyecto_id = get_user_meta($user_id, 'gw_proyecto_id', true);
     $capacitaciones = get_posts([
         'post_type' => 'capacitacion',
         'post_status' => 'publish',
@@ -884,9 +1050,13 @@ function gw_step_6_capacitacion($user_id) {
         'orderby' => 'title',
         'order' => 'ASC',
     ]);
-    // Filtrar sesiones por país (si el CPT tiene país asignado)
     $cap_sesiones = [];
     foreach ($capacitaciones as $cap) {
+        // Filtrar por proyecto asociado (custom field '_gw_proyecto_id')
+        $cap_proyecto_id = get_post_meta($cap->ID, '_gw_proyecto_id', true);
+        if ($proyecto_id && $cap_proyecto_id && intval($cap_proyecto_id) !== intval($proyecto_id)) {
+            continue;
+        }
         // Si el país está asignado, filtrar
         $pais_id = get_post_meta($cap->ID, '_gw_pais_id', true);
         if ($pais_id && $user_pais) {
@@ -895,7 +1065,7 @@ function gw_step_6_capacitacion($user_id) {
                 continue;
             }
         }
-        $sesiones = get_post_meta($cap->ID, '_gw_sesiones_cap', true);
+        $sesiones = get_post_meta($cap->ID, '_gw_sesiones', true);
         if (!is_array($sesiones)) continue;
         foreach ($sesiones as $idx => $ses) {
             $ts = strtotime($ses['fecha'].' '.$ses['hora']);
@@ -925,16 +1095,15 @@ function gw_step_6_capacitacion($user_id) {
     foreach ($capacitaciones_completadas as $cc) {
         $completadas_keys[] = $cc['cap_id'].'_'.$cc['idx'];
     }
-    // Si ya completó todas, marcar paso 6 como completo
-    if ($total_capacitaciones > 0 && count($completadas_keys) >= $total_capacitaciones && !get_user_meta($user_id, 'gw_step6_completo', true)) {
-        update_user_meta($user_id, 'gw_step6_completo', 1);
+    // Si ya completó todas, marcar paso 7 como completo
+    if ($total_capacitaciones > 0 && count($completadas_keys) >= $total_capacitaciones && !get_user_meta($user_id, 'gw_step7_completo', true)) {
+        update_user_meta($user_id, 'gw_step7_completo', 1);
     }
     // Si ya está completo, mostrar mensaje de éxito y botón siguiente
-    if (get_user_meta($user_id, 'gw_step6_completo', true)) {
+    if (get_user_meta($user_id, 'gw_step7_completo', true)) {
         ob_start();
         ?>
         <div class="notice notice-success"><p>¡Has finalizado todas tus capacitaciones!</p></div>
-        <a href="<?php echo site_url('/siguiente-flujo/'); ?>" class="button button-primary">Siguiente</a>
         <?php if ($is_admin || defined('GW_TESTING_MODE')): ?>
             <form method="post" style="margin-top:20px;">
                 <?php wp_nonce_field('gw_capacitacion_regresar_admin', 'gw_capacitacion_regresar_admin_nonce'); ?>
@@ -984,8 +1153,9 @@ function gw_step_6_capacitacion($user_id) {
             }
         }
         update_user_meta($user_id, 'gw_capacitaciones_agendadas', $new_agendadas);
-        echo '<div class="notice notice-warning"><p>Capacitación cancelada.</p></div><meta http-equiv="refresh" content="1">';
-        return;
+        // Redirigir al menú principal de paso 7 para evitar bucle infinito
+        wp_redirect(site_url('/index.php/portal-voluntario?paso7_menu=1'));
+        exit;
     }
     // 3. Marcar como completada (al hacer clic en "Ir a capacitación")
     if (
@@ -993,36 +1163,10 @@ function gw_step_6_capacitacion($user_id) {
         isset($_POST['completar_capacitacion']) &&
         isset($_POST['cap_id']) && isset($_POST['cap_idx'])
     ) {
-        $cap_id = intval($_POST['cap_id']);
-        $cap_idx = intval($_POST['cap_idx']);
-        $key = $cap_id . '_' . $cap_idx;
-        // Buscar en agendadas
-        $found = null;
-        foreach ($capacitaciones_agendadas as $k => $ag) {
-            if ($ag['cap_id'] == $cap_id && $ag['idx'] == $cap_idx) {
-                $found = $ag;
-                unset($capacitaciones_agendadas[$k]);
-                break;
-            }
-        }
-        if ($found) {
-            // Limpiar flag de simulación
-            $admin_flag = 'gw_admin_cap_ready_' . $cap_id . '_' . $cap_idx;
-            delete_user_meta($user_id, $admin_flag);
-            $capacitaciones_completadas[] = $found;
-            update_user_meta($user_id, 'gw_capacitaciones_agendadas', array_values($capacitaciones_agendadas));
-            update_user_meta($user_id, 'gw_capacitaciones_completadas', $capacitaciones_completadas);
-            // Si ya completó todas, marcar paso 6 como completo
-            $completadas_keys = [];
-            foreach ($capacitaciones_completadas as $cc) $completadas_keys[] = $cc['cap_id'].'_'.$cc['idx'];
-            if (count($completadas_keys) >= $total_capacitaciones) {
-                update_user_meta($user_id, 'gw_step6_completo', 1);
-                echo '<div class="notice notice-success"><p>¡Capacitación marcada como completada! Redirigiendo…</p></div><meta http-equiv="refresh" content="1">';
-                return;
-            }
-            echo '<div class="notice notice-success"><p>¡Capacitación marcada como completada!</p></div><meta http-equiv="refresh" content="1">';
-            return;
-        }
+        // Forzar avance al paso 8
+        update_user_meta($user_id, 'gw_step7_completo', 1);
+        wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
+        exit;
     }
     // 4. Test/ADMIN: completar capacitación directamente
     if (
@@ -1053,7 +1197,7 @@ function gw_step_6_capacitacion($user_id) {
             $completadas_keys = [];
             foreach ($capacitaciones_completadas as $cc) $completadas_keys[] = $cc['cap_id'].'_'.$cc['idx'];
             if (count($completadas_keys) >= $total_capacitaciones) {
-                update_user_meta($user_id, 'gw_step6_completo', 1);
+                update_user_meta($user_id, 'gw_step7_completo', 1);
                 echo '<div class="notice notice-success"><p>¡Capacitación marcada como completada! Redirigiendo…</p></div><meta http-equiv="refresh" content="1">';
                 return;
             }
@@ -1087,17 +1231,23 @@ function gw_step_6_capacitacion($user_id) {
     <div class="gw-charla-menu-box">
         <div class="gw-charla-header-flex">
             <div class="gw-charla-title">CAPACITACIONES</div>
-            <a href="<?php echo esc_url(add_query_arg('paso6_menu',1,site_url('/index.php/portal-voluntario/'))); ?>" class="gw-charla-my-btn">MI CUENTA</a>
+            <a href="<?php echo esc_url(add_query_arg('paso7_menu',1,site_url('/index.php/portal-voluntario/'))); ?>" class="gw-charla-my-btn">MI CUENTA</a>
         </div>
+        <?php if (!in_array('administrator', $current_user->roles)): ?>
+            <div style="margin-top:12px;">
+                <a href="<?php echo esc_url(add_query_arg('test_step8', 1, site_url('/index.php/portal-voluntario/'))); ?>" class="gw-charla-btn" style="background:#1976d2;color:#fff;">Ir a paso 8 (Test)</a>
+            </div>
+        <?php endif; ?>
         <div style="margin-bottom:26px;">
             <strong>Capacitaciones agendadas:</strong>
             <?php if (empty($capacitaciones_agendadas)): ?>
                 <div style="color:#888;">No tienes capacitaciones agendadas.</div>
             <?php else: ?>
-                <?php foreach ($capacitaciones_agendadas as $ag): 
+                <?php foreach ($capacitaciones_agendadas as $ag):
                     $key = $ag['cap_id'].'_'.$ag['idx'];
                     $admin_flag = 'gw_admin_cap_ready_'.$ag['cap_id'].'_'.$ag['idx'];
                     $simular_disponible = ($is_admin && get_user_meta($user_id, $admin_flag, true));
+                    $ts = strtotime($ag['fecha'].' '.$ag['hora']);
                     $ya_ocurrio = $ts <= $now || $simular_disponible;
                     ?>
                     <div class="gw-capacitacion-agendada-block">
@@ -1116,7 +1266,7 @@ function gw_step_6_capacitacion($user_id) {
                             <div>Enlace: <?php if ($ya_ocurrio && $ag['enlace']): ?><a href="<?php echo esc_url($ag['enlace']); ?>" target="_blank"><?php echo esc_html($ag['enlace']); ?></a><?php else: ?><span style="color:#888;">(Se habilitará al llegar la hora)</span><?php endif; ?></div>
                         <?php endif; ?>
                         <div>
-                            Estado: 
+                            Estado:
                             <?php if ($ya_ocurrio): ?>
                                 <span class="estado disponible">Disponible para asistir</span>
                             <?php else: ?>
@@ -1186,19 +1336,29 @@ function gw_step_6_capacitacion($user_id) {
                 if ($ts <= time()) continue; // Solo mostrar futuras
                 $disponibles[] = $ses;
             }
-            if (empty($disponibles)): ?>
-                <div style="color:#888;">No hay más capacitaciones disponibles para registrar.</div>
-            <?php else: ?>
-                <?php foreach ($disponibles as $idx => $ses): ?>
+            
+            // Nueva lógica de mensajes:
+            if (empty($cap_sesiones)) {
+                // Si no hay sesiones creadas para este proyecto o país
+                echo '<div style="color:#888;">No hay sesiones de capacitaciones creadas para este proyecto o país.</div>';
+            } elseif (empty($disponibles)) {
+                // Si hay sesiones pero no hay disponibles para registrar
+                echo '<div style="color:#888;">No hay más capacitaciones disponibles para registrar.</div>';
+            } else {
+                foreach ($disponibles as $idx => $ses) {
+                    ?>
                     <div class="gw-charla-sesion-row">
                         <span>
                             <b>OPCIÓN <?php echo ($idx+1); ?>:</b>
                             <?php echo esc_html($ses['cap_title']); ?>
-                            <?php if ($ses['modalidad']=='presencial'): ?>
-                                <span style="margin-left:8px;color:#1976d2;">(Presencial)</span>
-                            <?php else: ?>
-                                <span style="margin-left:8px;color:#1976d2;">(Virtual/Google Meet)</span>
-                            <?php endif; ?>
+                            <?php
+                            $modalidad = isset($ses['modalidad']) ? $ses['modalidad'] : '';
+                            if ($modalidad === 'Presencial') {
+                                echo '<span style="margin-left:8px;color:#1976d2;">(Presencial)</span>';
+                            } else {
+                                echo '<span style="margin-left:8px;color:#1976d2;">(Virtual/Google Meet)</span>';
+                            }
+                            ?>
                             <span style="margin-left:16px;font-weight:normal;color:#888;">(<?php echo date('d/m/Y', strtotime($ses['fecha'])).' '.substr($ses['hora'],0,5); ?>)</span>
                         </span>
                         <form method="post" style="margin:0;">
@@ -1207,8 +1367,10 @@ function gw_step_6_capacitacion($user_id) {
                             <button type="submit" name="registrar_capacitacion" class="gw-charla-btn">Seleccionar</button>
                         </form>
                     </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                    <?php
+                }
+            }
+            ?>
         </div>
         <?php if ($is_admin || defined('GW_TESTING_MODE')): ?>
             <form method="post" style="margin-top:10px;">
@@ -1220,7 +1382,7 @@ function gw_step_6_capacitacion($user_id) {
         <!-- Bloque CONTINUAR (ADMIN) siempre visible para admin/testing -->
         <?php if ($is_admin || defined('GW_TESTING_MODE')): ?>
             <form method="post" style="margin-top:24px;">
-                <button type="submit" name="admin_skip_step6" class="gw-charla-my-btn" style="background:#1976d2;">CONTINUAR (ADMIN)</button>
+                <button type="submit" name="admin_skip_step7" class="gw-charla-my-btn" style="background:#1976d2;">CONTINUAR (ADMIN)</button>
                 <div style="font-size:12px;color:#1976d2;margin-top:6px;">(Solo admin/testing: forzar paso siguiente.)</div>
             </form>
         <?php endif; ?>
@@ -1231,8 +1393,9 @@ function gw_step_6_capacitacion($user_id) {
 
 if (!defined('ABSPATH')) exit; // Seguridad: salir si se accede directamente
 
-// Registrar Custom Post Type "País"
+// Registrar Custom Post Types
 add_action('init', function () {
+    // CPT País
     register_post_type('pais', [
         'labels' => [
             'name' => 'Países',
@@ -1252,13 +1415,12 @@ add_action('init', function () {
         'has_archive' => true,
         'menu_icon' => 'dashicons-admin-site',
         'supports' => ['title'],
+        'show_ui' => true,
         'show_in_menu' => true,
         'show_in_rest' => true // para Gutenberg y REST API
     ]);
-});
 
-// Registrar Custom Post Type "Capacitación"
-add_action('init', function () {
+    // CPT Capacitación
     register_post_type('capacitacion', [
         'labels' => [
             'name' => 'Capacitaciones',
@@ -1278,237 +1440,12 @@ add_action('init', function () {
         'has_archive' => true,
         'menu_icon' => 'dashicons-welcome-learn-more',
         'supports' => ['title'],
+        'show_ui' => true,
         'show_in_menu' => true, // Mostrar en el menú de administración
-        'show_in_rest' => true
+        'show_in_rest'   => true
     ]);
-});
 
-// Metabox para Detalles de Capacitación (nuevo: coach, país y repeater de sesiones)
-add_action('add_meta_boxes', function() {
-    add_meta_box(
-        'gw_capacitacion_detalles',
-        'Detalles de Capacitación',
-        function($post) {
-            // Coach responsable
-            $coach_id = get_post_meta($post->ID, '_gw_coach', true);
-            $coaches = get_users(['role' => 'coach']);
-            // País
-            $pais_id = get_post_meta($post->ID, '_gw_pais_id', true);
-            $paises = get_posts([
-                'post_type' => 'pais',
-                'post_status' => 'publish',
-                'numberposts' => -1,
-                'orderby' => 'title',
-                'order' => 'ASC',
-            ]);
-            // Sesiones (repeater)
-            $sesiones = get_post_meta($post->ID, '_gw_sesiones_cap', true);
-            if (!is_array($sesiones)) $sesiones = [];
-            if (empty($sesiones)) $sesiones = [ [ 'modalidad'=>'virtual', 'fecha'=>'', 'hora'=>'', 'lugar'=>'', 'enlace'=>'' ] ];
-            ?>
-            <p>
-                <label for="gw_coach">Coach responsable:</label><br>
-                <select name="gw_coach" id="gw_coach" style="width:100%;">
-                    <option value="">-- Selecciona coach --</option>
-                    <?php foreach($coaches as $c): ?>
-                        <option value="<?php echo esc_attr($c->ID); ?>" <?php selected($coach_id, $c->ID); ?>>
-                            <?php echo esc_html($c->display_name); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </p>
-            <p>
-                <label for="gw_pais_id">País:</label><br>
-                <select name="gw_pais_id" id="gw_pais_id" style="width:100%;">
-                    <option value="">-- Selecciona país --</option>
-                    <?php foreach($paises as $p): ?>
-                        <option value="<?php echo esc_attr($p->ID); ?>" <?php selected($pais_id, $p->ID); ?>>
-                            <?php echo esc_html($p->post_title); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </p>
-            <hr>
-            <strong>Sesiones de capacitación</strong>
-            <div id="gw-cap-sesiones-list">
-            <?php foreach ($sesiones as $idx => $s): ?>
-                <div class="gw-cap-sesion-block" style="border:1px solid #e2e2e2;padding:10px 12px;margin-bottom:10px;border-radius:6px;position:relative;">
-                    <strong>Sesión <?php echo ($idx+1); ?></strong>
-                    <button type="button" class="gw-remove-cap-sesion-btn" style="float:right;color:#b71c1c;background:none;border:none;font-size:1.1em;" onclick="gwRemoveCapSesion(this)">✖</button>
-                    <div style="margin-top:7px;">
-                        <label>
-                            Modalidad:
-                            <select name="gw_cap_sesion_modalidad[]"
-                                    class="gw-cap-sesion-modalidad"
-                                    onchange="gwCapSesionModalidadChange(this)">
-                                <option value="virtual" <?php selected($s['modalidad'],'virtual'); ?>>Virtual</option>
-                                <option value="presencial" <?php selected($s['modalidad'],'presencial'); ?>>Presencial</option>
-                            </select>
-                        </label>
-                        <label style="margin-left:15px;">
-                            Fecha:
-                            <input type="date" name="gw_cap_sesion_fecha[]" value="<?php echo esc_attr($s['fecha']); ?>">
-                        </label>
-                        <label style="margin-left:15px;">
-                            Hora:
-                            <input type="time" name="gw_cap_sesion_hora[]" value="<?php echo esc_attr($s['hora']); ?>">
-                        </label>
-                    </div>
-                    <div style="margin-top:7px;">
-                        <span class="gw-cap-sesion-lugar-field" style="<?php if($s['modalidad']!='presencial')echo'display:none;'; ?>">
-                            <label>
-                                Lugar:
-                                <input type="text" name="gw_cap_sesion_lugar[]" value="<?php echo esc_attr($s['lugar']); ?>" style="width:70%;">
-                            </label>
-                        </span>
-                        <span class="gw-cap-sesion-enlace-field" style="<?php if($s['modalidad']!='virtual')echo'display:none;'; ?>">
-                            <label>
-                                Enlace:
-                                <input type="text" name="gw_cap_sesion_enlace[]" value="<?php echo esc_attr($s['enlace']); ?>" style="width:70%;" placeholder="(Se configurará luego con Google Meet API)">
-                            </label>
-                            <span style="color:#888;font-size:12px;">(Se configurará luego con Google Meet API)</span>
-                        </span>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-            </div>
-            <button type="button" id="gw-add-cap-sesion-btn" style="margin-top:8px;background:#1976d2;color:#fff;padding:6px 18px;border:none;border-radius:4px;">Agregar sesión</button>
-            <script>
-            function gwRemoveCapSesion(btn) {
-                var block = btn.closest('.gw-cap-sesion-block');
-                if(document.querySelectorAll('.gw-cap-sesion-block').length > 1) {
-                    block.parentNode.removeChild(block);
-                }
-            }
-            function gwCapSesionModalidadChange(sel) {
-                var block = sel.closest('.gw-cap-sesion-block');
-                var modalidad = sel.value;
-                block.querySelector('.gw-cap-sesion-lugar-field').style.display = (modalidad=='presencial')?'inline':'none';
-                block.querySelector('.gw-cap-sesion-enlace-field').style.display = (modalidad=='virtual')?'inline':'none';
-            }
-            document.addEventListener('DOMContentLoaded',function(){
-                document.getElementById('gw-add-cap-sesion-btn').addEventListener('click',function(){
-                    var list = document.getElementById('gw-cap-sesiones-list');
-                    var idx = list.children.length + 1;
-                    var div = document.createElement('div');
-                    div.className = 'gw-cap-sesion-block';
-                    div.style = "border:1px solid #e2e2e2;padding:10px 12px;margin-bottom:10px;border-radius:6px;position:relative;";
-                    div.innerHTML = `
-                        <strong>Sesión `+idx+`</strong>
-                        <button type="button" class="gw-remove-cap-sesion-btn" style="float:right;color:#b71c1c;background:none;border:none;font-size:1.1em;" onclick="gwRemoveCapSesion(this)">✖</button>
-                        <div style="margin-top:7px;">
-                            <label>
-                                Modalidad:
-                                <select name="gw_cap_sesion_modalidad[]" class="gw-cap-sesion-modalidad" onchange="gwCapSesionModalidadChange(this)">
-                                    <option value="virtual" selected>Virtual</option>
-                                    <option value="presencial">Presencial</option>
-                                </select>
-                            </label>
-                            <label style="margin-left:15px;">
-                                Fecha:
-                                <input type="date" name="gw_cap_sesion_fecha[]" value="">
-                            </label>
-                            <label style="margin-left:15px;">
-                                Hora:
-                                <input type="time" name="gw_cap_sesion_hora[]" value="">
-                            </label>
-                        </div>
-                        <div style="margin-top:7px;">
-                            <span class="gw-cap-sesion-lugar-field" style="display:none;">
-                                <label>
-                                    Lugar:
-                                    <input type="text" name="gw_cap_sesion_lugar[]" value="" style="width:70%;">
-                                </label>
-                            </span>
-                            <span class="gw-cap-sesion-enlace-field" style="display:inline;">
-                                <label>
-                                    Enlace:
-                                    <input type="text" name="gw_cap_sesion_enlace[]" value="" style="width:70%;" placeholder="(Se configurará luego con Google Meet API)">
-                                </label>
-                                <span style="color:#888;font-size:12px;">(Se configurará luego con Google Meet API)</span>
-                            </span>
-                        </div>
-                    `;
-                    list.appendChild(div);
-                });
-                // Modalidad change listeners para los existentes
-                document.querySelectorAll('.gw-cap-sesion-modalidad').forEach(function(sel){
-                    sel.addEventListener('change',function(){gwCapSesionModalidadChange(sel);});
-                });
-            });
-            </script>
-            <?php
-        },
-        'capacitacion',
-        'normal'
-    );
-});
-
-// --- BLOQUE OBSOLETO: Información adicional de la capacitación ---
-/*
-// Metabox Información adicional de la capacitación (OBSOLETO: ahora se usa repeater de sesiones)
-add_action('add_meta_boxes', function() {
-    add_meta_box(
-        'gw_capacitacion_info',
-        'Información adicional de la capacitación',
-        function($post) {
-            // Aquí iba la lógica antigua de campos simples (fecha, hora, lugar, enlace)
-            // echo 'Este bloque está obsoleto y ha sido reemplazado por el repeater de sesiones.';
-        },
-        'capacitacion',
-        'normal'
-    );
-});
-// Guardado de metabox obsoleto
-add_action('save_post_capacitacion', function($post_id) {
-    // Aquí iba la lógica antigua de guardado de los campos simples.
-}, 20, 1);
-*/
-
-// Guardar metadatos de Capacitación NUEVO
-add_action('save_post_capacitacion', function($post_id) {
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-    // Coach responsable
-    if (isset($_POST['gw_coach'])) {
-        update_post_meta($post_id, '_gw_coach', intval($_POST['gw_coach']));
-    }
-    // País
-    if (isset($_POST['gw_pais_id'])) {
-        update_post_meta($post_id, '_gw_pais_id', intval($_POST['gw_pais_id']));
-    }
-    // Repeater de sesiones
-    if (isset($_POST['gw_cap_sesion_modalidad'])) {
-        $modalidads = $_POST['gw_cap_sesion_modalidad'];
-        $fechas = $_POST['gw_cap_sesion_fecha'];
-        $horas = $_POST['gw_cap_sesion_hora'];
-        $lugares = $_POST['gw_cap_sesion_lugar'];
-        $enlaces = $_POST['gw_cap_sesion_enlace'];
-        $sesiones = [];
-        for($i=0;$i<count($modalidads);$i++) {
-            $mod = sanitize_text_field($modalidads[$i]);
-            $fecha = sanitize_text_field($fechas[$i]);
-            $hora = sanitize_text_field($horas[$i]);
-            $lugar = sanitize_text_field($lugares[$i]);
-            $enlace = sanitize_text_field($enlaces[$i]);
-            $sesiones[] = [
-                'modalidad' => $mod,
-                'fecha' => $fecha,
-                'hora' => $hora,
-                'lugar' => $lugar,
-                'enlace' => $enlace,
-            ];
-        }
-        update_post_meta($post_id, '_gw_sesiones_cap', $sesiones);
-    }
-    // Eliminar antiguos campos simples (si existen)
-    delete_post_meta($post_id, '_gw_fecha');
-    delete_post_meta($post_id, '_gw_hora');
-    delete_post_meta($post_id, '_gw_lugar');
-    delete_post_meta($post_id, '_gw_link');
-}, 10, 1);
-
-// Registrar Custom Post Type "Charla"
-add_action('init', function () {
+    // CPT Charla 
     register_post_type('charla', [
         'labels' => [
             'name' => 'Charlas',
@@ -1526,877 +1463,504 @@ add_action('init', function () {
         ],
         'public' => true,
         'has_archive' => true,
+        'menu_icon' => 'dashicons-microphone',
+        'supports' => ['title'],
+        'show_ui' => true,
+        'show_in_menu' => true,
+        'show_in_rest' => true
+    ]);
+
+    // CPT Escuela
+    register_post_type('escuela', [
+        'labels' => [
+            'name' => 'Escuelas',
+            'singular_name' => 'Escuela',
+            'add_new' => 'Agregar Nueva Escuela',
+            'add_new_item' => 'Agregar Nueva Escuela',
+            'edit_item' => 'Editar Escuela',
+            'new_item' => 'Nueva Escuela',
+            'view_item' => 'Ver Escuela',
+            'search_items' => 'Buscar Escuela',
+            'not_found' => 'No se encontraron escuelas',
+            'not_found_in_trash' => 'No se encontraron escuelas en la papelera',
+            'all_items' => 'Todas las Escuelas',
+            'menu_name' => 'Escuelas',
+        ],
+        'public' => true,
+        'has_archive' => true,
         'menu_icon' => 'dashicons-welcome-learn-more',
         'supports' => ['title'],
+        'show_ui' => true,
         'show_in_menu' => true,
-        'show_in_rest' => true // para Gutenberg y REST API
+        'show_in_rest' => true // Para Gutenberg
     ]);
 });
 
-// Metabox personalizado para Charlas: gestión de múltiples sesiones (modalidad, fecha, hora, lugar/enlace)
+// Metabox para horarios de la escuela
 add_action('add_meta_boxes', function() {
-    add_meta_box('gw_charla_sesiones', 'Sesiones de la charla', function($post){
-        // Cargar sesiones guardadas
-        $sesiones = get_post_meta($post->ID, '_gw_fechas_horas', true);
-        if (!is_array($sesiones)) $sesiones = [];
-        // Si no hay, agregar una vacía para mostrar
-        if (empty($sesiones)) $sesiones = [ [ 'modalidad'=>'virtual', 'fecha'=>'', 'hora'=>'', 'lugar'=>'', 'enlace'=>'' ] ];
-        ?>
-        <div id="gw-sesiones-list">
-            <?php foreach ($sesiones as $idx => $s): ?>
-                <div class="gw-sesion-block" style="border:1px solid #e2e2e2;padding:10px 12px;margin-bottom:10px;border-radius:6px;position:relative;">
-                    <strong>Sesión <?php echo ($idx+1); ?></strong>
-                    <button type="button" class="gw-remove-sesion-btn" style="float:right;color:#b71c1c;background:none;border:none;font-size:1.1em;" onclick="gwRemoveSesion(this)">✖</button>
-                    <div style="margin-top:7px;">
-                        <label>
-                            Modalidad:
-                            <select name="gw_sesion_modalidad[]"
-                                    class="gw-sesion-modalidad"
-                                    onchange="gwSesionModalidadChange(this)">
-                                <option value="virtual" <?php selected($s['modalidad'],'virtual'); ?>>Virtual</option>
-                                <option value="presencial" <?php selected($s['modalidad'],'presencial'); ?>>Presencial</option>
-                            </select>
+    add_meta_box(
+        'gw_escuela_horarios',
+        'Horarios disponibles',
+        function($post) {
+            $horarios = get_post_meta($post->ID, '_gw_escuela_horarios', true);
+            if (!is_array($horarios)) $horarios = [];
+            if (empty($horarios)) $horarios = [ [ 'dia'=>'', 'hora'=>'' ] ];
+            ?>
+            <div id="gw-escuela-horarios-list">
+                <?php foreach ($horarios as $idx => $h): ?>
+                    <div class="gw-escuela-horario-block" style="margin-bottom:12px;padding:8px;border:1px solid #eee;">
+                        <strong>Horario <?php echo ($idx+1); ?></strong>
+                        <label style="margin-left:12px;">
+                            Día:
+                            <input type="text" name="gw_escuela_dia[]" value="<?php echo esc_attr($h['dia']); ?>" style="width:120px;">
                         </label>
-                        <label style="margin-left:15px;">
-                            Fecha:
-                            <input type="date" name="gw_sesion_fecha[]" value="<?php echo esc_attr($s['fecha']); ?>">
-                        </label>
-                        <label style="margin-left:15px;">
+                        <label style="margin-left:12px;">
                             Hora:
-                            <input type="time" name="gw_sesion_hora[]" value="<?php echo esc_attr($s['hora']); ?>">
+                            <input type="time" name="gw_escuela_hora[]" value="<?php echo esc_attr($h['hora']); ?>">
                         </label>
+                        <button type="button" class="gw-remove-escuela-horario-btn" onclick="gwRemoveEscuelaHorario(this)" style="color:red;margin-left:12px;">Eliminar</button>
                     </div>
-                    <div style="margin-top:7px;">
-                        <span class="gw-sesion-lugar-field" style="<?php if($s['modalidad']!='presencial')echo'display:none;'; ?>">
-                            <label>
-                                Lugar:
-                                <input type="text" name="gw_sesion_lugar[]" value="<?php echo esc_attr($s['lugar']); ?>" style="width:70%;">
+                <?php endforeach; ?>
+            </div>
+            <button type="button" id="gw-add-escuela-horario-btn" style="margin-top:10px;">Agregar horario</button>
+            <script>
+                function gwRemoveEscuelaHorario(btn) {
+                    var block = btn.closest('.gw-escuela-horario-block');
+                    if(document.querySelectorAll('.gw-escuela-horario-block').length > 1) {
+                        block.parentNode.removeChild(block);
+                    }
+                }
+                document.addEventListener('DOMContentLoaded',function(){
+                    document.getElementById('gw-add-escuela-horario-btn').addEventListener('click',function(){
+                        var list = document.getElementById('gw-escuela-horarios-list');
+                        var idx = list.children.length + 1;
+                        var div = document.createElement('div');
+                        div.className = 'gw-escuela-horario-block';
+                        div.style = "margin-bottom:12px;padding:8px;border:1px solid #eee;";
+                        div.innerHTML = `
+                            <strong>Horario `+idx+`</strong>
+                            <label style="margin-left:12px;">
+                                Día:
+                                <input type="text" name="gw_escuela_dia[]" value="" style="width:120px;">
                             </label>
-                        </span>
-                        <span class="gw-sesion-enlace-field" style="<?php if($s['modalidad']!='virtual')echo'display:none;'; ?>">
-                            <label>
-                                Enlace:
-                                <input type="text" name="gw_sesion_enlace[]" value="<?php echo esc_attr($s['enlace']); ?>" style="width:70%;">
+                            <label style="margin-left:12px;">
+                                Hora:
+                                <input type="time" name="gw_escuela_hora[]" value="">
                             </label>
-                        </span>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-        <button type="button" id="gw-add-sesion-btn" style="margin-top:8px;background:#1976d2;color:#fff;padding:6px 18px;border:none;border-radius:4px;">Agregar sesión</button>
-        <script>
-        function gwRemoveSesion(btn) {
-            var block = btn.closest('.gw-sesion-block');
-            if(document.querySelectorAll('.gw-sesion-block').length > 1) {
-                block.parentNode.removeChild(block);
-            }
-        }
-        function gwSesionModalidadChange(sel) {
-            var block = sel.closest('.gw-sesion-block');
-            var modalidad = sel.value;
-            block.querySelector('.gw-sesion-lugar-field').style.display = (modalidad=='presencial')?'inline':'none';
-            block.querySelector('.gw-sesion-enlace-field').style.display = (modalidad=='virtual')?'inline':'none';
-        }
-        document.addEventListener('DOMContentLoaded',function(){
-            document.getElementById('gw-add-sesion-btn').addEventListener('click',function(){
-                var list = document.getElementById('gw-sesiones-list');
-                var idx = list.children.length + 1;
-                var div = document.createElement('div');
-                div.className = 'gw-sesion-block';
-                div.style = "border:1px solid #e2e2e2;padding:10px 12px;margin-bottom:10px;border-radius:6px;position:relative;";
-                div.innerHTML = `
-                    <strong>Sesión `+idx+`</strong>
-                    <button type="button" class="gw-remove-sesion-btn" style="float:right;color:#b71c1c;background:none;border:none;font-size:1.1em;" onclick="gwRemoveSesion(this)">✖</button>
-                    <div style="margin-top:7px;">
-                        <label>
-                            Modalidad:
-                            <select name="gw_sesion_modalidad[]" class="gw-sesion-modalidad" onchange="gwSesionModalidadChange(this)">
-                                <option value="virtual" selected>Virtual</option>
-                                <option value="presencial">Presencial</option>
-                            </select>
-                        </label>
-                        <label style="margin-left:15px;">
-                            Fecha:
-                            <input type="date" name="gw_sesion_fecha[]" value="">
-                        </label>
-                        <label style="margin-left:15px;">
-                            Hora:
-                            <input type="time" name="gw_sesion_hora[]" value="">
-                        </label>
-                    </div>
-                    <div style="margin-top:7px;">
-                        <span class="gw-sesion-lugar-field" style="display:none;">
-                            <label>
-                                Lugar:
-                                <input type="text" name="gw_sesion_lugar[]" value="" style="width:70%;">
-                            </label>
-                        </span>
-                        <span class="gw-sesion-enlace-field" style="display:inline;">
-                            <label>
-                                Enlace:
-                                <input type="text" name="gw_sesion_enlace[]" value="" style="width:70%;">
-                            </label>
-                        </span>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-            // Modalidad change listeners para los existentes
-            document.querySelectorAll('.gw-sesion-modalidad').forEach(function(sel){
-                sel.addEventListener('change',function(){gwSesionModalidadChange(sel);});
-            });
-        });
-        </script>
-        <?php
-    }, 'charla', 'normal');
+                            <button type="button" class="gw-remove-escuela-horario-btn" onclick="gwRemoveEscuelaHorario(this)" style="color:red;margin-left:12px;">Eliminar</button>
+                        `;
+                        list.appendChild(div);
+                    });
+                });
+            </script>
+            <?php
+        },
+        'escuela',
+        'normal'
+    );
 });
 
-// Guardar las sesiones como array serializado en _gw_fechas_horas
-add_action('save_post_charla', function($post_id){
-    // Solo si es guardado desde el admin
+// Guardar horarios al guardar la escuela
+add_action('save_post_escuela', function($post_id) {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-    if (!isset($_POST['gw_sesion_modalidad'])) return;
-    $modalidads = $_POST['gw_sesion_modalidad'];
-    $fechas = $_POST['gw_sesion_fecha'];
-    $horas = $_POST['gw_sesion_hora'];
-    $lugares = $_POST['gw_sesion_lugar'];
-    $enlaces = $_POST['gw_sesion_enlace'];
-    $sesiones = [];
-    for($i=0;$i<count($modalidads);$i++) {
-        $mod = sanitize_text_field($modalidads[$i]);
-        $fecha = sanitize_text_field($fechas[$i]);
-        $hora = sanitize_text_field($horas[$i]);
-        $lugar = sanitize_text_field($lugares[$i]);
-        $enlace = sanitize_text_field($enlaces[$i]);
-        $sesiones[] = [
-            'modalidad' => $mod,
-            'fecha' => $fecha,
+    if (!current_user_can('edit_post', $post_id)) return;
+    $dias = isset($_POST['gw_escuela_dia']) ? $_POST['gw_escuela_dia'] : [];
+    $horas = isset($_POST['gw_escuela_hora']) ? $_POST['gw_escuela_hora'] : [];
+    $horarios = [];
+    $count = max(count($dias), count($horas));
+    for ($i = 0; $i < $count; $i++) {
+        // Limpiar horarios vacíos
+        $dia = isset($dias[$i]) ? sanitize_text_field($dias[$i]) : '';
+        $hora = isset($horas[$i]) ? sanitize_text_field($horas[$i]) : '';
+        if ($dia === '' && $hora === '') continue;
+        $horarios[] = [
+            'dia' => $dia,
             'hora' => $hora,
-            'lugar' => $lugar,
-            'enlace' => $enlace,
         ];
     }
-    update_post_meta($post_id, '_gw_fechas_horas', $sesiones);
+    update_post_meta($post_id, '_gw_escuela_horarios', $horarios);
+}, 10, 1);
+// Guardar sesiones de la charla al guardar el CPT charla
+add_action('save_post_charla', function($post_id) {
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_post', $post_id)) return;
+
+    // Validar que los campos existen
+    $modalidades = isset($_POST['gw_sesion_modalidad']) ? $_POST['gw_sesion_modalidad'] : [];
+    $fechas      = isset($_POST['gw_sesion_fecha']) ? $_POST['gw_sesion_fecha'] : [];
+    $horas       = isset($_POST['gw_sesion_hora']) ? $_POST['gw_sesion_hora'] : [];
+    $lugares     = isset($_POST['gw_sesion_lugar']) ? $_POST['gw_sesion_lugar'] : [];
+    $enlaces     = isset($_POST['gw_sesion_enlace']) ? $_POST['gw_sesion_enlace'] : [];
+
+    // Asegurar que todos son arrays y del mismo tamaño
+    $total = max(
+        is_array($modalidades) ? count($modalidades) : 0,
+        is_array($fechas) ? count($fechas) : 0,
+        is_array($horas) ? count($horas) : 0,
+        is_array($lugares) ? count($lugares) : 0,
+        is_array($enlaces) ? count($enlaces) : 0
+    );
+
+    $sesiones = [];
+    for ($i = 0; $i < $total; $i++) {
+        // Leer y limpiar cada campo
+        $modalidad = isset($modalidades[$i]) ? sanitize_text_field($modalidades[$i]) : '';
+        $fecha = isset($fechas[$i]) ? sanitize_text_field($fechas[$i]) : '';
+        $hora  = isset($horas[$i]) ? sanitize_text_field($horas[$i]) : '';
+        $lugar = isset($lugares[$i]) ? sanitize_text_field($lugares[$i]) : '';
+        $enlace = isset($enlaces[$i]) ? sanitize_text_field($enlaces[$i]) : '';
+
+        // Limpiar sesiones vacías (sin fecha u hora)
+        if (empty($fecha) || empty($hora)) continue;
+        // Modalidad debe ser válida
+        if ($modalidad !== 'virtual' && $modalidad !== 'presencial') $modalidad = 'virtual';
+        // Si es presencial, limpiar enlace
+        if ($modalidad === 'presencial') $enlace = '';
+        // Si es virtual, limpiar lugar
+        if ($modalidad === 'virtual') $lugar = '';
+
+        $sesiones[] = [
+            'modalidad' => $modalidad,
+            'fecha'     => $fecha,
+            'hora'      => $hora,
+            'lugar'     => $lugar,
+            'enlace'    => $enlace,
+        ];
+    }
+    // Guardar o limpiar meta
+    if (!empty($sesiones)) {
+        update_post_meta($post_id, '_gw_fechas_horas', $sesiones);
+    } else {
+        delete_post_meta($post_id, '_gw_fechas_horas');
+    }
+}, 10, 1);
+
+// Metabox para Detalles de Charla (fecha, hora, modalidad, sesiones)
+add_action('add_meta_boxes', function() {
+    add_meta_box(
+        'gw_charla_detalles',
+        'Detalles de la Charla',
+        'gw_charla_detalles_metabox_callback',
+        'charla',
+        'normal'
+    );
 });
 
-
-// Shortcode: [gw_panel_admin]
-add_shortcode('gw_panel_admin', 'gw_panel_admin_shortcode');
-function gw_panel_admin_shortcode() {
-    if (!is_user_logged_in() || !current_user_can('manage_options')) {
-        return '<p>No tienes permisos para ver este panel.</p>';
+function gw_charla_detalles_metabox_callback($post) {
+    if (!is_admin()) return;
+    // Sesiones (repeater: fecha, hora, modalidad, lugar, enlace)
+    $fechas_horas = get_post_meta($post->ID, '_gw_fechas_horas', true);
+    if (!is_array($fechas_horas)) $fechas_horas = [];
+    if (empty($fechas_horas)) {
+        $fechas_horas = [ [ 'modalidad'=>'virtual', 'fecha'=>'', 'hora'=>'', 'lugar'=>'', 'enlace'=>'' ] ];
     }
+    ?>
+    <strong>Sesiones de la charla</strong>
+    <div id="gw-charla-sesiones-list">
+    <?php foreach ($fechas_horas as $idx => $s): ?>
+        <div class="gw-charla-sesion-block" style="border:1px solid #e2e2e2;padding:10px 12px;margin-bottom:10px;border-radius:6px;position:relative;">
+            <strong>Sesión <?php echo ($idx+1); ?></strong>
+            <button type="button" class="gw-remove-charla-sesion-btn" style="float:right;color:#b71c1c;background:none;border:none;font-size:1.1em;" onclick="gwRemoveCharlaSesion(this)">✖</button>
+            <div style="margin-top:7px;">
+                <label>
+                    Modalidad:
+                    <select name="gw_sesion_modalidad[]" class="gw-charla-sesion-modalidad" onchange="gwCharlaSesionModalidadChange(this)">
+                        <option value="virtual" <?php selected($s['modalidad'],'virtual'); ?>>Virtual</option>
+                        <option value="presencial" <?php selected($s['modalidad'],'presencial'); ?>>Presencial</option>
+                    </select>
+                </label>
+                <label style="margin-left:15px;">
+                    Fecha:
+                    <input type="date" name="gw_sesion_fecha[]" value="<?php echo esc_attr($s['fecha']); ?>">
+                </label>
+                <label style="margin-left:15px;">
+                    Hora:
+                    <input type="time" name="gw_sesion_hora[]" value="<?php echo esc_attr($s['hora']); ?>">
+                </label>
+            </div>
+            <div style="margin-top:7px;">
+                <span class="gw-charla-sesion-lugar-field" style="<?php if($s['modalidad']!='presencial')echo'display:none;'; ?>">
+                    <label>
+                        Lugar:
+                        <input type="text" name="gw_sesion_lugar[]" value="<?php echo esc_attr($s['lugar']); ?>" style="width:70%;">
+                    </label>
+                </span>
+                <span class="gw-charla-sesion-enlace-field" style="<?php if($s['modalidad']!='virtual')echo'display:none;'; ?>">
+                    <label>
+                        Enlace:
+                        <input type="text" name="gw_sesion_enlace[]" value="<?php echo esc_attr($s['enlace']); ?>" style="width:70%;" placeholder="Enlace Meet/Zoom">
+                    </label>
+                </span>
+            </div>
+        </div>
+    <?php endforeach; ?>
+    </div>
+    <button type="button" id="gw-add-charla-sesion-btn" style="margin-top:8px;background:#1976d2;color:#fff;padding:6px 18px;border:none;border-radius:4px;">Agregar sesión</button>
+    <script>
+    function gwRemoveCharlaSesion(btn) {
+        var block = btn.closest('.gw-charla-sesion-block');
+        if(document.querySelectorAll('.gw-charla-sesion-block').length > 1) {
+            block.parentNode.removeChild(block);
+        }
+    }
+    function gwCharlaSesionModalidadChange(sel) {
+        var block = sel.closest('.gw-charla-sesion-block');
+        var modalidad = sel.value;
+        block.querySelector('.gw-charla-sesion-lugar-field').style.display = (modalidad=='presencial')?'inline':'none';
+        block.querySelector('.gw-charla-sesion-enlace-field').style.display = (modalidad=='virtual')?'inline':'none';
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('gw-add-charla-sesion-btn').addEventListener('click', function() {
+            var list = document.getElementById('gw-charla-sesiones-list');
+            var idx = list.children.length + 1;
+            var div = document.createElement('div');
+            div.className = 'gw-charla-sesion-block';
+            div.style = "border:1px solid #e2e2e2;padding:10px 12px;margin-bottom:10px;border-radius:6px;position:relative;";
+            div.innerHTML = `
+                <strong>Sesión `+idx+`</strong>
+                <button type="button" class="gw-remove-charla-sesion-btn" style="float:right;color:#b71c1c;background:none;border:none;font-size:1.1em;" onclick="gwRemoveCharlaSesion(this)">✖</button>
+                <div style="margin-top:7px;">
+                    <label>
+                        Modalidad:
+                        <select name="gw_sesion_modalidad[]" class="gw-charla-sesion-modalidad" onchange="gwCharlaSesionModalidadChange(this)">
+                            <option value="virtual">Virtual</option>
+                            <option value="presencial">Presencial</option>
+                        </select>
+                    </label>
+                    <label style="margin-left:15px;">
+                        Fecha:
+                        <input type="date" name="gw_sesion_fecha[]" value="">
+                    </label>
+                    <label style="margin-left:15px;">
+                        Hora:
+                        <input type="time" name="gw_sesion_hora[]" value="">
+                    </label>
+                </div>
+                <div style="margin-top:7px;">
+                    <span class="gw-charla-sesion-lugar-field" style="display:none;">
+                        <label>
+                            Lugar:
+                            <input type="text" name="gw_sesion_lugar[]" value="" style="width:70%;">
+                        </label>
+                    </span>
+                    <span class="gw-charla-sesion-enlace-field" style="display:inline;">
+                        <label>
+                            Enlace:
+                            <input type="text" name="gw_sesion_enlace[]" value="" style="width:70%;" placeholder="Enlace Meet/Zoom">
+                        </label>
+                    </span>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    });
+    </script>
+    <?php
+}
+// === PASO 8: Subida de documentos y selección de escuela ===
+function gw_step_8_documentos($user_id) {
+    // Verificar si ya seleccionó escuela y horario
+    $escuela_id = get_user_meta($user_id, 'gw_escuela_seleccionada', true);
+    $horario = get_user_meta($user_id, 'gw_escuela_horario', true);
 
-    // ¿Qué sección mostrar?
-    $section = isset($_GET['gw_section']) ? sanitize_text_field($_GET['gw_section']) : 'paises';
+    // Procesar selección nueva
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['escuela_id']) && isset($_POST['horario_idx']) && check_admin_referer('gw_step8_seleccion', 'gw_step8_nonce')) {
+        $escuela_id = intval($_POST['escuela_id']);
+        $horario_idx = intval($_POST['horario_idx']);
+
+        // Obtener la escuela y horario seleccionados
+        $escuela = get_post($escuela_id);
+        $horarios = get_post_meta($escuela_id, '_gw_escuela_horarios', true);
+        if (!is_array($horarios)) $horarios = [];
+
+        if ($escuela && isset($horarios[$horario_idx])) {
+            update_user_meta($user_id, 'gw_escuela_seleccionada', $escuela_id);
+            update_user_meta($user_id, 'gw_escuela_horario', $horarios[$horario_idx]);
+            // Refrescar para evitar repost
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
+            exit;
+        }
+    }
 
     ob_start();
     ?>
-    <style>
-/* Mejoras visuales y responsivas para Capacitaciones */
-.gw-caps-block {
-    max-width: 820px;
-    width: 100%;
-    margin: 0 auto 38px auto;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 0 12px #e6eaf5;
-    padding: 36px 40px 40px 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-}
-@media (max-width: 700px) {
-    .gw-caps-block { padding: 16px 4vw 28px 4vw; }
-}
-.gw-caps-block h2 { text-align: center; margin-bottom: 28px; }
-.gw-caps-form { margin-bottom: 38px; }
-.gw-caps-list { overflow-x: auto; }
-.gw-caps-list table { min-width: 650px; font-size: 1.01rem; }
-.gw-caps-list th, .gw-caps-list td { padding: 10px 8px; text-align: left; }
-.gw-caps-list tr:nth-child(even) { background: #f7f8fa; }
-.gw-dashboard-container {
-    display: flex;
-    min-height: 100vh;
-    font-family: sans-serif;
-    background: #f4f6fa;
-}
-.gw-dashboard-sidebar {
-    width: 260px;
-    background: #1c2331;
-    color: #fff;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    position: fixed;
-    left: 0; top: 0; bottom: 0;
-    z-index: 100;
-    transition: transform .25s cubic-bezier(.65,.05,.36,1);
-    box-shadow: 1px 0 7px 0 rgba(30,30,50,0.13);
-}
-.gw-sidebar-hidden {
-    transform: translateX(-100%);
-}
-.gw-sidebar-logo {
-    text-align: center;
-    padding: 36px 0 18px 0;
-    border-bottom: 1px solid #232b3e;
-}
-.gw-sidebar-logo img {
-    max-width: 120px;
-    max-height: 46px;
-    filter: grayscale(0.7);
-}
-.gw-sidebar-toggle {
-    position: absolute;
-    top: 18px;
-    right: -35px;
-    background: #fff;
-    color: #1c2331;
-    border-radius: 50%;
-    border: none;
-    width: 32px;
-    height: 32px;
-    font-size: 1.2rem;
-    box-shadow: 1px 2px 7px 0 rgba(30,30,50,0.16);
-    cursor: pointer;
-    z-index: 300;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background .2s;
-}
-.gw-dashboard-sidebar a {
-    display: block; 
-    color: #fff; 
-    padding: 22px 36px; 
-    text-decoration: none; 
-    border-bottom: 1px solid #232b3e;
-    transition: background .2s;
-    font-size: 1.1rem;
-}
-.gw-dashboard-sidebar a.active, .gw-dashboard-sidebar a:hover {
-    background: #2d3748;
-    font-weight: bold;
-}
-.gw-dashboard-main {
-    flex: 1;
-    margin-left: 260px;
-    padding: 48px 8vw;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transition: margin-left .25s cubic-bezier(.65,.05,.36,1);
-}
-.gw-main-wide {
-    margin-left: 0 !important;
-}
-@media (max-width: 900px) {
-    .gw-dashboard-main { padding: 24px 2vw; }
-    .gw-dashboard-sidebar { width: 200px; }
-    .gw-dashboard-main { margin-left: 200px; }
-}
-@media (max-width: 650px) {
-    .gw-dashboard-container { flex-direction: column; }
-    .gw-dashboard-sidebar {
-        position: fixed;
-        width: 75vw;
-        min-width: 150px;
-        max-width: 90vw;
-        min-height: 100vh;
-        border-bottom: none;
-    }
-    .gw-dashboard-main { 
-        margin-left: 0; 
-        padding: 18px 3vw; 
-        align-items: stretch;
-    }
-    .gw-sidebar-toggle {
-        top: 15px;
-        right: -36px;
-    }
-}
-</style>
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-    var toggle = document.getElementById('gw-sidebar-toggle');
-    var sidebar = document.getElementById('gw-dashboard-sidebar');
-    var main = document.getElementById('gw-dashboard-main');
-    if(toggle && sidebar && main) {
-        toggle.addEventListener('click', function() {
-            sidebar.classList.toggle('gw-sidebar-hidden');
-            main.classList.toggle('gw-main-wide');
-        });
-    }
-});
-</script>
-    <div class="gw-dashboard-container">
-        <div id="gw-dashboard-sidebar" class="gw-dashboard-sidebar">
-            <div class="gw-sidebar-logo">
-                <img src="<?php echo plugin_dir_url(__FILE__); ?>glasswing-logo.png" alt="Glasswing International">
-            </div>
-            <button class="gw-sidebar-toggle" id="gw-sidebar-toggle" title="Ocultar/mostrar menú">&#9776;</button>
-            <a href="?gw_section=paises" class="<?php if($section=='paises') echo 'active'; ?>">Gestión de países</a>
-            <a href="?gw_section=usuarios" class="<?php if($section=='usuarios') echo 'active'; ?>">Gestión de usuarios</a>
-            <a href="?gw_section=capacitaciones" class="<?php if($section=='capacitaciones') echo 'active'; ?>">Capacitaciones</a>
-            <a href="?gw_section=progreso" class="<?php if($section=='progreso') echo 'active'; ?>">Progreso del voluntario</a>
-            <a href="?gw_section=ausencias" class="<?php if($section=='ausencias') echo 'active'; ?>">Seguimiento de ausencias</a>
-            <a href="?gw_section=reportes" class="<?php if($section=='reportes') echo 'active'; ?>">Reportes y listados</a>
-        </div>
-        <div id="gw-dashboard-main" class="gw-dashboard-main">
-            <?php
-            // Aquí cargaremos cada módulo según $section
-            switch ($section) {
-                case 'paises':
-                    // Guardar país nuevo
-                    if (isset($_POST['gw_pais_nombre']) && !empty($_POST['gw_pais_nombre'])) {
-                        $nuevo_pais = sanitize_text_field($_POST['gw_pais_nombre']);
-                        wp_insert_post([
-                            'post_title' => $nuevo_pais,
-                            'post_type' => 'pais',
-                            'post_status' => 'publish'
-                        ]);
-                        echo '<div style="color:green;margin-bottom:12px;">País creado correctamente.</div>';
-                    }
-                
-                    // Eliminar país
-                    if (isset($_GET['delete_pais']) && is_numeric($_GET['delete_pais'])) {
-                        wp_delete_post(intval($_GET['delete_pais']), true);
-                        echo '<div style="color:red;margin-bottom:12px;">País eliminado.</div>';
-                    }
-                
-                    // Guardar asociaciones (coordinadores y charlas)
-                    if (isset($_POST['gw_save_asoc']) && is_numeric($_POST['pais_id'])) {
-                        $pid = intval($_POST['pais_id']);
-                        $coordinadores = array_map('intval', $_POST['gw_coordinadores'] ?? []);
-                        // El array de charlas ya viene ordenado según el orden en el campo (gracias al drag & drop)
-                        $charlas = array_map('sanitize_text_field', $_POST['gw_charlas'] ?? []);
-                        update_post_meta($pid, '_gw_coordinadores', $coordinadores);
-                        update_post_meta($pid, '_gw_charlas', $charlas);
-                        echo '<div style="color:blue;margin-bottom:12px;">Asociaciones guardadas para el país.</div>';
-                    }
-                
-                    // Formulario para crear país
-                    echo '
-                    <h2>Gestión de Países</h2>
-                    <form method="post" style="margin-bottom:24px;">
-                        <input type="text" name="gw_pais_nombre" placeholder="Nuevo país" required style="padding:8px;">
-                        <button type="submit" style="background:#1976d2;color:#fff;padding:8px 20px;border:none;border-radius:5px;">Agregar país</button>
-                    </form>
-                    ';
-                
-                    // Listar países existentes
-                    $paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby'=>'title','order'=>'ASC']);
-                    if ($paises) {
-                        echo '<table style="width:100%;background:#fff;border-radius:8px;box-shadow:0 0 8px #e3e3e3;"><tr><th style="padding:8px;">Nombre</th><th>Coordinadores</th><th>Charlas</th><th>Acciones</th></tr>';
-                        foreach ($paises as $pais) {
-                            $coors = get_post_meta($pais->ID, '_gw_coordinadores', true) ?: [];
-                            $chrls = get_post_meta($pais->ID, '_gw_charlas', true) ?: [];
-                            $editando = (isset($_GET['edit_pais']) && intval($_GET['edit_pais']) === $pais->ID);
-                
-                            // Si se está editando este país, mostrar formulario
-                            if ($editando) {
-                                // Usuarios con rol coordinador_pais
-                                $usuarios = get_users(['role' => 'coordinador_pais']);
-                                // Lista de charlas
-                                $charlas = get_posts(['post_type'=>'charla','numberposts'=>-1]);
-                                echo '<tr><form method="post"><td style="padding:8px;">'.esc_html($pais->post_title).'</td>';
-                                // Coordinadores
-                                echo '<td><select name="gw_coordinadores[]" multiple style="min-width:130px">';
-                                foreach($usuarios as $u) {
-                                    $sel = in_array($u->ID, $coors) ? 'selected' : '';
-                                    echo '<option value="'.$u->ID.'" '.$sel.'>'.$u->display_name.'</option>';
-                                }
-                                echo '</select></td>';
-                                // Charlas - ORDENABLE drag & drop
-                                echo '<td>';
-                                ?>
-                                <style>
-                                .gw-charlas-sortable-list { list-style:none; margin:0; padding:0; }
-                                .gw-charlas-sortable-list li {
-                                    padding: 7px 12px;
-                                    margin-bottom: 4px;
-                                    background: #f5f7fd;
-                                    border: 1px solid #dbe2f6;
-                                    border-radius: 4px;
-                                    cursor: move;
-                                    display: flex;
-                                    align-items: center;
-                                }
-                                .gw-charlas-sortable-list li:last-child { margin-bottom:0; }
-                                .gw-charlas-sortable-list .gw-charla-title {
-                                    flex: 1;
-                                }
-                                </style>
-                                <ul class="gw-charlas-sortable-list" id="gw-charlas-sortable-<?php echo $pais->ID; ?>">
-                                <?php
-                                // Mostrar primero las charlas ya asignadas, en su orden
-                                $chrls_ids = array_map('intval', $chrls);
-                                $charlas_map = [];
-                                foreach($charlas as $c) $charlas_map[$c->ID] = $c;
-                                foreach($chrls_ids as $cid) {
-                                    if (!isset($charlas_map[$cid])) continue;
-                                    $c = $charlas_map[$cid];
-                                    echo '<li data-id="'.$c->ID.'"><span class="dashicons dashicons-move"></span> <span class="gw-charla-title">'.esc_html($c->post_title).'</span>
-                                    <input type="hidden" name="gw_charlas[]" value="'.$c->ID.'"></li>';
-                                }
-                                // Mostrar las charlas no seleccionadas aún
-                                foreach($charlas as $c) {
-                                    if (in_array($c->ID, $chrls_ids)) continue;
-                                    echo '<li data-id="'.$c->ID.'" style="opacity:.5;"><span class="dashicons dashicons-move"></span> <span class="gw-charla-title">'.esc_html($c->post_title).'</span>
-                                    <input type="hidden" name="gw_charlas[]" value="'.$c->ID.'"></li>';
-                                }
-                                ?>
-                                </ul>
-                                <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-                                <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-                                <script>
-                                jQuery(function($){
-                                    var ul = $('#gw-charlas-sortable-<?php echo $pais->ID; ?>');
-                                    ul.sortable({
-                                        items: 'li',
-                                        placeholder: 'gw-charla-sort-placeholder',
-                                        update: function(ev, ui) {
-                                            // Solo dejar seleccionadas en el orden actual
-                                            ul.find('li').each(function(i, el){
-                                                // Si el li está marcado como no seleccionado (opacity) y estaba antes seleccionado, lo quitamos del submit
-                                                // Pero para UX, solo se ordenan las seleccionadas arriba, las otras quedan abajo y no se envían.
-                                            });
-                                        }
-                                    });
-                                    // Al enviar el formulario, solo enviar los inputs de los li que NO tienen opacity (es decir, los seleccionados)
-                                    ul.closest('form').on('submit', function(){
-                                        ul.find('li').each(function(){
-                                            var $li = $(this);
-                                            if ($li.css('opacity') < 1) {
-                                                $li.find('input[name="gw_charlas[]"]').prop('disabled', true);
-                                            } else {
-                                                $li.find('input[name="gw_charlas[]"]').prop('disabled', false);
-                                            }
-                                        });
-                                    });
-                                    // Click para seleccionar/deseleccionar charla
-                                    ul.on('click', 'li', function(e){
-                                        // Solo si clic en el li, no en el input
-                                        if (e.target.tagName.toLowerCase() === 'input') return;
-                                        var $li = $(this);
-                                        if ($li.css('opacity') < 1) {
-                                            $li.css('opacity', 1);
-                                        } else {
-                                            $li.css('opacity', 0.5);
-                                        }
-                                    });
-                                });
-                                </script>
-                                <?php
-                                echo '</td>';
-                                echo '<td>
-                                    <input type="hidden" name="pais_id" value="'.$pais->ID.'">
-                                    <button type="submit" name="gw_save_asoc" style="background:#388e3c;color:#fff;padding:6px 18px;border:none;border-radius:4px;">Guardar</button>
-                                    <a href="?gw_section=paises" style="margin-left:8px;">Cancelar</a>
-                                    </td></form></tr>';
-                            } else {
-                                // Mostrar valores actuales
-                                $usuarios = array_map(function($id){ $u=get_userdata($id); return $u?$u->display_name:''; }, $coors);
-                                $charlas = array_map(function($id){ $c=get_post($id); return $c?$c->post_title:''; }, $chrls);
-                                echo '<tr>
-                                    <td style="padding:8px;">'.esc_html($pais->post_title).'</td>
-                                    <td>'.implode(', ', array_filter($usuarios)).'</td>
-                                    <td>'.implode(', ', array_filter($charlas)).'</td>
-                                    <td>
-                                        <a href="?gw_section=paises&edit_pais='.$pais->ID.'" style="color:#1976d2;">Editar</a>
-                                        &nbsp;|&nbsp;
-                                        <a href="?gw_section=paises&delete_pais='.$pais->ID.'" style="color:#b71c1c;" onclick="return confirm(\'¿Seguro que quieres eliminar este país?\')">Eliminar</a>
-                                    </td>
-                                </tr>';
-                            }
-                        }
-                        echo '</table>';
-                    } else {
-                        echo '<p>No hay países registrados todavía.</p>';
-                    }
-                    break;
-                    case 'usuarios':
-                        echo '<h2>Gestión de Usuarios</h2>';
-                        // Mostrar formulario de alta si es admin
-                        if (current_user_can('administrator')) {
-                            // Guardar usuario nuevo
-                            if (isset($_POST['gw_nuevo_nombre'])) {
-                                $nombre = sanitize_text_field($_POST['gw_nuevo_nombre']);
-                                $rol = sanitize_text_field($_POST['gw_nuevo_rol']);
-                                $activo = isset($_POST['gw_nuevo_activo']) ? 1 : 0;
-                                // Generar correo temporal único
-                                $timestamp = time();
-                                $correo = 'nuevo-usuario-' . $timestamp . '@example.com';
-                                // Genera una contraseña aleatoria
-                                $pass = wp_generate_password(10, true, true);
-
-                                // Crea el usuario con correo temporal y contraseña generada
-                                if (!email_exists($correo)) {
-                                    $uid = wp_create_user($correo, $pass, $correo);
-                                    wp_update_user(['ID' => $uid, 'display_name' => $nombre]);
-                                    $user = get_user_by('id', $uid);
-                                    $user->set_role($rol);
-                                    update_user_meta($uid, 'gw_activo', $activo);
-                                    // NOTA: No se asigna país ni se solicita email/contraseña reales aquí
-                                    echo '<div style="color:green;margin-bottom:12px;">¡Usuario creado! El correo y contraseña reales deberán ser editados posteriormente.</div>';
-                                } else {
-                                    echo '<div style="color:#b71c1c;margin-bottom:12px;">El correo temporal generado ya existe (esto es muy raro, intenta de nuevo).</div>';
-                                }
-                            }
-
-                            // Botón para mostrar formulario (usamos un poco de JS para toggle)
-                            echo '<button onclick="document.getElementById(\'gw-user-nuevo-form\').style.display = (document.getElementById(\'gw-user-nuevo-form\').style.display==\'none\'?\'block\':\'none\');" style="margin-bottom:15px;background:#1976d2;color:#fff;padding:7px 17px;border:none;border-radius:5px;font-size:1rem;">Agregar usuario</button>';
-
-                            // Formulario oculto por defecto: solo nombre, rol y activo
-                            echo '<form method="post" id="gw-user-nuevo-form" style="background:#f7f9fc;padding:18px 24px;margin-bottom:20px;border-radius:7px;display:none;max-width:540px;">
-                                <strong>Nuevo usuario</strong><br><br>
-                                <input type="text" name="gw_nuevo_nombre" placeholder="Nombre completo" required style="width:60%;margin-bottom:10px;">
-                                <br>
-                                <select name="gw_nuevo_rol" required style="width:60%;margin-bottom:10px;">
-                                    <option value="">Rol</option>
-                                    <option value="administrator">Administrador</option>
-                                    <option value="coordinador_pais">Coordinador de país</option>
-                                    <option value="coach">Coach</option>
-                                    <option value="voluntario">Voluntario</option>
-                                </select>
-                                <br>
-                                <label style="margin-left:2px;"><input type="checkbox" name="gw_nuevo_activo" value="1" checked> Activo</label>
-                                <br>
-                                <button type="submit" style="background:#388e3c;color:#fff;padding:7px 24px;border:none;border-radius:5px;margin-top:12px;">Guardar usuario</button>
-                                </form>';
-                        }
-                    
-                        // Guardar cambios del usuario
-                        if (isset($_POST['gw_guardar_usuario']) && is_numeric($_POST['usuario_id'])) {
-                            $uid = intval($_POST['usuario_id']);
-                            $nuevo_nombre = sanitize_text_field($_POST['gw_user_nombre']);
-                            $nuevo_rol = sanitize_text_field($_POST['gw_user_role']);
-                            $nuevo_pais = intval($_POST['gw_user_pais']);
-                            $nuevo_email = sanitize_email($_POST['gw_user_email']);
-                            $activo = isset($_POST['gw_user_activo']) ? 1 : 0;
-                            $user = get_userdata($uid);
-                            if ($user) {
-                                // Cambiar nombre
-                                wp_update_user(['ID'=>$uid, 'display_name'=>$nuevo_nombre, 'nickname'=>$nuevo_nombre]);
-                                // Cambiar correo si corresponde y está libre
-                                if ($user->user_email != $nuevo_email && !email_exists($nuevo_email)) {
-                                    wp_update_user(['ID'=>$uid, 'user_email'=>$nuevo_email]);
-                                }
-                                // Cambiar rol correctamente (borra roles previos primero)
-                                foreach($user->roles as $role) {
-                                    $user->remove_role($role);
-                                }
-                                $user->add_role($nuevo_rol);
-                                update_user_meta($uid, 'gw_pais_id', $nuevo_pais);
-                                update_user_meta($uid, 'gw_activo', $activo);
-                                echo '<div style="color:green;margin-bottom:12px;">Usuario actualizado.</div>';
-                            }
-                        }
-                    
-                        // Listar usuarios
-                        $usuarios = get_users(['orderby'=>'display_name','order'=>'ASC']);
-                        $paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby'=>'title','order'=>'ASC']);
-                        $roles = [
-                            'administrator' => 'Administrador',
-                            'coordinador_pais' => 'Coordinador de país',
-                            'coach' => 'Coach',
-                            'voluntario' => 'Voluntario'
-                        ];
-                    
-                        if ($usuarios) {
-                            echo '<table style="width:100%;background:#fff;border-radius:8px;box-shadow:0 0 8px #e3e3e3;font-size:0.97rem;"><tr>
-                                    <th style="padding:8px;">Nombre</th>
-                                    <th>Correo</th>
-                                    <th>Rol</th>
-                                    <th>País</th>
-                                    <th>Activo</th>
-                                    <th>Acciones</th>
-                                </tr>';
-                            foreach ($usuarios as $u) {
-                                $user_roles = $u->roles;
-                                $rol_actual = $user_roles ? $user_roles[0] : '';
-                                $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
-                                $activo = get_user_meta($u->ID, 'gw_activo', true);
-
-                                $editando = (isset($_GET['edit_user']) && intval($_GET['edit_user']) === $u->ID);
-
-                                if ($editando) {
-                                    // Formulario de edición
-                                    echo '<tr><form method="post">';
-                                    echo '<td style="padding:8px;">
-                                        <input type="text" name="gw_user_nombre" value="'.esc_attr($u->display_name).'" required style="width:98%;">
-                                    </td>';
-                                    echo '<td>
-                                        <input type="email" name="gw_user_email" value="'.esc_attr($u->user_email).'" required style="width:98%;">
-                                    </td>';
-                                    echo '<td>
-                                        <select name="gw_user_role">';
-                                    foreach($roles as $k=>$v) {
-                                        $sel = ($k==$rol_actual)?'selected':'';
-                                        echo '<option value="'.$k.'" '.$sel.'>'.$v.'</option>';
-                                    }
-                                    echo '</select>
-                                    </td>';
-                                    echo '<td>
-                                        <select name="gw_user_pais">
-                                            <option value="">Ninguno</option>';
-                                    foreach($paises as $p) {
-                                        $sel = ($p->ID==$pais_id)?'selected':'';
-                                        echo '<option value="'.$p->ID.'" '.$sel.'>'.$p->post_title.'</option>';
-                                    }
-                                    echo '</select>
-                                    </td>';
-                                    echo '<td><input type="checkbox" name="gw_user_activo" value="1" '.($activo?'checked':'').'></td>';
-                                    echo '<td>
-                                        <input type="hidden" name="usuario_id" value="'.$u->ID.'">
-                                        <button type="submit" name="gw_guardar_usuario" style="background:#388e3c;color:#fff;padding:5px 16px;border:none;border-radius:4px;">Guardar</button>
-                                        <a href="?gw_section=usuarios" style="margin-left:7px;">Cancelar</a>
-                                    </td>';
-                                    echo '</form></tr>';
-                                } else {
-                                    // Modo lectura
-                                    $pais_nombre = $pais_id ? get_the_title($pais_id) : '';
-                                    echo '<tr>
-                                        <td style="padding:8px;">'.esc_html($u->display_name).'</td>
-                                        <td>'.esc_html($u->user_email).'</td>
-                                        <td>'.($roles[$rol_actual]??$rol_actual).'</td>
-                                        <td>'.$pais_nombre.'</td>
-                                        <td>'.($activo?'Sí':'No').'</td>
-                                        <td>
-                                            <a href="?gw_section=usuarios&edit_user='.$u->ID.'" style="color:#1976d2;">Editar</a>
-                                        </td>
-                                    </tr>';
-                                }
-                            }
-                            echo '</table>';
-                        } else {
-                            echo '<p>No hay usuarios registrados todavía.</p>';
-                        }
-                        break;
-                case 'capacitaciones':
-    echo '<div class="gw-caps-block">';
-    echo '<h2>Capacitaciones</h2>';
-
-    // Solo Coordinador de país o Coach pueden agregar/editar
-    if (!current_user_can('coordinador_pais') && !current_user_can('coach') && !current_user_can('administrator')) {
-        echo '<p>Solo coordinadores de país, coachs o administradores pueden gestionar capacitaciones.</p>';
-        echo '</div>';
-        break;
-    }
-
-    // Guardar/editar capacitación
-    if (isset($_POST['gw_save_capacitacion'])) {
-        $titulo = sanitize_text_field($_POST['gw_titulo']);
-        $tipo = sanitize_text_field($_POST['gw_tipo']);
-        $pais = intval($_POST['gw_pais']);
-        $charla = intval($_POST['gw_programa']); // Nota: la variable sigue llamándose $programa para mantener la lógica de IDs, pero es una charla
-        $responsable = intval($_POST['gw_responsable']);
-        $fecha = sanitize_text_field($_POST['gw_fecha']);
-        // Normalizar hora a formato 24 horas H:i
-        $hora = date('H:i', strtotime(sanitize_text_field($_POST['gw_hora'])));
-        $lugar = sanitize_text_field($_POST['gw_lugar']);
-        $link = sanitize_text_field($_POST['gw_link']);
-
-        $cap_id = isset($_POST['capacitacion_id']) ? intval($_POST['capacitacion_id']) : 0;
-
-        $args = [
-            'post_title' => $titulo,
-            'post_type' => 'capacitacion',
-            'post_status' => 'publish',
-        ];
-        if ($cap_id) { $args['ID'] = $cap_id; }
-
-        $cap_id = wp_insert_post($args);
-
-        // Guardar metadatos
-        update_post_meta($cap_id, '_gw_tipo', $tipo);
-        update_post_meta($cap_id, '_gw_pais', $pais);
-        update_post_meta($cap_id, '_gw_programa', $charla);
-        update_post_meta($cap_id, '_gw_responsable', $responsable);
-        update_post_meta($cap_id, '_gw_fecha', $fecha);
-        update_post_meta($cap_id, '_gw_hora', $hora);
-        update_post_meta($cap_id, '_gw_lugar', $lugar);
-        update_post_meta($cap_id, '_gw_link', $link);
-
-        echo '<div style="color:green;margin-bottom:12px;">Capacitación guardada.</div>';
-    }
-
-    // Eliminar capacitación
-    if (isset($_GET['delete_capacitacion']) && is_numeric($_GET['delete_capacitacion'])) {
-        wp_delete_post(intval($_GET['delete_capacitacion']), true);
-        echo '<div style="color:red;margin-bottom:12px;">Capacitación eliminada.</div>';
-    }
-
-    // Mostrar formulario para agregar/editar
-    $editando = isset($_GET['edit_capacitacion']) ? intval($_GET['edit_capacitacion']) : 0;
-    $cap_data = [
-        'titulo' => '',
-        'tipo' => '',
-        'pais' => '',
-        'programa' => '',
-        'responsable' => '',
-        'fecha' => '',
-        'hora' => '',
-        'lugar' => '',
-        'link' => ''
-    ];
-    if ($editando) {
-        $post = get_post($editando);
-        $cap_data['titulo'] = $post->post_title;
-        $cap_data['tipo'] = get_post_meta($post->ID, '_gw_tipo', true);
-        $cap_data['pais'] = get_post_meta($post->ID, '_gw_pais', true);
-        $cap_data['programa'] = get_post_meta($post->ID, '_gw_programa', true);
-        $cap_data['responsable'] = get_post_meta($post->ID, '_gw_responsable', true);
-        $cap_data['fecha'] = get_post_meta($post->ID, '_gw_fecha', true);
-        $cap_data['hora'] = get_post_meta($post->ID, '_gw_hora', true);
-        $cap_data['lugar'] = get_post_meta($post->ID, '_gw_lugar', true);
-        $cap_data['link'] = get_post_meta($post->ID, '_gw_link', true);
-    }
-
-    // Datos para selects
-    $paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby'=>'title','order'=>'ASC']);
-    $charlas = get_posts(['post_type'=>'charla','numberposts'=>-1]);
-    $usuarios = get_users(['role__in'=>['coordinador_pais','coach']]);
-
-    // Formulario con clase visual
-    echo '<form method="post" class="gw-caps-form">';
-    echo '<strong>'.($editando ? 'Editar' : 'Nueva').' capacitación</strong><br><br>';
-    echo '<input type="text" name="gw_titulo" placeholder="Título de la capacitación" required value="'.esc_attr($cap_data['titulo']).'" style="margin-bottom:10px;width:60%;"> ';
-    echo '<select name="gw_tipo" required>
-            <option value="">Tipo</option>
-            <option value="virtual"'.($cap_data['tipo']=='virtual'?' selected':'').'>Virtual</option>
-            <option value="presencial"'.($cap_data['tipo']=='presencial'?' selected':'').'>Presencial</option>
-        </select> ';
-    echo '<select name="gw_pais" required><option value="">País</option>';
-    foreach($paises as $p) {
-        $sel = ($cap_data['pais']==$p->ID)?'selected':'';
-        echo '<option value="'.$p->ID.'" '.$sel.'>'.$p->post_title.'</option>';
-    }
-    echo '</select> ';
-    // Select para asociar charla
-    echo '<select name="gw_programa" required><option value="">Charla</option>';
-    foreach($charlas as $ch) {
-        $sel = ($cap_data['programa']==$ch->ID)?'selected':'';
-        echo '<option value="'.$ch->ID.'" '.$sel.'>'.$ch->post_title.'</option>';
-    }
-    echo '</select> ';
-    echo '<select name="gw_responsable" required><option value="">Responsable</option>';
-    foreach($usuarios as $u) {
-        $sel = ($cap_data['responsable']==$u->ID)?'selected':'';
-        echo '<option value="'.$u->ID.'" '.$sel.'>'.$u->display_name.' ('.$u->user_email.')</option>';
-    }
-    echo '</select><br><br>';
-    echo 'Fecha: <input type="date" name="gw_fecha" required value="'.esc_attr($cap_data['fecha']).'"> ';
-    echo 'Hora: <input type="time" name="gw_hora" required step="60" value="'.esc_attr($cap_data['hora']).'"><br><br>';
-    echo 'Lugar/Link: <input type="text" name="gw_lugar" placeholder="Lugar físico" value="'.esc_attr($cap_data['lugar']).'"> ';
-    echo '<input type="text" name="gw_link" placeholder="Link (si es virtual)" value="'.esc_attr($cap_data['link']).'"> ';
-    if ($editando) echo '<input type="hidden" name="capacitacion_id" value="'.$editando.'">';
-    echo '<button type="submit" name="gw_save_capacitacion" style="background:#1976d2;color:#fff;padding:8px 24px;border:none;border-radius:6px;margin-left:12px;">Guardar</button>';
-    if ($editando) echo ' <a href="?gw_section=capacitaciones" style="margin-left:7px;">Cancelar</a>';
-    echo '</form>';
-
-    // Listado de capacitaciones
-    $caps = get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'meta_value','meta_key'=>'_gw_fecha','order'=>'DESC']);
-    if ($caps) {
-        echo '<div class="gw-caps-list">';
-        echo '<table>';
-        echo '<tr>
-                <th>Título</th>
-                <th>Tipo</th>
-                <th>País</th>
-                <th>Charla</th>
-                <th>Responsable</th>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Lugar/Link</th>
-                <th>Asistentes</th>
-                <th>Acciones</th>
-            </tr>';
-        foreach ($caps as $c) {
-            $tipo = get_post_meta($c->ID, '_gw_tipo', true);
-            $pais = get_post_meta($c->ID, '_gw_pais', true);
-            $charla = get_post_meta($c->ID, '_gw_programa', true); // sigue siendo _gw_programa pero es charla
-            $responsable = get_post_meta($c->ID, '_gw_responsable', true);
-            $fecha = get_post_meta($c->ID, '_gw_fecha', true);
-            $hora = get_post_meta($c->ID, '_gw_hora', true);
-            $lugar = get_post_meta($c->ID, '_gw_lugar', true);
-            $link = get_post_meta($c->ID, '_gw_link', true);
-            // Asistencias para capacitaciones virtuales
-            $asistencias = get_post_meta($c->ID, '_gw_asistencias', true);
-            if (!is_array($asistencias)) $asistencias = [];
-            $asistentes_nombres = [];
-            foreach (array_keys($asistencias) as $uid) {
-                $user = get_userdata($uid);
-                if ($user) $asistentes_nombres[] = $user->display_name;
-            }
-            echo '<tr>
-                <td>'.esc_html($c->post_title).'</td>
-                <td>'.ucfirst($tipo).'</td>
-                <td>'.($pais?get_the_title($pais):'').'</td>
-                <td>'.($charla?get_the_title($charla):'').'</td>
-                <td>'.($responsable?get_userdata($responsable)->display_name:'').'</td>
-                <td>'.$fecha.'</td>
-                <td>'.$hora.'</td>';
-            if ($tipo=='virtual') {
-                echo '<td><a href="' . site_url('/?gw_asistir=' . $c->ID) . '" target="_blank">Entrar y marcar asistencia</a></td>';
-                echo '<td>' . (!empty($asistentes_nombres) ? esc_html(implode(', ', $asistentes_nombres)) : '—') . '</td>';
-            } else {
-                echo '<td>'.$lugar.'</td>';
-                echo '<td>—</td>';
-            }
-            echo '<td>
-                    <a href="?gw_section=capacitaciones&edit_capacitacion='.$c->ID.'" style="color:#1976d2;">Editar</a>
-                    &nbsp;|&nbsp;
-                    <a href="?gw_section=capacitaciones&delete_capacitacion='.$c->ID.'" style="color:#b71c1c;" onclick="return confirm(\'¿Seguro que quieres eliminar esta capacitación?\')">Eliminar</a>
-                </td>
-            </tr>';
-        }
-        echo '</table>';
-        echo '</div>';
-    } else {
-        echo '<div class="gw-caps-list"><p>No hay capacitaciones registradas todavía.</p></div>';
-    }
-    echo '</div>';
-    break;
-                // Eliminado el handler de 'progreso' (Mi Progreso) según instrucciones
-                case 'progreso':
-                    echo '<h2>Progreso del Voluntario</h2>';
-                    echo do_shortcode('[gw_progreso_voluntario]');
-                    break;
-                case 'ausencias': echo '<h2>Seguimiento de Ausencias</h2><p>Próximamente podrás gestionar ausencias aquí.</p>'; break;
-                case 'reportes': echo '<h2>Reportes y Listados</h2><p>Próximamente podrás ver reportes aquí.</p>'; break;
-                default: echo '<h2>Bienvenido/a al Panel Administrativo</h2>'; break;
-            }
-            ?>
-        </div>
+    <div style="margin-bottom:24px;">
+        <a href="<?php echo esc_url( site_url('/index.php/portal-voluntario/?paso7_menu=1') ); ?>"
+           class="gw-charla-my-btn" style="background:#1976d2;">
+            &larr; Regresar a capacitaciones
+        </a>
     </div>
     <?php
+    if ($escuela_id && $horario) {
+        // Mostrar resumen de selección
+        $escuela = get_post($escuela_id);
+        echo '<div class="notice notice-success" style="margin-bottom:24px;"><b>¡Escuela seleccionada!</b><br>';
+        echo 'Escuela: <b>' . esc_html($escuela ? $escuela->post_title : 'Escuela eliminada') . '</b><br>';
+        echo 'Día: <b>' . esc_html($horario['dia']) . '</b> | Hora: <b>' . esc_html($horario['hora']) . '</b>';
+        echo '</div>';
+        // Botón para cambiar de escuela/horario si lo deseas (desactívalo si no lo necesitas)
+        /*
+        echo '<form method="post"><button type="submit" name="cambiar_escuela" class="button">Cambiar escuela/horario</button></form>';
+        if (isset($_POST['cambiar_escuela'])) {
+            delete_user_meta($user_id, 'gw_escuela_seleccionada');
+            delete_user_meta($user_id, 'gw_escuela_horario');
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
+            exit;
+        }
+        */
+    } else {
+        // Listar todas las escuelas y horarios
+        $escuelas = get_posts([
+            'post_type' => 'escuela',
+            'post_status' => 'publish',
+            'numberposts' => -1,
+            'orderby' => 'title',
+            'order' => 'ASC',
+        ]);
+        if (empty($escuelas)) {
+            echo '<div class="notice notice-error">No hay escuelas disponibles por el momento.</div>';
+        } else {
+            echo '<h3>Selecciona la escuela y horario donde vas a servir</h3>'
+        .'<form method="post">';
+            wp_nonce_field('gw_step8_seleccion', 'gw_step8_nonce');
+            foreach ($escuelas as $esc) {
+                $horarios = get_post_meta($esc->ID, '_gw_escuela_horarios', true);
+                if (!is_array($horarios) || empty($horarios)) continue;
+                echo '<div style="border:1px solid #e2e2e2;border-radius:10px;padding:14px 20px;margin-bottom:18px;background:#f9f9ff;">';
+                echo '<strong>' . esc_html($esc->post_title) . '</strong><br><br>';
+                foreach ($horarios as $idx => $h) {
+                    if (!$h['dia'] && !$h['hora']) continue;
+                    echo '<label style="display:block;margin-bottom:8px;">';
+                    echo '<input type="radio" name="escuela_id" value="'.esc_attr($esc->ID).'" required>';
+                    echo ' Día: <b>'.esc_html($h['dia']).'</b> | Hora: <b>'.esc_html($h['hora']).'</b>';
+                    echo ' <button type="submit" name="horario_idx" value="'.esc_attr($idx).'" class="button button-primary" style="margin-left:15px;">Seleccionar</button>';
+                    echo '</label>';
+                }
+                echo '</div>';
+            }
+            echo '</form>';
+        }
+    }
+
+    // ------ SUBIDA DE DOCUMENTOS (DUI/ID) -------
+global $wpdb;
+$docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
+$status = $docs ? $docs['status'] : '';
+
+if ($escuela_id && $horario && $status !== 'validado') {
+    $msg = '';
+    // Procesar subida
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_docs_nonce']) && wp_verify_nonce($_POST['gw_docs_nonce'], 'gw_docs_subida')) {
+        $cons1 = isset($_POST['consentimiento1']) ? 1 : 0;
+        $cons2 = isset($_POST['consentimiento2']) ? 1 : 0;
+
+        // Archivos
+        $errors = [];
+           $file_names = [null, null];
+                for ($i = 1; $i <= 2; $i++) {
+                    if (isset($_FILES["documento_$i"]) && $_FILES["documento_$i"]['size'] > 0) {
+                        $file = $_FILES["documento_$i"];
+                        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                    if (!in_array($ext, ['jpg','jpeg','png','gif','webp'])) {
+                        $errors[] = "Documento $i: Formato inválido ($ext)";
+                continue;
+            }
+        // Subir a uploads
+            require_once(ABSPATH . 'wp-admin/includes/file.php');
+                $upload = wp_handle_upload($file, ['test_form' => false]);
+            if (!empty($upload['error'])) {
+                $errors[] = "Documento $i: " . $upload['error'];
+            continue;
+        }
+        $file_names[$i-1] = $upload['url'];
+    } else {
+        // Si ya tenía antes, conservar (usa la columna *_url)
+        if ($docs && $docs["documento_{$i}_url"]) {
+            $file_names[$i-1] = $docs["documento_{$i}_url"];
+        }
+    }
+}
+        if (!$file_names[0] || !$file_names[1]) $errors[] = "Debes subir ambos documentos.";
+        if (!$cons1 || !$cons2) $errors[] = "Debes aceptar ambos consentimientos.";
+
+        if (empty($errors)) {
+            // Insertar/actualizar en la tabla personalizada
+                if ($docs) {
+                    $wpdb->update($wpdb->prefix . 'voluntario_docs', [
+                        'documento_1_url' => $file_names[0],
+                        'documento_2_url' => $file_names[1],
+                        'consent_1'       => $cons1,
+                        'consent_2'       => $cons2,
+                        'status'          => 'pendiente',
+                        'updated_at'      => current_time('mysql', 1)
+                    ], [ 'user_id' => $user_id ]);
+                } else {
+                    $wpdb->insert(
+                        $wpdb->prefix . 'voluntario_docs',
+                        [
+                            'user_id'           => $user_id,
+                            'escuela_id'        => $escuela_id,
+                            'documento_1_url'   => esc_url_raw($file_names[0]),
+                            'documento_2_url'   => esc_url_raw($file_names[1]),
+                            'consent_1'         => $cons1,
+                            'consent_2'         => $cons2,
+                            'status'            => 'pendiente',
+                            'fecha_subida'      => current_time('mysql', 1),
+                            'fecha_revision'    => current_time('mysql', 1),
+                        ],
+                        [ '%d','%d','%s','%s','%d','%d','%s','%s','%s' ]
+            );
+    }
+            $msg = '<div class="notice notice-success"><b>¡Documentos enviados! Espera a que sean validados por el coach/admin.</b></div>';
+        } else {
+            $msg = '<div class="notice notice-error"><b>Corrige los siguientes errores:</b><ul><li>' . implode('</li><li>', $errors) . '</li></ul></div>';
+        }
+    }
+
+    // Cargar de nuevo el estado
+    $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
+    $status = $docs && isset($docs['status']) ? $docs['status'] : '';
+    $doc1 = $docs && isset($docs['documento_1_url']) ? $docs['documento_1_url'] : '';
+    $doc2 = $docs && isset($docs['documento_2_url']) ? $docs['documento_2_url'] : '';
+    $cons1 = $docs && isset($docs['consent_1']) ? $docs['consent_1'] : '';
+    $cons2 = $docs && isset($docs['consent_2']) ? $docs['consent_2'] : '';
+    
+
+    echo $msg;
+
+    if ($status === 'pendiente') {
+        echo '<div class="notice notice-info"><b>Documentos enviados. Espera validación del coach/admin.</b></div>';
+    }
+
+    // Si ya están validados, mostrar mensaje final
+    if ($status === 'validado') {
+        echo '<div class="notice notice-success"><b>¡Tus documentos han sido validados! Tu voluntariado está confirmado.</b></div>';
+    } else {
+        ?>
+        <form method="post" enctype="multipart/form-data" style="margin-top:26px;background:#f9f9ff;padding:18px 32px;border-radius:14px;max-width:520px;">
+            <?php wp_nonce_field('gw_docs_subida', 'gw_docs_nonce'); ?>
+            <div style="margin-bottom:18px;">
+                <label><b>Subir documento 1 (DUI/ID):</b></label><br>
+                <?php if ($doc1): ?>
+                    <img src="<?php echo esc_url($doc1); ?>" alt="Documento 1" style="max-width:120px;max-height:120px;display:block;margin:8px 0;">
+                <?php endif; ?>
+                <input type="file" name="documento_1" accept="image/*" <?php if($doc1) echo ''; ?>><br>
+            </div>
+            <div style="margin-bottom:18px;">
+                <label><b>Subir documento 2 (DUI/ID):</b></label><br>
+                <?php if ($doc2): ?>
+                    <img src="<?php echo esc_url($doc2); ?>" alt="Documento 2" style="max-width:120px;max-height:120px;display:block;margin:8px 0;">
+                <?php endif; ?>
+                <input type="file" name="documento_2" accept="image/*" <?php if($doc2) echo ''; ?>><br>
+            </div>
+            <div style="margin-bottom:18px;">
+                <input type="checkbox" name="consentimiento1" value="1" <?php checked($cons1,1); ?>> Acepto el consentimiento #1<br>
+                <input type="checkbox" name="consentimiento2" value="1" <?php checked($cons2,1); ?>> Acepto el consentimiento #2
+            </div>
+            <button type="submit" class="button button-primary" <?php if ($status === 'pendiente') echo 'disabled'; ?>>Enviar</button>
+        </form>
+        <?php
+    }
+}
     return ob_get_clean();
 }
-// Redirigir por rol automáticamente al iniciar sesión
-add_action('wp_login', 'gw_redireccion_por_rol', 10, 2);
-function gw_redireccion_por_rol($user_login, $user) {
-    $roles = $user->roles;
-    $rol = isset($roles[0]) ? $roles[0] : '';
-
-    if ($rol === 'voluntario') {
-        wp_redirect(site_url('/index.php/portal-voluntario/'));
-        exit;
-    } elseif (in_array($rol, ['administrator', 'coordinador_pais', 'coach'])) {
-        wp_redirect(site_url('/panel-administrativo/'));
-        exit;
-    }
-}
-
-// Bloquear acceso al admin a los voluntarios
-add_action('admin_init', function () {
-    if (current_user_can('voluntario') && !current_user_can('manage_options')) {
-        wp_redirect(site_url('/index.php/portal-voluntario/'));
-        exit;
-    }
-});
