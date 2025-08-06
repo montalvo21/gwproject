@@ -121,11 +121,33 @@ function gw_login_home_shortcode() {
     </div>
     <div class="gw-login-container">
         <h2>Iniciar sesión</h2>
+        <?php
+        // --- Mensaje visual de país detectado por QR/link (LOGIN) ---
+        if (isset($_GET['gw_pais'])) {
+            $pais_id = intval($_GET['gw_pais']);
+            $pais_post = get_post($pais_id);
+            if ($pais_post && $pais_post->post_type === 'pais') {
+                echo '<div style="background:#e3f6ff;color:#125ea6;font-weight:bold;padding:12px 22px;margin-bottom:20px;border-radius:9px;border-left:7px solid #199cff;">
+                    Bienvenido/a, estás registrándote para el país: <span style="color:#196ed6;font-weight:bold;">'.esc_html($pais_post->post_title).'</span>
+                </div>';
+            }
+        }
+        ?>
         <div class="gw-login-google">
             <?php echo do_shortcode('[nextend_social_login provider="google" style="icon"]'); ?>
         </div>
         <div class="gw-login-or">— o ingresa con tu correo —</div>
         <?php
+        // --- Mensaje visual de país detectado por QR/link (LOGIN) ---
+        if (isset($_GET['gw_pais'])) {
+            $pais_id = intval($_GET['gw_pais']);
+            $pais_post = get_post($pais_id);
+            if ($pais_post && $pais_post->post_type === 'pais') {
+                echo '<div style="background:#e3f6ff;color:#125ea6;font-weight:bold;padding:12px 22px;margin-bottom:20px;border-radius:9px;border-left:7px solid #199cff;">
+                    Bienvenido/a, estás iniciando sesión para el país: <span style="color:#196ed6;font-weight:bold;">'.esc_html($pais_post->post_title).'</span>
+                </div>';
+            }
+        }
         wp_login_form([
             'echo' => true,
             'redirect' => '', // la redirección la manejamos arriba
@@ -143,6 +165,18 @@ function gw_login_home_shortcode() {
         <hr>
     <div class="gw-voluntario-registro">
     <h4>¿Eres voluntario nuevo?</h4>
+    <?php
+    // --- Mensaje visual de país detectado por QR/link (REGISTRO) ---
+    if (isset($_GET['gw_pais'])) {
+        $pais_id = intval($_GET['gw_pais']);
+        $pais_post = get_post($pais_id);
+        if ($pais_post && $pais_post->post_type === 'pais') {
+            echo '<div style="background:#e3f6ff;color:#125ea6;font-weight:bold;padding:12px 22px;margin-bottom:20px;border-radius:9px;border-left:7px solid #199cff;">
+                Bienvenido/a, estás registrándote para el país: <span style="color:#196ed6;font-weight:bold;">'.esc_html($pais_post->post_title).'</span>
+            </div>';
+        }
+    }
+    ?>
     <form method="post">
         <input type="text" name="gw_reg_nombre" placeholder="Nombre completo" required>
         <input type="email" name="gw_reg_email" placeholder="Correo electrónico" required>
@@ -959,13 +993,26 @@ document.querySelectorAll('.gw-form-charlas-pais').forEach(form => {
     </div>
   </div>
 </div>
+<?php
+// --- DEJAR SOLO UNA DE ESTAS DOS LÍNEAS ACTIVA, SEGÚN EL ENTORNO ---
+
+// [DESARROLLO CON NGROK]
+// Cuando uses ngrok para pruebas en otros dispositivos, deja esta línea activa:
+$gw_qr_base = 'https://b97e34cfbb1f.ngrok-free.app/gwproject';
+
+// [PRODUCCIÓN O LOCALHOST]
+// Cuando subas a producción o regreses a localhost, comenta la línea de arriba y descomenta esta:
+// $gw_qr_base = site_url('/');
+?>
 <script>
 document.querySelectorAll('.gw-generar-qr-btn').forEach(btn => {
   btn.addEventListener('click', function(){
     var paisId = this.getAttribute('data-pais-id');
     var paisNombre = this.getAttribute('data-pais-nombre');
-    var url = '<?php echo site_url('/'); ?>?gw_pais=' + paisId;
-    var qrUrl = 'https://chart.googleapis.com/chart?chs=210x210&cht=qr&chl=' + encodeURIComponent(url);
+    var url = '<?php echo $gw_qr_base; ?>?gw_pais=' + paisId;
+    // Línea importante: CAMBIA el valor de $gw_qr_base según el entorno.
+    // Cuando subas a producción, usa site_url('/'); y elimina la línea de ngrok.
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=' + encodeURIComponent(url);
     document.getElementById('gw-qr-modal-title').innerText = "Link/QR para " + paisNombre;
     document.getElementById('gw-qr-modal-qr').innerHTML = '<img src="'+qrUrl+'" alt="QR" style="max-width:210px;">';
     document.getElementById('gw-qr-modal-link').value = url;
