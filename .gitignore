@@ -7,3 +7,8 @@ wp-config.php
 node_modules/
 vendor/
 .DS_Store
+
+# Ignorar archivos sensibles
+wp-content/plugins/credentials.json
+wp-content/plugins/gw-manager/credentials.json
+wp-content/plugins/gw-voluntario-onboarding.php
