@@ -87,6 +87,34 @@ html, body {
     position: relative;
 }
 
+/* HEADER DEL SIDEBAR */
+.gw-sidebar-header {
+    margin-bottom: 60px;
+}
+
+.gw-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.gw-brand-icon {
+    width: 36px;
+    height: 36px;
+    background: #6366f1;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gw-brand-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.025em;
+}
+
 /* CONTENEDOR DE PASOS */
 .gw-steps-container {
     flex: 1;
@@ -227,6 +255,17 @@ html, body {
     color: #64748b;
 }
 
+.gw-help-icon {
+    width: 32px;
+    height: 32px;
+    background: #f8fafc;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+}
+
 /* CONTENIDO PRINCIPAL */
 .gw-main-content {
     flex: 1;
@@ -254,18 +293,18 @@ html, body {
     color: #1e293b;
     letter-spacing: -0.025em;
     line-height: 1.1;
-    text-align: center;
+    justify-self: center;
 }
 
 .gw-form-header p {
     margin: 0;
+    justify-self: center;
     font-size: 18px;
     color: #64748b;
     line-height: 1.5;
-    text-align: center;
 }
 
-/* MENSAJES */
+/* MENSAJE DE ERROR */
 .gw-error-message {
     display: flex;
     align-items: center;
@@ -280,6 +319,7 @@ html, body {
     margin-bottom: 32px;
 }
 
+/* MENSAJE DE ÉXITO */
 .gw-success-message {
     display: flex;
     align-items: center;
@@ -294,7 +334,12 @@ html, body {
     margin-bottom: 32px;
 }
 
-/* BOTONES */
+/* FORMULARIO */
+.gw-form {
+    width: 100%;
+}
+
+/* BOTÓN PRINCIPAL */
 .gw-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -321,6 +366,11 @@ html, body {
     box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
 }
 
+.gw-btn-primary:active {
+    transform: translateY(0);
+}
+
+/* BOTÓN SECUNDARIO */
 .gw-btn-secondary {
     display: inline-flex;
     align-items: center;
@@ -348,6 +398,67 @@ html, body {
     box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3);
 }
 
+/* BOTÓN PELIGRO */
+.gw-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 32px;
+    background: #e53935;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    text-decoration: none;
+    line-height: 1.5;
+}
+
+.gw-btn-danger:hover {
+    background: #b71c1c;
+    transform: translateY(-1px);
+}
+
+/* BOTÓN DESHABILITADO */
+.gw-btn-disabled {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 32px;
+    background: #f5f5f5;
+    color: #9e9e9e;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: not-allowed;
+    font-family: inherit;
+    line-height: 1.5;
+    position: relative;
+}
+
+.gw-btn-disabled:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 115%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+}
+
+/* BOTÓN ADMIN */
 .gw-btn-admin {
     display: inline-flex;
     align-items: center;
@@ -373,47 +484,144 @@ html, body {
 
 /* ACCIONES DEL FORMULARIO */
 .gw-form-actions {
-    justify-self: center;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     padding-top: 32px;
     border-top: 1px solid #e2e8f0;
-    gap: 16px;
 }
 
 /* ========================================
-   ESTILOS ESPECÍFICOS PARA STEP 5 - CHARLAS
+   ESTILOS ESPECÍFICOS PARA STEP 7 - CAPACITACIONES
    ======================================== */
 
-/* Confirmación de sesión */
-.gw-session-confirmation {
-    display: flex;
-    justify-content: center;
+/* Grid de capacitaciones */
+.gw-trainings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
     margin-bottom: 32px;
 }
 
-.gw-session-confirmation .gw-session-card {
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border: 2px solid #0ea5e9;
-    border-radius: 19px;
-    padding: 53px 17px;
-    text-align: left;
-    max-width: 587px;
-    width: 100%;
+/* Tarjeta de capacitación */
+.gw-training-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+.gw-training-card:hover {
+    background: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+    border-color: #1976d2;
+}
+
+/* Header de la capacitación */
+.gw-training-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.gw-training-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(25, 118, 210, 0.2);
+}
+
+.gw-training-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.gw-training-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+/* Descripción de la capacitación */
+.gw-training-description {
+    margin-bottom: 16px;
+}
+
+.gw-training-description p {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+/* Acciones de capacitación */
+.gw-training-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+}
+
+.gw-training-actions form {
+    margin: 0;
+}
+
+.gw-training-actions button {
+    min-width: 100px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Grid de sesiones */
+.gw-sessions-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+/* Tarjeta de sesión */
+.gw-session-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.gw-session-card:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+/* Header de la sesión */
 .gw-session-header {
     display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 24px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    justify-content: center;
 }
 
 .gw-session-icon {
-    width: 48px;
-    height: 48px;
-    background: #0ea5e9;
-    border-radius: 12px;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -423,47 +631,38 @@ html, body {
 
 .gw-session-header h3 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: #0c4a6e;
-    line-height: 1.3;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
 }
 
+/* Detalles de la sesión */
 .gw-session-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px 24px;
-    background: rgba(255, 255, 255, 0.6);
-    padding: 20px;
-    border-radius: 12px;
+    margin-bottom: 16px;
 }
 
 .gw-session-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #64748b;
+    justify-self: center;
+}
+
+.gw-session-detail:last-child {
+    margin-bottom: 0;
 }
 
 .gw-session-detail strong {
-    color: #0c4a6e;
+    color: #374151;
     font-weight: 600;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
-.gw-session-detail span:not(strong) {
-    color: #0369a1;
-    font-size: 16px;
-    font-weight: 500;
-}
-
-/* Modalidad especial */
+/* Modalidad */
 .gw-modalidad {
     display: inline-block;
-    padding: 6px 12px;
+    padding: 4px 12px;
     border-radius: 20px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -479,130 +678,27 @@ html, body {
     color: #7c3aed;
 }
 
-/* Registro exitoso */
-.gw-success-registration {
-    text-align: center;
-    padding: 40px 20px;
-}
-
-.gw-success-icon {
-    width: 80px;
-    height: 80px;
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    margin: 0 auto 24px auto;
-    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
-}
-
-.gw-success-title {
-    margin: 0 0 16px 0;
-    font-size: 28px;
-    font-weight: 700;
-    color: #15803d;
-}
-
-.gw-success-description {
-    margin: 0 0 32px 0;
-    font-size: 16px;
-    color: #166534;
-    line-height: 1.6;
-}
-
-/* Spinner de carga */
-.gw-loading-spinner {
-    display: inline-block;
-    width: 32px;
-    height: 32px;
-    border: 3px solid #e2e8f0;
-    border-radius: 50%;
-    border-top-color: #22c55e;
-    animation: spin 1s ease-in-out infinite;
-    margin: 20px auto;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Información de la charla */
-.gw-charla-info {
-    background: #f8fafc;
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 32px;
-    border: 1px solid #e2e8f0;
-}
-
-.gw-charla-title {
-    font-size: 24px;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 8px;
-}
-
-.gw-charla-modalidad {
-    font-size: 16px;
-    color: #64748b;
-    font-weight: 500;
-}
-
-.gw-charla-details {
-    margin-top: 16px;
-}
-
-.gw-detail-item {
-    margin-bottom: 8px;
-    font-size: 16px;
-    color: #374151;
-}
-
-.gw-detail-item strong {
-    color: #1e293b;
-}
-
-/* Sesiones de charlas */
-.gw-charla-sessions {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 32px;
-}
-
-.gw-session-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-}
-
-.gw-session-card:hover {
-    background: #f1f5f9;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.gw-session-info {
-    flex: 1;
-}
-
-.gw-session-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 4px;
-}
-
+/* Detalles de la sesión para confirmación */
 .gw-session-details {
-    font-size: 14px;
-    color: #64748b;
+    margin-bottom: 32px;
+}
+
+.gw-session-details .gw-session-card {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 2px solid #0ea5e9;
+    text-align: center;
+}
+
+.gw-session-details .gw-session-icon {
+    width: 48px;
+    height: 48px;
+}
+
+.gw-session-info h3 {
+    margin: 0 0 16px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #0c4a6e;
 }
 
 /* Acciones de confirmación */
@@ -611,38 +707,232 @@ html, body {
     justify-content: center;
     gap: 16px;
     flex-wrap: wrap;
-    margin-top: 24px;
 }
 
-/* Nota de la charla */
-.gw-charla-note {
+/* Estado sin capacitaciones */
+.gw-no-trainings {
     text-align: center;
-    margin-top: 24px;
-    padding: 16px;
-    background: #f0f9ff;
-    border-radius: 12px;
-    border: 1px solid #bae6fd;
+    padding: 48px 24px 32px 24px;
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 40px;
 }
 
-.gw-charla-note p {
-    margin: 0;
+.gw-no-trainings-icon {
+    width: 64px;
+    height: 64px;
+    background: #f1f5f9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px auto;
+    color: #94a3b8;
+}
+
+.gw-no-trainings h3 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.gw-no-trainings p {
+    margin: 0 0 32px 0;
+    font-size: 16px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+/* Estado sin sesiones */
+.gw-no-sessions {
+    text-align: center;
+    padding: 48px 24px 32px 24px;
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 40px;
+}
+
+.gw-no-sessions-icon {
+    width: 64px;
+    height: 64px;
+    background: #f1f5f9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px auto;
+    color: #94a3b8;
+}
+
+.gw-no-sessions h3 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.gw-no-sessions p {
+    margin: 0 0 32px 0;
+    font-size: 16px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+/* Tarjeta de recordatorio */
+.gw-reminder-card {
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    border: 2px solid #fb923c;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.gw-reminder-icon {
+    width: 48px;
+    height: 48px;
+    background: #fb923c;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.gw-reminder-content {
+    flex: 1;
+}
+
+.gw-reminder-content h3 {
+    margin: 0 0 16px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #c2410c;
+}
+
+.gw-reminder-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gw-reminder-detail {
     font-size: 14px;
-    color: #0369a1;
+    color: #9a3412;
+}
+
+.gw-reminder-detail strong {
+    color: #7c2d12;
+    font-weight: 600;
+}
+
+/* Mensaje de finalización */
+.gw-completion-message {
+    text-align: center;
+    padding: 48px 24px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 2px solid #22c55e;
+    border-radius: 16px;
+    margin-bottom: 32px;
+}
+
+.gw-completion-icon {
+    width: 64px;
+    height: 64px;
+    background: #22c55e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px auto;
+    color: white;
+}
+
+.gw-completion-message h3 {
+    margin: 0 0 12px 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: #15803d;
+}
+
+.gw-completion-message p {
+    margin: 0;
+    font-size: 16px;
+    color: #166534;
+    line-height: 1.5;
+}
+
+/* Acciones de finalización */
+.gw-completion-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+/* Sección de asistencia */
+.gw-attendance-section {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+}
+
+/* Mensaje de espera */
+.gw-waiting-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 32px;
+}
+
+/* Acciones de capacitación */
+.gw-training-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
 }
 
 /* Controles de admin */
 .gw-admin-controls {
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px solid #e2e8f0;
-    text-align: center;
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    opacity: 0.8;
 }
 
-.gw-admin-controls small {
-    display: block;
-    margin-top: 8px;
-    font-size: 12px;
-    color: #64748b;
+/* Enlaces */
+.gw-link {
+    color: #1976d2;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.gw-link:hover {
+    color: #1565c0;
+    text-decoration: underline;
+}
+
+/* Texto muted */
+.gw-text-muted {
+    color: #9e9e9e;
+    font-style: italic;
 }
 
 /* RESPONSIVO */
@@ -707,30 +997,38 @@ html, body {
         font-size: 28px;
     }
     
-    .gw-session-card {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-    }
-    
-    .gw-session-card .gw-btn-secondary {
-        align-self: flex-end;
-        width: 100%;
-    }
-    
     .gw-confirmation-actions {
         flex-direction: column;
         align-items: center;
     }
     
-    .gw-form-actions {
+    .gw-completion-actions {
         flex-direction: column;
-        gap: 12px;
+        align-items: center;
     }
     
-    .gw-session-details {
-        grid-template-columns: 1fr;
-        gap: 12px;
+    .gw-training-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .gw-attendance-section {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .gw-training-card {
+        padding: 20px;
+    }
+    
+    .gw-session-card {
+        padding: 16px;
+    }
+    
+    .gw-reminder-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
     }
 }
 
@@ -766,34 +1064,66 @@ html, body {
     }
     
     .gw-btn-primary,
-    .gw-btn-secondary {
+    .gw-btn-secondary,
+    .gw-btn-danger {
         width: 100%;
+        padding: 16px 24px;
+        font-size: 16px;
     }
     
-    .gw-charla-title {
-        font-size: 20px;
+    .gw-training-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
     }
     
-    .gw-success-registration {
-        padding: 32px 16px;
-    }
-    
-    .gw-success-title {
-        font-size: 24px;
-    }
-    
-    .gw-session-confirmation .gw-session-card {
-        padding: 20px 16px;
+    .gw-training-header h3 {
+        font-size: 18px;
     }
     
     .gw-session-header {
         flex-direction: column;
-        gap: 12px;
         text-align: center;
+        gap: 8px;
     }
     
-    .gw-session-details {
-        grid-template-columns: 1fr;
-        gap: 12px;
+    .gw-training-card {
+        padding: 20px 16px;
+    }
+    
+    .gw-session-card {
+        padding: 16px 14px;
+    }
+    
+    .gw-no-trainings,
+    .gw-no-sessions {
+        padding: 32px 16px;
+    }
+    
+    .gw-completion-message {
+        padding: 32px 16px;
+    }
+    
+    .gw-reminder-card {
+        padding: 20px;
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+    
+    .gw-admin-controls {
+        position: static;
+        text-align: center;
+        margin-top: 20px;
+        opacity: 1;
+    }
+    
+    .gw-training-actions {
+        justify-content: center;
+    }
+    
+    .gw-training-actions button {
+        min-width: auto;
+        width: 100%;
     }
 }
