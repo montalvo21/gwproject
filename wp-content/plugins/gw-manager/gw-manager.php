@@ -9,10 +9,85 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 if (!defined('ABSPATH')) exit;
 
+// === ROLES DEL PROYECTO: registro y saneo ==============================
+// Se registran siempre en init para que estén disponibles en front/back.
+if (!function_exists('gw_manager_register_roles')) {
+    function gw_manager_register_roles() {
+        // Voluntario
+        if (!get_role('voluntario')) {
+            add_role('voluntario', 'Voluntario', [
+                'read'        => true,
+                // capability homónima para `current_user_can('voluntario')` si hiciera falta
+                'voluntario'  => true,
+            ]);
+        }
+        // Coach
+        if (!get_role('coach')) {
+            add_role('coach', 'Coach', [
+                'read'   => true,
+                'coach'  => true,
+            ]);
+        }
+        // Coordinador de país
+        if (!get_role('coordinador_pais')) {
+            add_role('coordinador_pais', 'Coordinador de país', [
+                'read'              => true,
+                // Se usa en checks como current_user_can('coordinador_pais')
+                'coordinador_pais'  => true,
+            ]);
+        }
+    }
+}
+add_action('init', 'gw_manager_register_roles', 1);
+
+// Asegurar que el rol Administrador también cuente con las caps personalizadas
+add_action('init', function(){
+    $admin = get_role('administrator');
+    if ($admin) {
+        if (!$admin->has_cap('coordinador_pais')) { $admin->add_cap('coordinador_pais'); }
+        if (!$admin->has_cap('coach')) { $admin->add_cap('coach'); }
+    }
+}, 2);
+
+// Migración ligera: usuarios sin rol asignado => Voluntario (una sola vez)
+add_action('admin_init', function(){
+    if (!current_user_can('manage_options')) return;
+    if (get_option('gw_roles_migration_v1_done')) return;
+    // Asegurar roles creados antes de migrar
+    if (function_exists('gw_manager_register_roles')) gw_manager_register_roles();
+    $users = get_users(['fields' => ['ID']]);
+    foreach ($users as $uobj) {
+        $u = get_user_by('id', $uobj->ID);
+        if ($u && empty($u->roles)) {
+            $u->set_role('voluntario');
+        }
+    }
+    update_option('gw_roles_migration_v1_done', 1, false);
+});
+// === FIN ROLES DEL PROYECTO ============================================
+
+// === UTILIDADES DE USUARIO (estado activo) ===
+if (!function_exists('gw_user_is_active')) {
+    function gw_user_is_active($uid = 0){
+        if (!$uid) {
+            $u = wp_get_current_user();
+            if (!$u || !$u->ID) return false;
+            $uid = $u->ID;
+        }
+        $activo = get_user_meta($uid, 'gw_active', true);
+        if ($activo === '') $activo = '1'; // por defecto activo
+        return ($activo === '1');
+    }
+}
+
 // Activación del plugin
 register_activation_hook(__FILE__, 'gw_manager_activate');
 function gw_manager_activate() {
     // Aquí puedes crear tablas si deseas
+    // Asegura que los roles del proyecto existan desde la activación
+    if (function_exists('gw_manager_register_roles')) {
+        gw_manager_register_roles();
+    }
 }
 
 // CPT Países
@@ -402,6 +477,11 @@ function gw_redireccionar_por_rol($redirect_to, $request, $user) {
         return site_url('/panel-administrativo');
     }
     if (in_array('voluntario', $user->roles)) {
+        $active = get_user_meta($user->ID, 'gw_active', true);
+        if ($active === '') { $active = '1'; }
+        if ($active === '0') {
+            return site_url('/index.php/portal-voluntario?inactivo=1');
+        }
         return site_url('/index.php/portal-voluntario');
     }
     // Por defecto
@@ -414,11 +494,17 @@ add_filter('nsl_login_redirect_url', function($url, $provider, $user) {
             return site_url('/panel-administrativo');
         }
         if (in_array('voluntario', $user->roles)) {
+            $active = get_user_meta($user->ID, 'gw_active', true);
+            if ($active === '') { $active = '1'; }
+            if ($active === '0') {
+                return site_url('/index.php/portal-voluntario?inactivo=1');
+            }
             return site_url('/index.php/portal-voluntario');
         }
     }
     return $url;
 }, 10, 3);
+// Mostrar botón "Mi progreso" en la página de detalles de capacitación para voluntarios
 // Mostrar botón "Mi progreso" en la página de detalles de capacitación para voluntarios
 add_filter('the_content', function($content) {
     if (!is_singular('capacitacion')) return $content;
@@ -438,6 +524,33 @@ add_filter('the_content', function($content) {
     // Puedes colocarlo al inicio, al final o ambos
     return $boton . $content;
 });
+
+// Si la cuenta está inactiva, mostrar aviso y bloquear el flujo en el portal
+add_filter('the_content', function($content){
+    if (!is_user_logged_in()) return $content;
+    $u = wp_get_current_user();
+    $activo = get_user_meta($u->ID, 'gw_active', true);
+    if ($activo === '') $activo = '1';
+    if ($activo === '0') {
+        $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        $matches_portal = (strpos($uri, 'portal-voluntario') !== false);
+        $matches_caps   = (strpos($uri, 'capacitacion') !== false);
+        $matches_charla = (strpos($uri, 'charla') !== false);
+        $matches_proy   = (strpos($uri, 'proyecto') !== false);
+        if ($matches_portal || $matches_caps || $matches_charla || $matches_proy || isset($_GET['inactivo'])) {
+            ob_start(); ?>
+            <div class="gw-alert-inactivo" style="max-width:880px;margin:40px auto;padding:22px 26px;border-radius:12px;background:#fff3cd;border:1px solid #ffeeba;">
+                <h2 style="margin-top:0;color:#8a6d3b;">Tu cuenta está inactiva</h2>
+                <p>Por el momento no puedes avanzar en el flujo. Por favor contacta a un administrador para reactivarla.</p>
+                <div style="margin-top:16px;">
+                    <a class="button" href="<?php echo esc_url( site_url('/') ); ?>">Volver al inicio</a>
+                </div>
+            </div>
+            <?php return ob_get_clean();
+        }
+    }
+    return $content;
+}, 1);
 
 // ========== BOTONES ADMIN/TESTING PARA PASOS 5 Y 6 ==========
 add_action('wp_footer', function() {
@@ -1021,7 +1134,12 @@ add_shortcode('gw_panel_admin', function() {
         padding: 36px 48px 40px 48px;
         background: #fff;
         min-height: 600px;
+        /* Habilita scroll horizontal en TODOS los módulos del panel */
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
+    /* Forzar ancho mínimo por módulo para que exista barra horizontal incluso en pantallas grandes */
+    .gw-admin-tab-content { min-width: 1280px; }
     @media (max-width: 900px) {
         .gw-admin-panel-wrap { flex-direction: column; }
         .gw-admin-menu { width: 100%; min-height: unset; border-right: none; border-bottom: 1px solid #e0e0e0;}
@@ -1163,12 +1281,557 @@ document.getElementById('gw-qr-modal-copy').onclick = function(){
 </script>
             </div>
             <div class="gw-admin-tab-content" id="gw-admin-tab-usuarios" style="display:none;">
-                <h2>Gestión de usuarios</h2>
-                <?php
-                // Mostrar gestión de usuarios (acceso a usuarios de WP)
-                echo '<p>Gestiona los usuarios desde el menú lateral de WordPress (<b>Usuarios</b>).</p>';
-                ?>
-            </div>
+    <h2>Gestión de usuarios</h2>
+    <?php
+      // Nonce para acciones AJAX de usuarios
+      $gw_users_nonce = wp_create_nonce('gw_admin_users');
+
+      // Ensure get_editable_roles() is available when shortcode runs outside wp-admin
+      if (!function_exists('get_editable_roles')) {
+          require_once ABSPATH . 'wp-admin/includes/user.php';
+      }
+      // Obtener solo los roles oficiales del proyecto
+      function gw_admin_roles_labels(){
+          // Asegurar disponibilidad cuando el shortcode corre fuera de wp-admin
+          if (!function_exists('get_editable_roles')) {
+              require_once ABSPATH . 'wp-admin/includes/user.php';
+          }
+          $registered = get_editable_roles();
+
+          // Solo los roles oficiales del proyecto
+          $allowed = [
+              'administrator'    => 'Administrador',
+              'coordinador_pais' => 'Coordinador de país',
+              'coach'            => 'Coach',
+              'voluntario'       => 'Voluntario',
+          ];
+
+          // Armar etiquetas únicamente de los roles permitidos y registrados
+          $labels = [];
+          foreach ($allowed as $slug => $label) {
+              if (isset($registered[$slug])) {
+                  $labels[$slug] = $label;
+              }
+          }
+          return $labels;
+      }
+
+      // Render de una fila HTML de usuario (para refrescar tras guardar)
+      function gw_admin_render_user_row($u){
+          $roles_labels = gw_admin_roles_labels();
+          $role = count($u->roles) ? $u->roles[0] : '';
+          $role_label = isset($roles_labels[$role]) ? $roles_labels[$role] : $role;
+
+          $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
+          $pais_titulo = $pais_id ? get_the_title($pais_id) : '—';
+          $activo = get_user_meta($u->ID, 'gw_active', true);
+          if($activo === '') $activo = '1';
+          $badge = $activo === '1' ? '<span style="background:#e8f5e9;color:#1b5e20;padding:2px 8px;border-radius:12px;font-size:12px;">Activo</span>' :
+                                     '<span style="background:#ffebee;color:#b71c1c;padding:2px 8px;border-radius:12px;font-size:12px;">Inactivo</span>';
+
+          $btn_toggle = $activo === '1' ? 'Desactivar' : 'Activar';
+
+          ob_start();
+          ?>
+          <tr id="gw-user-row-<?php echo $u->ID; ?>" data-role="<?php echo esc_attr($role); ?>" data-active="<?php echo esc_attr($activo); ?>">
+            <td><?php echo esc_html($u->display_name ?: $u->user_login); ?></td>
+            <td><?php echo esc_html($u->user_email); ?></td>
+            <td><?php echo esc_html($role_label ?: '—'); ?></td>
+            <td><?php echo esc_html($pais_titulo); ?></td>
+            <td><?php echo $badge; ?></td>
+            <td>
+              <button type="button" title="Editar usuario" class="button button-small gw-user-edit" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserEdit(<?php echo (int)$u->ID; ?>)">Editar</button>
+              <button type="button" title="Activar/Desactivar" class="button button-small gw-user-toggle" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserToggle(<?php echo (int)$u->ID; ?>)"><?php echo $btn_toggle; ?></button>
+              <button type="button" title="Ver historial" class="button button-small gw-user-history" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserHistory(<?php echo (int)$u->ID; ?>)">Historial</button>
+            </td>
+          </tr>
+          <?php
+          return ob_get_clean();
+      }
+
+      // Obtener usuarios (máx 200 por ahora)
+      $usuarios = get_users(['number' => 200, 'fields' => 'all']);
+      // Países para filtros/modales
+      $paises_all = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+      $roles_labels = gw_admin_roles_labels();
+    ?>
+    <style>
+      .gw-users-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0 16px;}
+      .gw-users-toolbar input[type="text"], .gw-users-toolbar select{padding:6px 8px;min-width:190px;}
+      table.gw-users{width:100%;border-collapse:collapse;background:#fff;}
+      table.gw-users th, table.gw-users td{border-bottom:1px solid #e9eef4;padding:10px 8px;text-align:left;}
+      table.gw-users th{background:#f7f9fc;font-weight:600;}
+      /* ===== Responsive scroll for wide users table ===== */
+      .gw-users-responsive{
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+      }
+      /* Ensure the table can trigger horizontal scroll when viewport is narrow */
+      table.gw-users{
+        min-width: 980px; /* keeps columns readable; shows a horizontal scrollbar on smaller screens */
+      }
+      /* Modal genérico */
+      #gw-user-modal, #gw-user-history-modal{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.35);z-index:99999;}
+      .gw-modal-box{background:#fff;max-width:640px;margin:6% auto;padding:22px 22px;border-radius:12px;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+      .gw-modal-close{position:absolute;right:14px;top:10px;border:none;background:transparent;font-size:22px;cursor:pointer;}
+      .gw-user-form label{display:block;margin:8px 0 4px;font-weight:600;}
+      .gw-user-form input[type="text"], .gw-user-form input[type="email"], .gw-user-form select{width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;}
+      .gw-user-form .actions{margin-top:14px;display:flex;gap:8px;justify-content:flex-end;}
+      .gw-user-form .desc{font-size:12px;color:#78909c;}
+      .gw-log-list{max-height:300px;overflow:auto;border:1px solid #e0e0e0;border-radius:8px;padding:8px;background:#fafafa;}
+      .gw-log-item{border-bottom:1px dashed #e0e0e0;padding:6px 4px;}
+      .gw-log-item small{color:#607d8b;}
+    </style>
+
+    <div class="gw-users-toolbar">
+      <input type="text" id="gw-users-search" placeholder="Buscar por nombre o email…">
+      <select id="gw-users-role-filter">
+        <option value="">Todos los roles</option>
+        <?php foreach($roles_labels as $slug=>$label): ?>
+          <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></option>
+        <?php endforeach; ?>
+      </select>
+      <select id="gw-users-status-filter">
+        <option value="">Todos</option>
+        <option value="1">Activos</option>
+        <option value="0">Inactivos</option>
+      </select>
+    </div>
+
+    <div class="gw-users-responsive">
+      <table class="widefat striped gw-users" id="gw-users-table">
+        <thead>
+          <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>País</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody>
+          <?php
+            foreach($usuarios as $u){
+                echo gw_admin_render_user_row($u);
+            }
+          ?>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Modal edición -->
+    <div id="gw-user-modal">
+      <div class="gw-modal-box">
+        <button class="gw-modal-close" onclick="document.getElementById('gw-user-modal').style.display='none'">&times;</button>
+        <h3>Editar usuario</h3>
+        <form class="gw-user-form" id="gw-user-form">
+          <input type="hidden" name="user_id" id="gw_user_id">
+          <label>Nombre a mostrar</label>
+          <input type="text" name="display_name" id="gw_display_name" required>
+          <label>Email</label>
+          <input type="email" name="user_email" id="gw_user_email" required>
+          <label>Rol</label>
+          <select name="role" id="gw_role" required>
+            <?php foreach($roles_labels as $slug=>$label): ?>
+              <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></option>
+            <?php endforeach; ?>
+          </select>
+          <label>País</label>
+          <select name="pais_id" id="gw_pais_id">
+            <option value="">— Sin país —</option>
+            <?php foreach($paises_all as $p): ?>
+              <option value="<?php echo $p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
+            <?php endforeach; ?>
+          </select>
+          <label>Estado</label>
+          <select name="activo" id="gw_activo">
+            <option value="1">Activo</option>
+            <option value="0">Inactivo</option>
+          </select>
+          <div class="desc" id="gw_last_login_info"></div>
+          <div class="actions">
+            <button type="button" class="button" onclick="document.getElementById('gw-user-modal').style.display='none'">Cancelar</button>
+            <button type="submit" class="button button-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal historial -->
+    <div id="gw-user-history-modal">
+      <div class="gw-modal-box">
+        <button class="gw-modal-close" onclick="document.getElementById('gw-user-history-modal').style.display='none'">&times;</button>
+        <h3>Historial de actividad</h3>
+        <div class="gw-log-list" id="gw-user-log-list"></div>
+      </div>
+    </div>
+
+    <script>
+      (function(){
+        var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+        var nonce = '<?php echo esc_js($gw_users_nonce); ?>';
+        window.gwAjaxUrl = ajaxurl;
+        window.gwUsersNonce = nonce;
+
+        // Filtros de búsqueda, rol y estado (cliente)
+        var search = document.getElementById('gw-users-search');
+        var roleFilter = document.getElementById('gw-users-role-filter');
+        var statusFilter = document.getElementById('gw-users-status-filter');
+        function applyFilters(){
+          var q = (search.value || '').toLowerCase();
+          var rf = roleFilter.value || '';
+          var sf = statusFilter.value || '';
+          document.querySelectorAll('#gw-users-table tbody tr').forEach(function(tr){
+            var name = tr.children[0].innerText.toLowerCase();
+            var email = tr.children[1].innerText.toLowerCase();
+            var roleSlug = tr.getAttribute('data-role') || '';
+            var active = tr.getAttribute('data-active') || '';
+            var match = (name.indexOf(q) !== -1 || email.indexOf(q) !== -1);
+            if(rf && roleSlug !== rf) match = false;
+            if(sf !== '' && active !== sf) match = false;
+            tr.style.display = match ? '' : 'none';
+          });
+        }
+        search.addEventListener('input', applyFilters);
+        roleFilter.addEventListener('change', applyFilters);
+        statusFilter.addEventListener('change', applyFilters);
+
+        // Delegación de eventos global para asegurar funcionamiento aunque se reemplacen filas
+        document.addEventListener('click', function(e){
+          var editBtn = e.target.closest('.gw-user-edit');
+          var toggleBtn = e.target.closest('.gw-user-toggle');
+          var historyBtn = e.target.closest('.gw-user-history');
+          if (!editBtn && !toggleBtn && !historyBtn) return;
+          e.preventDefault();
+
+          if (editBtn) {
+            var uid = editBtn.getAttribute('data-user-id');
+            var data = new FormData();
+            data.append('action','gw_admin_get_user');
+            data.append('nonce', nonce);
+            data.append('user_id', uid);
+            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data}).then(r=>r.json()).then(function(res){
+              if(!res.success) return;
+              var u = res.data.user;
+              document.getElementById('gw_user_id').value = u.ID;
+              document.getElementById('gw_display_name').value = u.display_name || '';
+              document.getElementById('gw_user_email').value = u.user_email || '';
+              document.getElementById('gw_role').value = u.role || '';
+              document.getElementById('gw_pais_id').value = u.pais_id || '';
+              document.getElementById('gw_activo').value = u.activo ? '1' : '0';
+              document.getElementById('gw_last_login_info').innerText = u.last_login ? ('Último acceso: ' + u.last_login) : '';
+              document.getElementById('gw-user-modal').style.display = '';
+            });
+            return;
+          }
+
+          if (toggleBtn) {
+            var uid = toggleBtn.getAttribute('data-user-id');
+            var data = new FormData();
+            data.append('action','gw_admin_toggle_active');
+            data.append('nonce', nonce);
+            data.append('user_id', uid);
+            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
+              .then(r=>r.json()).then(function(res){
+                if(res.success && res.data && res.data.row_html){
+                  var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
+                  var newRow = tmp.firstElementChild;
+                  var oldRow = document.getElementById('gw-user-row-'+uid);
+                  if(oldRow) oldRow.replaceWith(newRow);
+                }
+              });
+            return;
+          }
+
+          if (historyBtn) {
+            var uid = historyBtn.getAttribute('data-user-id');
+            var data = new FormData();
+            data.append('action','gw_admin_get_user');
+            data.append('nonce', nonce);
+            data.append('user_id', uid);
+            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data}).then(r=>r.json()).then(function(res){
+              if(!res.success) return;
+              var logs = res.data.logs || [];
+              var box = document.getElementById('gw-user-log-list');
+              box.innerHTML = '';
+              if(!logs.length){ box.innerHTML = '<div class="gw-log-item"><em>Sin registros</em></div>'; }
+              logs.reverse().forEach(function(it){
+                var el = document.createElement('div');
+                el.className = 'gw-log-item';
+                el.innerHTML = '<small>'+ (it.time || '') +'</small><br>'+ (it.msg || '');
+                box.appendChild(el);
+              });
+              document.getElementById('gw-user-history-modal').style.display = '';
+            });
+          }
+        });
+
+        // Guardar en modal
+        document.getElementById('gw-user-form').addEventListener('submit', function(e){
+          e.preventDefault();
+          var data = new FormData(this);
+          data.append('action','gw_admin_save_user');
+          data.append('nonce', nonce);
+          fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
+            .then(r=>r.json()).then(function(res){
+              if(res.success){
+                // Refrescar fila
+                if(res.data && res.data.row_html){
+                  var uid = document.getElementById('gw_user_id').value;
+                  var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
+                  var newRow = tmp.firstElementChild;
+                  var oldRow = document.getElementById('gw-user-row-'+uid);
+                  if(oldRow) oldRow.replaceWith(newRow);
+                }
+                document.getElementById('gw-user-modal').style.display='none';
+              } else {
+                alert(res.data && res.data.msg ? res.data.msg : 'No se pudo guardar');
+              }
+            });
+        });
+      })();
+</script>
+<script>
+// Global click handlers for inline onclick attributes
+window.gwUserEdit = function(uid){
+  try{
+    var data = new FormData();
+    data.append('action','gw_admin_get_user');
+    data.append('nonce', window.gwUsersNonce);
+    data.append('user_id', uid);
+    fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
+      .then(r=>r.json()).then(function(res){
+        if(!res || !res.success) return;
+        var u = res.data.user || {};
+        document.getElementById('gw_user_id').value = u.ID || '';
+        document.getElementById('gw_display_name').value = u.display_name || '';
+        document.getElementById('gw_user_email').value = u.user_email || '';
+        document.getElementById('gw_role').value = u.role || '';
+        document.getElementById('gw_pais_id').value = u.pais_id || '';
+        document.getElementById('gw_activo').value = u.activo ? '1' : '0';
+        document.getElementById('gw_last_login_info').innerText = u.last_login ? ('Último acceso: ' + u.last_login) : '';
+        document.getElementById('gw-user-modal').style.display = '';
+      });
+  }catch(e){ console.error(e); }
+};
+
+window.gwUserToggle = function(uid){
+  try{
+    var data = new FormData();
+    data.append('action','gw_admin_toggle_active');
+    data.append('nonce', window.gwUsersNonce);
+    data.append('user_id', uid);
+    fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
+      .then(r=>r.json()).then(function(res){
+        if(res && res.success && res.data && res.data.row_html){
+          var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
+          var newRow = tmp.firstElementChild;
+          var oldRow = document.getElementById('gw-user-row-'+uid);
+          if(oldRow && newRow) oldRow.replaceWith(newRow);
+        }
+      });
+  }catch(e){ console.error(e); }
+};
+
+window.gwUserHistory = function(uid){
+  try{
+    var data = new FormData();
+    data.append('action','gw_admin_get_user');
+    data.append('nonce', window.gwUsersNonce);
+    data.append('user_id', uid);
+    fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
+      .then(r=>r.json()).then(function(res){
+        if(!res || !res.success) return;
+        var logs = res.data.logs || [];
+        var box = document.getElementById('gw-user-log-list');
+        box.innerHTML = '';
+        if(!logs.length){ box.innerHTML = '<div class="gw-log-item"><em>Sin registros</em></div>'; }
+        logs.slice().reverse().forEach(function(it){
+          var el = document.createElement('div');
+          el.className = 'gw-log-item';
+          el.innerHTML = '<small>'+ (it.time || '') +'</small><br>'+ (it.msg || '');
+          box.appendChild(el);
+        });
+        document.getElementById('gw-user-history-modal').style.display = '';
+      });
+  }catch(e){ console.error(e); }
+};
+</script>
+  </div>
+
+<?php
+// ====== MÓDULO GESTIÓN DE USUARIOS: helpers y AJAX ======
+if (!function_exists('gw_admin_add_user_log')) {
+  function gw_admin_add_user_log($user_id, $msg){
+    $log = get_user_meta($user_id, 'gw_activity_log', true);
+    if(!is_array($log)) $log = [];
+    $log[] = ['time'=> current_time('mysql'), 'admin'=> get_current_user_id(), 'msg'=> $msg];
+    update_user_meta($user_id, 'gw_activity_log', $log);
+  }
+}
+
+// Registrar último acceso
+add_action('wp_login', function($user_login, $user){
+  if (is_a($user, 'WP_User')) {
+    update_user_meta($user->ID, 'gw_last_login', current_time('mysql'));
+  }
+}, 10, 2);
+
+// Obtener detalle de usuario + historial
+add_action('wp_ajax_gw_admin_get_user', function(){
+  if (!current_user_can('manage_options')) wp_send_json_error(['msg'=>'No autorizado']);
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'gw_admin_users')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $uid = intval($_POST['user_id'] ?? 0);
+  $u = get_user_by('id', $uid);
+  if(!$u) wp_send_json_error(['msg'=>'Usuario no encontrado']);
+
+  $role = count($u->roles) ? $u->roles[0] : '';
+  $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
+  $activo = get_user_meta($u->ID, 'gw_active', true);
+  if($activo === '') $activo = '1';
+  $last_login = get_user_meta($u->ID, 'gw_last_login', true);
+  $logs = get_user_meta($u->ID, 'gw_activity_log', true);
+  if(!is_array($logs)) $logs = [];
+
+  wp_send_json_success([
+    'user' => [
+      'ID' => $u->ID,
+      'display_name' => $u->display_name,
+      'user_email' => $u->user_email,
+      'role' => $role,
+      'pais_id' => $pais_id,
+      'activo' => $activo === '1',
+      'last_login' => $last_login
+    ],
+    'logs' => $logs
+  ]);
+});
+
+// Guardar cambios de usuario
+add_action('wp_ajax_gw_admin_save_user', function(){
+  if (!current_user_can('manage_options')) wp_send_json_error(['msg'=>'No autorizado']);
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'gw_admin_users')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $uid = intval($_POST['user_id'] ?? 0);
+  $u = get_user_by('id', $uid);
+  if(!$u) wp_send_json_error(['msg'=>'Usuario no encontrado']);
+
+  $display_name = sanitize_text_field($_POST['display_name'] ?? '');
+  $email = sanitize_email($_POST['user_email'] ?? '');
+  $role = sanitize_text_field($_POST['role'] ?? '');
+  // Validar que el rol solicitado sea uno de los oficiales del proyecto
+  $allowed_roles = ['administrator','coordinador_pais','coach','voluntario'];
+  if ($role && !in_array($role, $allowed_roles, true)) {
+      wp_send_json_error(['msg' => 'Rol no permitido']);
+  }
+  $pais_id = intval($_POST['pais_id'] ?? 0);
+  $activo = isset($_POST['activo']) ? sanitize_text_field($_POST['activo']) : '1';
+
+  // Actualizar nombre/email
+  $args = ['ID' => $uid];
+  $changes = [];
+
+  if($display_name !== '' && $display_name !== $u->display_name){
+    $args['display_name'] = $display_name;
+    $changes[] = 'Nombre actualizado';
+  }
+  if($email && $email !== $u->user_email){
+    if(email_exists($email) && email_exists($email) !== $uid){
+      wp_send_json_error(['msg'=>'El email ya está en uso por otro usuario']);
+    }
+    $args['user_email'] = $email;
+    $changes[] = 'Email actualizado';
+  }
+  if(count($args) > 1){
+    wp_update_user($args);
+  }
+
+  // Cambiar rol (evitar que un admin se quite su propio rol)
+  if($role && (!in_array($role, (array)$u->roles) || count($u->roles) !== 1)){
+    if(get_current_user_id() === $uid && $role !== 'administrator'){
+      // Seguridad básica: no permitir que un admin se remueva a sí mismo
+    } else {
+      // Establecer rol único principal
+      $u->set_role($role);
+      $changes[] = 'Rol cambiado a ' . $role;
+    }
+  }
+
+  // Reasignar país
+  $old_pais = get_user_meta($uid, 'gw_pais_id', true);
+  if((int)$old_pais !== (int)$pais_id){
+    if($pais_id){
+      update_user_meta($uid, 'gw_pais_id', $pais_id);
+      $changes[] = 'País reasignado a "' . get_the_title($pais_id) . '"';
+    } else {
+      delete_user_meta($uid, 'gw_pais_id');
+      $changes[] = 'País eliminado';
+    }
+  }
+
+  // Activar / desactivar
+  $prev_activo = get_user_meta($uid, 'gw_active', true);
+  if($prev_activo === '') $prev_activo = '1';
+  if($prev_activo !== $activo){
+    update_user_meta($uid, 'gw_active', $activo === '1' ? '1' : '0');
+    $changes[] = ($activo === '1') ? 'Usuario activado' : 'Usuario desactivado';
+  }
+
+  // Registrar en log
+  if(!empty($changes)){
+    gw_admin_add_user_log($uid, implode(' | ', $changes));
+  }
+
+  // Devolver nueva fila HTML para refrescar
+  $u_refreshed = get_user_by('id', $uid);
+  if(!function_exists('gw_admin_render_user_row')){ // fallback por si el alcance difiere
+    function gw_admin_render_user_row($u){
+      $roles_labels = ['administrator'=>'Administrador','coach'=>'Coach','coordinador_pais'=>'Coordinador de país','voluntario'=>'Voluntario'];
+      $role = count($u->roles) ? $u->roles[0] : '';
+      $role_label = isset($roles_labels[$role]) ? $roles_labels[$role] : $role;
+      $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
+      $pais_titulo = $pais_id ? get_the_title($pais_id) : '—';
+      $activo = get_user_meta($u->ID, 'gw_active', true); if($activo==='') $activo='1';
+      $badge = $activo==='1' ? '<span style="background:#e8f5e9;color:#1b5e20;padding:2px 8px;border-radius:12px;font-size:12px;">Activo</span>' :
+                               '<span style="background:#ffebee;color:#b71c1c;padding:2px 8px;border-radius:12px;font-size:12px;">Inactivo</span>';
+      ob_start(); ?>
+      <tr id="gw-user-row-<?php echo $u->ID; ?>" data-role="<?php echo esc_attr($role); ?>" data-active="<?php echo esc_attr($activo); ?>">
+        <td><?php echo esc_html($u->display_name ?: $u->user_login); ?></td>
+        <td><?php echo esc_html($u->user_email); ?></td>
+        <td><?php echo esc_html($role_label ?: '—'); ?></td>
+        <td><?php echo esc_html($pais_titulo); ?></td>
+        <td><?php echo $badge; ?></td>
+        <td>
+          <button type="button" title="Editar usuario" class="button button-small gw-user-edit" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserEdit(<?php echo (int)$u->ID; ?>)">Editar</button>
+          <button type="button" title="Activar/Desactivar" class="button button-small gw-user-toggle" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserToggle(<?php echo (int)$u->ID; ?>)"><?php echo ($activo==='1' ? 'Desactivar' : 'Activar'); ?></button>
+          <button type="button" title="Ver historial" class="button button-small gw-user-history" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserHistory(<?php echo (int)$u->ID; ?>)">Historial</button>
+        </td>
+      </tr>
+      <?php return ob_get_clean();
+    }
+  }
+  wp_send_json_success(['row_html' => gw_admin_render_user_row($u_refreshed)]);
+});
+
+// Toggle rápido de activo/inactivo desde la tabla
+add_action('wp_ajax_gw_admin_toggle_active', function(){
+  if (!current_user_can('manage_options')) wp_send_json_error(['msg'=>'No autorizado']);
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'gw_admin_users')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $uid = intval($_POST['user_id'] ?? 0);
+  $u = get_user_by('id', $uid);
+  if(!$u) wp_send_json_error(['msg'=>'Usuario no encontrado']);
+  $activo = get_user_meta($uid, 'gw_active', true);
+  if($activo === '') $activo = '1';
+  $nuevo = ($activo === '1') ? '0' : '1';
+  update_user_meta($uid, 'gw_active', $nuevo);
+  gw_admin_add_user_log($uid, $nuevo==='1' ? 'Usuario activado' : 'Usuario desactivado');
+
+  // Devolver fila actualizada
+  if(function_exists('gw_admin_render_user_row')){
+    wp_send_json_success(['row_html' => gw_admin_render_user_row(get_user_by('id',$uid))]);
+  } else {
+    wp_send_json_success();
+  }
+});
+// ====== FIN MÓDULO GESTIÓN DE USUARIOS ======
+?>
             <div class="gw-admin-tab-content" id="gw-admin-tab-charlas" style="display:none;">
                 <h2>Charlas</h2>
                 <div style="max-width:700px;">
