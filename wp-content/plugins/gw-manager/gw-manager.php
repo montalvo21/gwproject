@@ -91,177 +91,306 @@ function gw_mis_capacitaciones_shortcode() {
     return $output;
 }
 // Shortcode para página de inicio visual con login Nextend Social Login
-add_shortcode('gw_login_home', 'gw_login_home_shortcode');
-function gw_login_home_shortcode() {
-    if (is_user_logged_in() && !(defined('REST_REQUEST') && REST_REQUEST) && !(defined('DOING_AJAX') && DOING_AJAX)) {
-        $user = wp_get_current_user();
-        // Redirección automática según rol
-        if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
-            wp_redirect(site_url('/panel-administrativo')); exit;
-        } else {
-            wp_redirect(site_url('/index.php/portal-voluntario')); exit;
-        }
-    }
-
-    ob_start();
-    ?>
-    <style>
-        .gw-login-container {max-width: 420px; margin: 40px auto; padding: 40px; background: #fff; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.1); font-family: sans-serif; text-align: center;}
-        .gw-login-google {margin: 18px 0;}
-        .gw-login-or {margin: 22px 0 14px; color: #aaa;}
-        .gw-voluntario-registro {margin-top: 28px; text-align:left;}
-        .gw-voluntario-registro input {width:100%;margin-bottom:10px;padding:8px;}
-        .gw-voluntario-registro button {width:100%;padding:10px;border:none;border-radius:6px;background:#39a746;color:#fff;font-weight:bold;}
-    </style>
-    <div style="position:relative;">
-        <div style="position:absolute;top:18px;right:32px;z-index:2;">
-            <a href="<?php echo site_url('/index.php/portal-voluntario'); ?>" class="button" style="margin-right:10px;background:#2962ff;color:#fff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;">Ir a Academia</a>
-            <a href="<?php echo site_url('/panel-administrativo'); ?>" class="button" style="background:#00c853;color:#fff;border:none;padding:8px 20px;border-radius:6px;text-decoration:none;">Ir al Panel</a>
-        </div>
-    </div>
-    <div class="gw-login-container">
-        <h2>Iniciar sesión</h2>
-        <?php
-        // --- Mensaje visual de país detectado por QR/link (LOGIN) ---
-        if (isset($_GET['gw_pais'])) {
-            $pais_id = intval($_GET['gw_pais']);
-            $pais_post = get_post($pais_id);
-            if ($pais_post && $pais_post->post_type === 'pais') {
-                echo '<div style="background:#e3f6ff;color:#125ea6;font-weight:bold;padding:12px 22px;margin-bottom:20px;border-radius:9px;border-left:7px solid #199cff;">
-                    Bienvenido/a, estás registrándote para el país: <span style="color:#196ed6;font-weight:bold;">'.esc_html($pais_post->post_title).'</span>
-                </div>';
-            }
-        }
-        ?>
-        <div class="gw-login-google">
-            <?php echo do_shortcode('[nextend_social_login provider="google" style="icon"]'); ?>
-        </div>
-        <div class="gw-login-or">— o ingresa con tu correo —</div>
-        <?php
-        // --- Mensaje visual de país detectado por QR/link (LOGIN) ---
-        if (isset($_GET['gw_pais'])) {
-            $pais_id = intval($_GET['gw_pais']);
-            $pais_post = get_post($pais_id);
-            if ($pais_post && $pais_post->post_type === 'pais') {
-                echo '<div style="background:#e3f6ff;color:#125ea6;font-weight:bold;padding:12px 22px;margin-bottom:20px;border-radius:9px;border-left:7px solid #199cff;">
-                    Bienvenido/a, estás iniciando sesión para el país: <span style="color:#196ed6;font-weight:bold;">'.esc_html($pais_post->post_title).'</span>
-                </div>';
-            }
-        }
-        wp_login_form([
-            'echo' => true,
-            'redirect' => '', // la redirección la manejamos arriba
-            'form_id' => 'gw_loginform',
-            'label_username' => 'Correo electrónico',
-            'label_password' => 'Contraseña',
-            'label_remember' => 'Recordarme',
-            'label_log_in' => 'Entrar',
-            'remember' => true,
-        ]);
-        ?>
-        <div style="margin-top:18px;">
-            <a href="<?php echo wp_lostpassword_url(); ?>">¿Olvidaste tu contraseña?</a>
-        </div>
-        <hr>
-    <div class="gw-voluntario-registro">
-    <h4>¿Eres voluntario nuevo?</h4>
-    <?php
-    // --- Mensaje visual de país detectado por QR/link (REGISTRO) ---
-    if (isset($_GET['gw_pais'])) {
-        $pais_id = intval($_GET['gw_pais']);
-        $pais_post = get_post($pais_id);
-        if ($pais_post && $pais_post->post_type === 'pais') {
-            echo '<div style="background:#e3f6ff;color:#125ea6;font-weight:bold;padding:12px 22px;margin-bottom:20px;border-radius:9px;border-left:7px solid #199cff;">
-                Bienvenido/a, estás registrándote para el país: <span style="color:#196ed6;font-weight:bold;">'.esc_html($pais_post->post_title).'</span>
-            </div>';
-        }
-    }
-    ?>
-    <form method="post">
-        <input type="text" name="gw_reg_nombre" placeholder="Nombre completo" required>
-        <input type="email" name="gw_reg_email" placeholder="Correo electrónico" required>
-        <input type="password" name="gw_reg_pass" placeholder="Contraseña" required>
-        <?php
-        // Obtener países desde el CPT 'pais'
-        $paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby'=>'title','order'=>'ASC']);
-
-        // BLOQUE: detectar parámetro país y si usuario ya tiene país
-        $pais_id_preasignado = isset($_GET['gw_pais']) ? intval($_GET['gw_pais']) : '';
-        $asignar_automaticamente = false;
-        $current_user = null;
-        if (is_user_logged_in()) {
-            $current_user = wp_get_current_user();
-            $tiene_pais = get_user_meta($current_user->ID, 'gw_pais_id', true);
-            // Si el usuario ingresa con el QR/link y tiene país diferente, actualizarlo automáticamente
-            if ($pais_id_preasignado && (!$tiene_pais || $tiene_pais != $pais_id_preasignado)) {
-                update_user_meta($current_user->ID, 'gw_pais_id', $pais_id_preasignado);
-                $asignar_automaticamente = true;
-            }
-        } else if ($pais_id_preasignado) {
-            $asignar_automaticamente = true;
-        }
-        ?>
-        <select name="gw_reg_pais" required>
-            <option value="">Selecciona tu país</option>
-            <?php
-            // Renderizado del selector de país según si hay preasignación
-            if ($asignar_automaticamente && $pais_id_preasignado) {
-                foreach ($paises as $pais) {
-                    if ($pais->ID == $pais_id_preasignado) {
-                        echo '<option value="'.$pais->ID.'" selected>'.esc_html($pais->post_title).'</option>';
-                    }
-                }
-                echo "<script>
-                document.addEventListener('DOMContentLoaded',function(){
-                    var sel = document.querySelector('select[name=\"gw_reg_pais\"]');
-                    if(sel) { sel.setAttribute('readonly','readonly'); sel.setAttribute('disabled','disabled'); }
-                });
-                </script>";
-                // Campo oculto para que llegue en el POST aunque esté deshabilitado
-                echo '<input type="hidden" name="gw_reg_pais" value="'.$pais_id_preasignado.'" />';
+if (!function_exists('gw_login_home_shortcode')) {
+    add_shortcode('gw_login_home', 'gw_login_home_shortcode');
+    function gw_login_home_shortcode() {
+        wp_enqueue_style('gw-login-style', plugin_dir_url(__FILE__) . 'css/gw-login-style.css', [], '3.0');
+        
+        if (is_user_logged_in() && !(defined('REST_REQUEST') && REST_REQUEST) && !(defined('DOING_AJAX') && DOING_AJAX)) {
+            $user = wp_get_current_user();
+            if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
+                wp_redirect(site_url('/panel-administrativo')); exit;
             } else {
-                foreach ($paises as $pais) {
-                    echo '<option value="'.$pais->ID.'">'.esc_html($pais->post_title).'</option>';
-                }
+                wp_redirect(site_url('/index.php/portal-voluntario')); exit;
             }
-            ?>
-        </select>
-        <button type="submit" name="gw_reg_submit">Registrarme como voluntario</button>
-    </form>
-    <?php
-    if (isset($_POST['gw_reg_submit'])) {
-        $nombre = sanitize_text_field($_POST['gw_reg_nombre']);
-        $correo = sanitize_email($_POST['gw_reg_email']);
-        $pass = $_POST['gw_reg_pass'];
-        // Usar país del QR/link si viene, sino lo que seleccionó
-        $pais_id = $pais_id_preasignado ? $pais_id_preasignado : intval($_POST['gw_reg_pais']);
-        if (username_exists($correo) || email_exists($correo)) {
-            echo '<div style="color:#b00; margin:10px 0;">Este correo ya está registrado.</div>';
-        } else {
-            $uid = wp_create_user($correo, $pass, $correo);
-            wp_update_user(['ID'=>$uid, 'display_name'=>$nombre]);
-            $user = get_user_by('id', $uid);
-            $user->set_role('voluntario');
-            // Guardar país como user_meta
-            update_user_meta($uid, 'gw_pais_id', $pais_id);
-            // Asignar automáticamente el flujo de charlas según país
-            $charlas_flujo = get_post_meta($pais_id, '_gw_charlas', true);
-            if (!is_array($charlas_flujo)) $charlas_flujo = [];
-            update_user_meta($uid, 'gw_charlas_asignadas', $charlas_flujo);
-            // Iniciar sesión automáticamente
-            wp_set_auth_cookie($uid, true);
-            // Redirigir al portal del país (ajusta la URL al slug correcto)
-            $pais_url = get_permalink($pais_id);
-            echo '<script>window.location.href="'.esc_url($pais_url).'";</script>';
-            echo '<div style="color:#008800;margin:10px 0;">¡Registro exitoso! Redirigiendo...</div>';
-            exit;
         }
-    }
-    ?>
-</div>
+
+        ob_start();
+        ?>
+        <div class="gw-login-wrapper">
+            <!-- Panel izquierdo estilo Glasswing -->
+            <div class="gw-login-hero">
+    <!-- Logo flotante arriba a la izquierda -->
+    <div class="gw-hero-logo">
+        <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
     </div>
-    <?php
-    return ob_get_clean();
+</div>
+
+
+            
+            <!-- Panel derecho con tarjeta estilo Glasswing -->
+            <div class="gw-login-panel">
+                
+                <div class="gw-login-card">
+                    
+                    <div class="gw-login-container">
+                        <h2 class="gw-welcome-title">Únete a la red de voluntarios Glasswing</h2>
+                        <?php
+                        wp_login_form([
+                            'echo' => true,
+                            'redirect' => '',
+                            'form_id' => 'gw_loginform',
+                            'label_username' => 'Correo electrónico',
+                            'label_password' => 'Contraseña',
+                            'label_remember' => 'Recordarme',
+                            'label_log_in' => 'Entrar',
+                            
+                            'remember' => true,
+                        ]);
+                        ?>
+
+                        
+                        <div style="margin-top:18px; text-align:center;">
+                            <a href="<?php echo wp_lostpassword_url(); ?>" class="gw-forgot-link">¿Olvidaste tu contraseña?</a>
+                        </div>
+                        
+                        <!-- Botón para mostrar registro -->
+                        <div class="gw-signup-toggle" style="text-align: center; margin-top: 32px;">
+                            <button type="button" id="toggleSignup" class="gw-toggle-btn">
+                                <span class="toggle-text">¿Nuevo voluntario?</span>
+                                <span class="toggle-arrow">↓</span>
+                            </button>
+                        </div>
+
+
+                        <script>
+  const toggleBtn = document.getElementById("toggleSignup");
+  const signupSection = document.getElementById("signupSection");
+
+  toggleBtn.addEventListener("click", () => {
+    const isVisible = signupSection.style.display === "block";
+
+    if (!isVisible) {
+      // Mostrar con animación
+      signupSection.style.display = "block";
+      setTimeout(() => {
+        signupSection.style.opacity = "1";
+        signupSection.style.transform = "translateY(0)";
+      }, 10);
+
+      // Hacer scroll suave hacia el formulario
+      signupSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      // Ocultar con animación inversa
+      signupSection.style.opacity = "0";
+      signupSection.style.transform = "translateY(-20px)";
+      setTimeout(() => {
+        signupSection.style.display = "none";
+      }, 400); // debe coincidir con tu `transition: 0.4s`
+    }
+  });
+</script>
+
+
+                        
+                        <!-- Sección registro colapsable -->
+                        <div class="gw-voluntario-registro" id="signupSection" style="display: none; margin-top: 24px; opacity: 0; transform: translateY(-20px); transition: all 0.4s ease;">
+                            <h4>Crear cuenta de voluntario</h4>
+                            <form method="post">
+                                <input type="text" name="gw_reg_nombre" placeholder="Nombre completo" required>
+                                <input type="email" name="gw_reg_email" placeholder="Correo electrónico" required>
+                                <input type="password" name="gw_reg_pass" placeholder="Crear contraseña" required>
+                                <?php
+                                $paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby'=>'title','order'=>'ASC']);
+
+                                $pais_id_preasignado = isset($_GET['gw_pais']) ? intval($_GET['gw_pais']) : '';
+                                $asignar_automaticamente = false;
+                                $current_user = null;
+                                
+                                if (is_user_logged_in()) {
+                                    $current_user = wp_get_current_user();
+                                    $tiene_pais = get_user_meta($current_user->ID, 'gw_pais_id', true);
+                                    if ($pais_id_preasignado && (!$tiene_pais || $tiene_pais != $pais_id_preasignado)) {
+                                        update_user_meta($current_user->ID, 'gw_pais_id', $pais_id_preasignado);
+                                        $asignar_automaticamente = true;
+                                    }
+                                } else if ($pais_id_preasignado) {
+                                    $asignar_automaticamente = true;
+                                }
+                                ?>
+                                <select name="gw_reg_pais" required>
+                                    <option value="">Selecciona tu país</option>
+                                    <?php
+                                    if ($asignar_automaticamente && $pais_id_preasignado) {
+                                        foreach ($paises as $pais) {
+                                            if ($pais->ID == $pais_id_preasignado) {
+                                                echo '<option value="'.$pais->ID.'" selected>'.esc_html($pais->post_title).'</option>';
+                                            }
+                                        }
+                                        echo "<script>
+                                        document.addEventListener('DOMContentLoaded',function(){
+                                            var sel = document.querySelector('select[name=\"gw_reg_pais\"]');
+                                            if(sel) { 
+                                                sel.setAttribute('readonly','readonly'); 
+                                                sel.setAttribute('disabled','disabled'); 
+                                                sel.style.opacity = '0.7';
+                                                sel.style.pointerEvents = 'none';
+                                            }
+                                        });
+                                        </script>";
+                                        echo '<input type="hidden" name="gw_reg_pais" value="'.$pais_id_preasignado.'" />';
+                                    } else {
+                                        foreach ($paises as $pais) {
+                                            echo '<option value="'.$pais->ID.'">'.esc_html($pais->post_title).'</option>';
+                                        }
+                                    }
+                                    ?>
+                                </select>
+                                <button type="submit" name="gw_reg_submit">Crear mi perfil</button>
+                            </form>
+                            <?php
+                            if (isset($_POST['gw_reg_submit'])) {
+                                $nombre = sanitize_text_field($_POST['gw_reg_nombre']);
+                                $correo = sanitize_email($_POST['gw_reg_email']);
+                                $pass = $_POST['gw_reg_pass'];
+                                $pais_id = $pais_id_preasignado ? $pais_id_preasignado : intval($_POST['gw_reg_pais']);
+                                
+                                if (username_exists($correo) || email_exists($correo)) {
+                                    echo '<div style="color:#b00; margin:10px 0;">Este correo ya está registrado. <a href="'.wp_lostpassword_url().'" style="color:#dc2626; text-decoration: underline;">¿Recuperar contraseña?</a></div>';
+                                } else if (strlen($pass) < 6) {
+                                    echo '<div style="color:#b00; margin:10px 0;">La contraseña debe tener al menos 6 caracteres.</div>';
+                                } else {
+                                    $uid = wp_create_user($correo, $pass, $correo);
+                                    if (!is_wp_error($uid)) {
+                                        wp_update_user(['ID'=>$uid, 'display_name'=>$nombre]);
+                                        $user = get_user_by('id', $uid);
+                                        $user->set_role('voluntario');
+                                        update_user_meta($uid, 'gw_pais_id', $pais_id);
+                                        
+                                        $charlas_flujo = get_post_meta($pais_id, '_gw_charlas', true);
+                                        if (!is_array($charlas_flujo)) $charlas_flujo = [];
+                                        update_user_meta($uid, 'gw_charlas_asignadas', $charlas_flujo);
+                                        
+                                        wp_set_auth_cookie($uid, true);
+                                        $pais_url = get_permalink($pais_id);
+                                        
+                                        echo '<div style="color:#008800;margin:15px 0; text-align:center;">
+                                            ¡Bienvenido a Glasswing! 🎉<br>
+                                            <small>Redirigiendo a tu portal...</small>
+                                        </div>';
+                                        echo '<script>
+                                            setTimeout(function(){
+                                                window.location.href="'.esc_url($pais_url).'";
+                                            }, 2000);
+                                        </script>';
+                                        exit;
+                                    } else {
+                                        echo '<div style="color:#b00; margin:10px 0;">Error al crear la cuenta. Intenta de nuevo.</div>';
+                                    }
+                                }
+                            }
+                            ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        // Mejorar la experiencia del usuario con el estilo Glasswing
+        document.addEventListener('DOMContentLoaded', function() {
+            // Toggle para registro de voluntario
+            const toggleBtn = document.getElementById('toggleSignup');
+            const signupSection = document.getElementById('signupSection');
+            const toggleArrow = document.querySelector('.toggle-arrow');
+            let isOpen = false;
+            
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    isOpen = !isOpen;
+                    
+                    if (isOpen) {
+                        signupSection.style.display = 'block';
+                        setTimeout(() => {
+                            signupSection.style.opacity = '1';
+                            signupSection.style.transform = 'translateY(0)';
+                        }, 10);
+                        toggleArrow.textContent = '↑';
+                        toggleArrow.style.transform = 'rotate(180deg)';
+                    } else {
+                        signupSection.style.opacity = '0';
+                        signupSection.style.transform = 'translateY(-20px)';
+                        setTimeout(() => {
+                            signupSection.style.display = 'none';
+                        }, 400);
+                        toggleArrow.textContent = '↓';
+                        toggleArrow.style.transform = 'rotate(0deg)';
+                    }
+                });
+            }
+            
+            // Efectos de loading
+            const submitButtons = document.querySelectorAll('input[type="submit"], button[type="submit"]:not(#toggleSignup)');
+            submitButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    if (this.id !== 'toggleSignup') {
+                        const originalText = this.value || this.innerHTML;
+                        if (this.tagName === 'INPUT') {
+                            this.value = 'Entrando...';
+                        } else {
+                            this.innerHTML = '✨ Creando tu perfil...';
+                        }
+                        this.style.opacity = '0.8';
+                        
+                        setTimeout(() => {
+                            if (this.tagName === 'INPUT') {
+                                this.value = originalText;
+                            } else {
+                                this.innerHTML = originalText;
+                            }
+                            this.style.opacity = '1';
+                        }, 3000);
+                    }
+                });
+            });
+            
+            // Animaciones suaves en inputs
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.transform = 'translateY(-1px)';
+                    this.style.boxShadow = '0 8px 25px rgba(52, 152, 219, 0.15)';
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            // Validación mejorada
+            const emailInput = document.querySelector('input[type="email"]');
+            if (emailInput) {
+                emailInput.addEventListener('input', function() {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (this.value && !emailRegex.test(this.value)) {
+                        this.style.borderColor = '#e74c3c';
+                        this.style.background = '#fdf2f2';
+                    } else {
+                        this.style.borderColor = '#3498db';
+                        this.style.background = '#fafbff';
+                    }
+                });
+            }
+            
+            // Animaciones en los botones
+            const buttons = document.querySelectorAll('button, input[type="submit"], .gw-login-google a');
+            buttons.forEach(button => {
+                if (button.id !== 'toggleSignup') {
+                    button.addEventListener('mouseenter', function() {
+                        this.style.boxShadow = '0 10px 30px rgba(52, 152, 219, 0.3)';
+                    });
+                    
+                    button.addEventListener('mouseleave', function() {
+                        this.style.boxShadow = '';
+                    });
+                }
+            });
+        });
+        </script>
+        
+        <?php
+        return ob_get_clean();
+    }
 }
 // Redirección automática después de login, según el rol del usuario
 add_filter('login_redirect', 'gw_redireccionar_por_rol', 10, 3);
