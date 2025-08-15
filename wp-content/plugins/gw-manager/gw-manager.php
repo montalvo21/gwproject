@@ -1074,158 +1074,1162 @@ add_action('save_post_capacitacion', function($post_id) {
 // --- FIN BLOQUE METABOX CAPACITACION ---
 // [gw_panel_admin] shortcode and implementation moved from gw-admin.php below:
 
-// Shortcode para Panel Administrativo
 add_shortcode('gw_panel_admin', function() {
     if (!current_user_can('manage_options')) {
-        return 'No tienes permisos para ver este panel.';
+        // CSS ya se incluye aquí
+        $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
+        ob_start();
+        ?>
+        <link rel="stylesheet" href="<?php echo $css_url; ?>?v=<?php echo time(); ?>">
+        
+        <div class="gw-no-permissions">
+            <div class="gw-no-permissions-content">
+                <div class="gw-no-permissions-logo">
+                    <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Glasswing International">
+                </div>
+                <h1>Panel Administrativo</h1>
+                <p>No tienes permisos para ver este panel. Contacta al administrador para obtener acceso.</p>
+                <a href="<?php echo home_url(); ?>" class="button">Volver al inicio</a>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
+    
     ob_start();
     ?>
-    <style>
-    .gw-admin-panel-wrap {
-        display: flex;
-        min-height: 600px;
-        font-family: 'Segoe UI', Arial, sans-serif;
-        background: #f7f8fa;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 24px #cdd6e1;
-        margin: 30px auto 40px;
-        max-width: 1100px;
-    }
-    .gw-admin-menu {
-        width: 240px;
-        background: #23395d;
-        color: #fff;
-        padding: 0;
-        border-right: 1px solid #e0e0e0;
-        min-height: 600px;
-    }
-    .gw-admin-menu ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-    .gw-admin-menu li {
-        margin: 0;
-        border-bottom: 1px solid #2d4a7a;
-    }
-    .gw-admin-menu button {
-        display: block;
-        width: 100%;
-        padding: 18px 28px;
-        background: none;
-        border: none;
-        text-align: left;
-        color: inherit;
-        font-size: 1.13em;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background 0.17s;
-    }
-    .gw-admin-menu button.active,
-    .gw-admin-menu button:hover {
-        background: #31568d;
-        color: #fff;
-        outline: none;
-    }
-    .gw-admin-content {
-        flex: 1;
-        padding: 36px 48px 40px 48px;
-        background: #fff;
-        min-height: 600px;
-        /* Habilita scroll horizontal en TODOS los módulos del panel */
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    /* Forzar ancho mínimo por módulo para que exista barra horizontal incluso en pantallas grandes */
-    .gw-admin-tab-content { min-width: 1280px; }
-    @media (max-width: 900px) {
-        .gw-admin-panel-wrap { flex-direction: column; }
-        .gw-admin-menu { width: 100%; min-height: unset; border-right: none; border-bottom: 1px solid #e0e0e0;}
-        .gw-admin-content { padding: 28px 10px 28px 10px;}
-    }
-    </style>
-    <div class="gw-admin-panel-wrap">
-        <nav class="gw-admin-menu">
-            <ul>
-                <li><button type="button" class="gw-admin-tab-btn active" data-tab="paises">Gestión de países</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="usuarios">Gestión de usuarios</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="charlas">Charlas</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="proyectos">Proyectos</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="capacitaciones">Capacitaciones</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="progreso">Progreso del voluntario</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="ausencias">Seguimiento de ausencias</button></li>
-                <li><button type="button" class="gw-admin-tab-btn" data-tab="reportes">Reportes y listados</button></li>
-            </ul>
-        </nav>
-        <section class="gw-admin-content">
-            <div class="gw-admin-tab-content" id="gw-admin-tab-paises" style="display:block;">
-            <?php
-// Obtener países
-$paises = get_posts([
-    'post_type' => 'pais',
-    'numberposts' => -1,
-    'orderby' => 'title',
-    'order' => 'ASC'
-]);
-// Obtener todas las charlas
-$charlas = get_posts([
-    'post_type' => 'charla',
-    'numberposts' => -1,
-    'orderby' => 'title',
-    'order' => 'ASC'
-]);
 
-if (empty($paises)) {
-    echo '<p>No hay países registrados aún.</p>';
-} else {
-    echo '<div style="max-width:700px;">';
-    foreach ($paises as $pais) {
-        $charlas_asociadas = get_post_meta($pais->ID, '_gw_charlas', true);
-        if (!is_array($charlas_asociadas)) $charlas_asociadas = [];
-        echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
-        // Título del país y botón Generar link/QR
-        echo '<h3 style="margin:0 0 12px 0;display:flex;align-items:center;gap:10px;">' . esc_html($pais->post_title)
-            . ' <button type="button" class="button button-secondary gw-generar-qr-btn" data-pais-id="' . $pais->ID . '" data-pais-nombre="' . esc_attr($pais->post_title) . '">Generar link/QR</button></h3>';
-        echo '<form method="post" class="gw-form-charlas-pais" data-pais="'.$pais->ID.'">';
-        echo '<label><strong>Charlas asociadas:</strong></label><br>';
-        foreach ($charlas as $charla) {
-            $checked = in_array($charla->ID, $charlas_asociadas) ? 'checked' : '';
-            echo '<label style="display:block;margin-bottom:6px;"><input type="checkbox" name="gw_charlas[]" value="' . $charla->ID . '" '.$checked.'> ' . esc_html($charla->post_title) . '</label>';
-        }
-        echo '<button type="submit" class="button button-primary" style="margin-top:10px;">Guardar</button>';
-        echo '<span class="gw-charlas-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
-        echo '</form>';
-        echo '</div>';
-    }
-    echo '</div>';
-}
+<?php
+$css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 ?>
-<script>
-document.querySelectorAll('.gw-form-charlas-pais').forEach(form => {
-    form.addEventListener('submit', function(e){
-        e.preventDefault();
-        const paisId = this.getAttribute('data-pais');
-        const checkboxes = this.querySelectorAll('input[type="checkbox"][name="gw_charlas[]"]');
-        const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-        var data = new FormData();
-        data.append('action', 'gw_guardar_charlas_pais');
-        data.append('pais_id', paisId);
-        selected.forEach(cid => data.append('charlas[]', cid));
-        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-            method: 'POST',
-            credentials: 'same-origin',
-            body: data
-        }).then(r=>r.json()).then(res=>{
-            if(res && res.success) {
-                this.querySelector('.gw-charlas-guardado').style.display = '';
-                setTimeout(() => { this.querySelector('.gw-charlas-guardado').style.display = 'none'; }, 1800);
-            }
-        });
-    });
-});
-</script>
+<!-- DEBUG: CSS URL: <?php echo $css_url; ?> -->
+<link rel="stylesheet" href="<?php echo $css_url; ?>?v=<?php echo time(); ?>">
+
+<!-- ESTRUCTURA CORREGIDA -->
+<div class="gw-modern-wrapper">
+    <div class="gw-form-wrapper">
+        <!-- PANEL LATERAL IZQUIERDO -->
+        <div class="gw-sidebar">
+            <div class="gw-hero-logo2">
+                <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
+            </div> 
+
+            <div class="gw-steps-container">
+                <!-- Botón 1 -->
+                <div class="gw-step-item active gw-admin-tab-btn" data-tab="paises">
+                    <div class="gw-step-number">1</div>
+                    <div class="gw-step-content">
+                        <h3>Gestión de países</h3>
+                        <p>Administra países y sus charlas asociadas.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 2 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="usuarios">
+                    <div class="gw-step-number">2</div>
+                    <div class="gw-step-content">
+                        <h3>Gestión de usuarios</h3>
+                        <p>Administra usuarios del sistema.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 3 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="charlas">
+                    <div class="gw-step-number">3</div>
+                    <div class="gw-step-content">
+                        <h3>Charlas</h3>
+                        <p>Gestiona charlas y sus sesiones.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 4 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="proyectos">
+                    <div class="gw-step-number">4</div>
+                    <div class="gw-step-content">
+                        <h3>Proyectos</h3>
+                        <p>Administra proyectos disponibles.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 5 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="capacitaciones">
+                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-content">
+                        <h3>Capacitaciones</h3>
+                        <p>Gestiona capacitaciones y sesiones.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 6 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="progreso">
+                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-content">
+                        <h3>Progreso del voluntario</h3>
+                        <p>Monitorea el progreso de voluntarios.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 7 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="ausencias">
+                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-content">
+                        <h3>Seguimiento de ausencias</h3>
+                        <p>Control de asistencia de voluntarios.</p>
+                    </div>
+                </div>
+
+                <!-- Botón 8 -->
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="reportes">
+                    <div class="gw-step-number">8</div>
+                    <div class="gw-step-content">
+                        <h3>Reportes y listados</h3>
+                        <p>Genera reportes del sistema.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gw-sidebar-footer">
+                <div class="gw-help-section">
+                    <div class="gw-help-text">
+                        <h4>Panel Administrativo</h4>
+                        <p>
+                            Gestiona todo el sistema desde aquí
+                            <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">
+                            Ve a glasswing.org
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="gw-main-content">
+            <div class="gw-form-container">
+                
+                <!-- TAB PAÍSES -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-paises" style="display:block;">
+                    <div class="gw-form-header">
+                        <h1>Gestión de países</h1>
+                        <p>Administra países y asocia charlas disponibles.</p>
+                    </div>
+
+                    <?php
+                    // Obtener países
+                    $paises = get_posts([
+                        'post_type' => 'pais',
+                        'numberposts' => -1,
+                        'orderby' => 'title',
+                        'order' => 'ASC'
+                    ]);
+                    // Obtener todas las charlas
+                    $charlas = get_posts([
+                        'post_type' => 'charla',
+                        'numberposts' => -1,
+                        'orderby' => 'title',
+                        'order' => 'ASC'
+                    ]);
+
+                    if (empty($paises)) {
+                        echo '<p>No hay países registrados aún.</p>';
+                    } else {
+                        echo '<div style="max-width:700px;">';
+                        foreach ($paises as $pais) {
+                            $charlas_asociadas = get_post_meta($pais->ID, '_gw_charlas', true);
+                            if (!is_array($charlas_asociadas)) $charlas_asociadas = [];
+                            echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
+                            // Título del país y botón Generar link/QR
+                            echo '<h3 style="margin:0 0 12px 0;display:flex;align-items:center;gap:10px;">' . esc_html($pais->post_title)
+                                . ' <button type="button" class="button button-secondary gw-generar-qr-btn" data-pais-id="' . $pais->ID . '" data-pais-nombre="' . esc_attr($pais->post_title) . '">Generar link/QR</button></h3>';
+                            echo '<form method="post" class="gw-form-charlas-pais" data-pais="'.$pais->ID.'">';
+                            echo '<label><strong>Charlas asociadas:</strong></label><br>';
+                            foreach ($charlas as $charla) {
+                                $checked = in_array($charla->ID, $charlas_asociadas) ? 'checked' : '';
+                                echo '<label style="display:block;margin-bottom:6px;"><input type="checkbox" name="gw_charlas[]" value="' . $charla->ID . '" '.$checked.'> ' . esc_html($charla->post_title) . '</label>';
+                            }
+                            echo '<button type="submit" class="button button-primary" style="margin-top:10px;">Guardar</button>';
+                            echo '<span class="gw-charlas-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
+                            echo '</form>';
+                            echo '</div>';
+                        }
+                        echo '</div>';
+                    }
+                    ?>
+
+                    <script>
+                    document.querySelectorAll('.gw-form-charlas-pais').forEach(form => {
+                        form.addEventListener('submit', function(e){
+                            e.preventDefault();
+                            const paisId = this.getAttribute('data-pais');
+                            const checkboxes = this.querySelectorAll('input[type="checkbox"][name="gw_charlas[]"]');
+                            const selected = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+                            var data = new FormData();
+                            data.append('action', 'gw_guardar_charlas_pais');
+                            data.append('pais_id', paisId);
+                            selected.forEach(cid => data.append('charlas[]', cid));
+                            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                body: data
+                            }).then(r=>r.json()).then(res=>{
+                                if(res && res.success) {
+                                    this.querySelector('.gw-charlas-guardado').style.display = '';
+                                    setTimeout(() => { this.querySelector('.gw-charlas-guardado').style.display = 'none'; }, 1800);
+                                }
+                            });
+                        });
+                    });
+                    </script>
+                </div>
+
+                <!-- TAB USUARIOS -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-usuarios" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Gestión de usuarios</h1>
+                        <p>Administra usuarios del sistema y sus roles.</p>
+                    </div>
+
+                    <?php
+                      // Nonce para acciones AJAX de usuarios
+                      $gw_users_nonce = wp_create_nonce('gw_admin_users');
+
+                      // Ensure get_editable_roles() is available when shortcode runs outside wp-admin
+                      if (!function_exists('get_editable_roles')) {
+                          require_once ABSPATH . 'wp-admin/includes/user.php';
+                      }
+                      // Obtener solo los roles oficiales del proyecto
+                      function gw_admin_roles_labels(){
+                          // Asegurar disponibilidad cuando el shortcode corre fuera de wp-admin
+                          if (!function_exists('get_editable_roles')) {
+                              require_once ABSPATH . 'wp-admin/includes/user.php';
+                          }
+                          $registered = get_editable_roles();
+
+                          // Solo los roles oficiales del proyecto
+                          $allowed = [
+                              'administrator'    => 'Administrador',
+                              'coordinador_pais' => 'Coordinador de país',
+                              'coach'            => 'Coach',
+                              'voluntario'       => 'Voluntario',
+                          ];
+
+                          // Armar etiquetas únicamente de los roles permitidos y registrados
+                          $labels = [];
+                          foreach ($allowed as $slug => $label) {
+                              if (isset($registered[$slug])) {
+                                  $labels[$slug] = $label;
+                              }
+                          }
+                          return $labels;
+                      }
+
+                      // Render de una fila HTML de usuario (para refrescar tras guardar)
+                      function gw_admin_render_user_row($u){
+                          $roles_labels = gw_admin_roles_labels();
+                          $role = count($u->roles) ? $u->roles[0] : '';
+                          $role_label = isset($roles_labels[$role]) ? $roles_labels[$role] : $role;
+
+                          $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
+                          $pais_titulo = $pais_id ? get_the_title($pais_id) : '—';
+                          $activo = get_user_meta($u->ID, 'gw_active', true);
+                          if($activo === '') $activo = '1';
+                          $badge = $activo === '1' ? '<span style="background:#e8f5e9;color:#1b5e20;padding:2px 8px;border-radius:12px;font-size:12px;">Activo</span>' :
+                                                     '<span style="background:#ffebee;color:#b71c1c;padding:2px 8px;border-radius:12px;font-size:12px;">Inactivo</span>';
+
+                          $btn_toggle = $activo === '1' ? 'Desactivar' : 'Activar';
+
+                          ob_start();
+                          ?>
+                          <tr id="gw-user-row-<?php echo $u->ID; ?>" data-role="<?php echo esc_attr($role); ?>" data-active="<?php echo esc_attr($activo); ?>">
+                            <td><?php echo esc_html($u->display_name ?: $u->user_login); ?></td>
+                            <td><?php echo esc_html($u->user_email); ?></td>
+                            <td><?php echo esc_html($role_label ?: '—'); ?></td>
+                            <td><?php echo esc_html($pais_titulo); ?></td>
+                            <td><?php echo $badge; ?></td>
+                            <td>
+                              <button type="button" title="Editar usuario" class="button button-small gw-user-edit" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserEdit(<?php echo (int)$u->ID; ?>)">Editar</button>
+                              <button type="button" title="Activar/Desactivar" class="button button-small gw-user-toggle" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserToggle(<?php echo (int)$u->ID; ?>)"><?php echo $btn_toggle; ?></button>
+                              <button type="button" title="Ver historial" class="button button-small gw-user-history" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserHistory(<?php echo (int)$u->ID; ?>)">Historial</button>
+                            </td>
+                          </tr>
+                          <?php
+                          return ob_get_clean();
+                      }
+
+                      // Obtener usuarios (máx 200 por ahora)
+                      $usuarios = get_users(['number' => 200, 'fields' => 'all']);
+                      // Países para filtros/modales
+                      $paises_all = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+                      $roles_labels = gw_admin_roles_labels();
+                    ?>
+
+
+<style>
+                      .gw-users-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0 16px;}
+                      .gw-users-toolbar input[type="text"], .gw-users-toolbar select{padding:6px 8px;min-width:190px;}
+                      table.gw-users{width:100%;border-collapse:collapse;background:#fff;}
+                      table.gw-users th, table.gw-users td{border-bottom:1px solid #e9eef4;padding:10px 8px;text-align:left;}
+                      table.gw-users th{background:#f7f9fc;font-weight:600;}
+                      /* ===== Responsive scroll for wide users table ===== */
+                      .gw-users-responsive{
+                        overflow-x: auto;
+                        -webkit-overflow-scrolling: touch;
+                        width: 100%;
+                      }
+                      /* Ensure the table can trigger horizontal scroll when viewport is narrow */
+                      table.gw-users{
+                        min-width: 980px; /* keeps columns readable; shows a horizontal scrollbar on smaller screens */
+                      }
+                      /* Modal genérico */
+                      #gw-user-modal, #gw-user-history-modal{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.35);z-index:99999;}
+                      .gw-modal-box{background:#fff;max-width:640px;margin:6% auto;padding:22px 22px;border-radius:12px;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+                      .gw-modal-close{position:absolute;right:14px;top:10px;border:none;background:transparent;font-size:22px;cursor:pointer;}
+                      .gw-user-form label{display:block;margin:8px 0 4px;font-weight:600;}
+                      .gw-user-form input[type="text"], .gw-user-form input[type="email"], .gw-user-form select{width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;}
+                      .gw-user-form .actions{margin-top:14px;display:flex;gap:8px;justify-content:flex-end;}
+                      .gw-user-form .desc{font-size:12px;color:#78909c;}
+                      .gw-log-list{max-height:300px;overflow:auto;border:1px solid #e0e0e0;border-radius:8px;padding:8px;background:#fafafa;}
+                      .gw-log-item{border-bottom:1px dashed #e0e0e0;padding:6px 4px;}
+                      .gw-log-item small{color:#607d8b;}
+                    </style>
+
+                    <div class="gw-users-toolbar">
+                      <input type="text" id="gw-users-search" placeholder="Buscar por nombre o email…">
+                      <select id="gw-users-role-filter">
+                        <option value="">Todos los roles</option>
+                        <?php foreach($roles_labels as $slug=>$label): ?>
+                          <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                      <select id="gw-users-status-filter">
+                        <option value="">Todos</option>
+                        <option value="1">Activos</option>
+                        <option value="0">Inactivos</option>
+                      </select>
+                    </div>
+
+                    <div class="gw-users-responsive">
+                      <table class="widefat striped gw-users" id="gw-users-table">
+                        <thead>
+                          <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>País</th><th>Estado</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody>
+                          <?php
+                            foreach($usuarios as $u){
+                                echo gw_admin_render_user_row($u);
+                            }
+                          ?>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <!-- Modal edición -->
+                    <div id="gw-user-modal">
+                      <div class="gw-modal-box">
+                        <button class="gw-modal-close" onclick="document.getElementById('gw-user-modal').style.display='none'">&times;</button>
+                        <h3>Editar usuario</h3>
+                        <form class="gw-user-form" id="gw-user-form">
+                          <input type="hidden" name="user_id" id="gw_user_id">
+                          <label>Nombre a mostrar</label>
+                          <input type="text" name="display_name" id="gw_display_name" required>
+                          <label>Email</label>
+                          <input type="email" name="user_email" id="gw_user_email" required>
+                          <label>Rol</label>
+                          <select name="role" id="gw_role" required>
+                            <?php foreach($roles_labels as $slug=>$label): ?>
+                              <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                          <label>País</label>
+                          <select name="pais_id" id="gw_pais_id">
+                            <option value="">— Sin país —</option>
+                            <?php foreach($paises_all as $p): ?>
+                              <option value="<?php echo $p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                          <label>Estado</label>
+                          <select name="activo" id="gw_activo">
+                            <option value="1">Activo</option>
+                            <option value="0">Inactivo</option>
+                          </select>
+                          <div class="desc" id="gw_last_login_info"></div>
+                          <div class="actions">
+                            <button type="button" class="button" onclick="document.getElementById('gw-user-modal').style.display='none'">Cancelar</button>
+                            <button type="submit" class="button button-primary">Guardar</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+
+                    <!-- Modal historial -->
+                    <div id="gw-user-history-modal">
+                      <div class="gw-modal-box">
+                        <button class="gw-modal-close" onclick="document.getElementById('gw-user-history-modal').style.display='none'">&times;</button>
+                        <h3>Historial de actividad</h3>
+                        <div class="gw-log-list" id="gw-user-log-list"></div>
+                      </div>
+                    </div>
+
+                    <script>
+                      (function(){
+                        var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+                        var nonce = '<?php echo esc_js($gw_users_nonce); ?>';
+                        window.gwAjaxUrl = ajaxurl;
+                        window.gwUsersNonce = nonce;
+
+                        // Filtros de búsqueda, rol y estado (cliente)
+                        var search = document.getElementById('gw-users-search');
+                        var roleFilter = document.getElementById('gw-users-role-filter');
+                        var statusFilter = document.getElementById('gw-users-status-filter');
+                        function applyFilters(){
+                          var q = (search.value || '').toLowerCase();
+                          var rf = roleFilter.value || '';
+                          var sf = statusFilter.value || '';
+                          document.querySelectorAll('#gw-users-table tbody tr').forEach(function(tr){
+                            var name = tr.children[0].innerText.toLowerCase();
+                            var email = tr.children[1].innerText.toLowerCase();
+                            var roleSlug = tr.getAttribute('data-role') || '';
+                            var active = tr.getAttribute('data-active') || '';
+                            var match = (name.indexOf(q) !== -1 || email.indexOf(q) !== -1);
+                            if(rf && roleSlug !== rf) match = false;
+                            if(sf !== '' && active !== sf) match = false;
+                            tr.style.display = match ? '' : 'none';
+                          });
+                        }
+                        search.addEventListener('input', applyFilters);
+                        roleFilter.addEventListener('change', applyFilters);
+                        statusFilter.addEventListener('change', applyFilters);
+
+                        // Delegación de eventos global para asegurar funcionamiento aunque se reemplacen filas
+                        document.addEventListener('click', function(e){
+                          var editBtn = e.target.closest('.gw-user-edit');
+                          var toggleBtn = e.target.closest('.gw-user-toggle');
+                          var historyBtn = e.target.closest('.gw-user-history');
+                          if (!editBtn && !toggleBtn && !historyBtn) return;
+                          e.preventDefault();
+
+                          if (editBtn) {
+                            var uid = editBtn.getAttribute('data-user-id');
+                            var data = new FormData();
+                            data.append('action','gw_admin_get_user');
+                            data.append('nonce', nonce);
+                            data.append('user_id', uid);
+                            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data}).then(r=>r.json()).then(function(res){
+                              if(!res.success) return;
+                              var u = res.data.user;
+                              document.getElementById('gw_user_id').value = u.ID;
+                              document.getElementById('gw_display_name').value = u.display_name || '';
+                              document.getElementById('gw_user_email').value = u.user_email || '';
+                              document.getElementById('gw_role').value = u.role || '';
+                              document.getElementById('gw_pais_id').value = u.pais_id || '';
+                              document.getElementById('gw_activo').value = u.activo ? '1' : '0';
+                              document.getElementById('gw_last_login_info').innerText = u.last_login ? ('Último acceso: ' + u.last_login) : '';
+                              document.getElementById('gw-user-modal').style.display = '';
+                            });
+                            return;
+                          }
+
+                          if (toggleBtn) {
+                            var uid = toggleBtn.getAttribute('data-user-id');
+                            var data = new FormData();
+                            data.append('action','gw_admin_toggle_active');
+                            data.append('nonce', nonce);
+                            data.append('user_id', uid);
+                            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
+                              .then(r=>r.json()).then(function(res){
+                                if(res.success && res.data && res.data.row_html){
+                                  var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
+                                  var newRow = tmp.firstElementChild;
+                                  var oldRow = document.getElementById('gw-user-row-'+uid);
+                                  if(oldRow) oldRow.replaceWith(newRow);
+                                }
+                              });
+                            return;
+                          }
+
+                          if (historyBtn) {
+                            var uid = historyBtn.getAttribute('data-user-id');
+                            var data = new FormData();
+                            data.append('action','gw_admin_get_user');
+                            data.append('nonce', nonce);
+                            data.append('user_id', uid);
+                            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data}).then(r=>r.json()).then(function(res){
+                              if(!res.success) return;
+                              var logs = res.data.logs || [];
+                              var box = document.getElementById('gw-user-log-list');
+                              box.innerHTML = '';
+                              if(!logs.length){ box.innerHTML = '<div class="gw-log-item"><em>Sin registros</em></div>'; }
+                              logs.reverse().forEach(function(it){
+                                var el = document.createElement('div');
+                                el.className = 'gw-log-item';
+                                el.innerHTML = '<small>'+ (it.time || '') +'</small><br>'+ (it.msg || '');
+                                box.appendChild(el);
+                              });
+                              document.getElementById('gw-user-history-modal').style.display = '';
+                            });
+                          }
+                        });
+
+                        // Guardar en modal
+                        document.getElementById('gw-user-form').addEventListener('submit', function(e){
+                          e.preventDefault();
+                          var data = new FormData(this);
+                          data.append('action','gw_admin_save_user');
+                          data.append('nonce', nonce);
+                          fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
+                            .then(r=>r.json()).then(function(res){
+                              if(res.success){
+                                // Refrescar fila
+                                if(res.data && res.data.row_html){
+                                  var uid = document.getElementById('gw_user_id').value;
+                                  var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
+                                  var newRow = tmp.firstElementChild;
+                                  var oldRow = document.getElementById('gw-user-row-'+uid);
+                                  if(oldRow) oldRow.replaceWith(newRow);
+                                }
+                                document.getElementById('gw-user-modal').style.display='none';
+                              } else {
+                                alert(res.data && res.data.msg ? res.data.msg : 'No se pudo guardar');
+                              }
+                            });
+                        });
+                      })();
+                    </script>
+                    <script>
+                    // Global click handlers for inline onclick attributes
+                    window.gwUserEdit = function(uid){
+                      try{
+                        var data = new FormData();
+                        data.append('action','gw_admin_get_user');
+                        data.append('nonce', window.gwUsersNonce);
+                        data.append('user_id', uid);
+                        fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
+                          .then(r=>r.json()).then(function(res){
+                            if(!res || !res.success) return;
+                            var u = res.data.user || {};
+                            document.getElementById('gw_user_id').value = u.ID || '';
+                            document.getElementById('gw_display_name').value = u.display_name || '';
+                            document.getElementById('gw_user_email').value = u.user_email || '';
+                            document.getElementById('gw_role').value = u.role || '';
+                            document.getElementById('gw_pais_id').value = u.pais_id || '';
+                            document.getElementById('gw_activo').value = u.activo ? '1' : '0';
+                            document.getElementById('gw_last_login_info').innerText = u.last_login ? ('Último acceso: ' + u.last_login) : '';
+                            document.getElementById('gw-user-modal').style.display = '';
+                          });
+                      }catch(e){ console.error(e); }
+                    };
+
+                    window.gwUserToggle = function(uid){
+                      try{
+                        var data = new FormData();
+                        data.append('action','gw_admin_toggle_active');
+                        data.append('nonce', window.gwUsersNonce);
+                        data.append('user_id', uid);
+                        fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
+                          .then(r=>r.json()).then(function(res){
+                            if(res && res.success && res.data && res.data.row_html){
+                              var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
+                              var newRow = tmp.firstElementChild;
+                              var oldRow = document.getElementById('gw-user-row-'+uid);
+                              if(oldRow && newRow) oldRow.replaceWith(newRow);
+                            }
+                          });
+                      }catch(e){ console.error(e); }
+                    };
+
+                    window.gwUserHistory = function(uid){
+                      try{
+                        var data = new FormData();
+                        data.append('action','gw_admin_get_user');
+                        data.append('nonce', window.gwUsersNonce);
+                        data.append('user_id', uid);
+                        fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
+                          .then(r=>r.json()).then(function(res){
+                            if(!res || !res.success) return;
+                            var logs = res.data.logs || [];
+                            var box = document.getElementById('gw-user-log-list');
+                            box.innerHTML = '';
+                            if(!logs.length){ box.innerHTML = '<div class="gw-log-item"><em>Sin registros</em></div>'; }
+                            logs.slice().reverse().forEach(function(it){
+                              var el = document.createElement('div');
+                              el.className = 'gw-log-item';
+                              el.innerHTML = '<small>'+ (it.time || '') +'</small><br>'+ (it.msg || '');
+                              box.appendChild(el);
+                            });
+                            document.getElementById('gw-user-history-modal').style.display = '';
+                          });
+                      }catch(e){ console.error(e); }
+                    };
+                    </script>
+                </div>
+
+                <!-- TAB CHARLAS -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-charlas" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Charlas</h1>
+                        <p>Gestiona charlas y programa sus sesiones.</p>
+                    </div>
+
+                    <div style="max-width:700px;">
+                    <!-- Formulario para agregar charla -->
+                    <div style="margin-bottom:16px;">
+                      <form id="gw-form-nueva-charla" style="display:flex;gap:10px;align-items:center;">
+                        <input type="text" id="gw-nueva-charla-title" placeholder="Nombre de la charla" required style="padding:7px;width:230px;">
+                        <button type="submit" class="button button-primary">Agregar charla</button>
+                        <span id="gw-charla-guardado" style="color:#388e3c;display:none;">Guardado</span>
+                      </form>
+                    </div>
+                    <script>
+                    (function(){
+                      var form = document.getElementById('gw-form-nueva-charla');
+                      if(form){
+                        form.addEventListener('submit', function(e){
+                          e.preventDefault();
+                          var titulo = document.getElementById('gw-nueva-charla-title').value;
+                          if(!titulo) return;
+                          var data = new FormData();
+                          data.append('action', 'gw_agregar_charla');
+                          data.append('titulo', titulo);
+                          fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            method:'POST',
+                            credentials:'same-origin',
+                            body: data
+                          }).then(r=>r.json()).then(res=>{
+                            if(res.success){
+                              document.getElementById('gw-nueva-charla-title').value = '';
+                              document.getElementById('gw-charla-guardado').style.display = '';
+                              setTimeout(()=>{document.getElementById('gw-charla-guardado').style.display='none';}, 1600);
+                              // Actualizar listado de charlas
+                              document.getElementById('gw-listado-charlas').innerHTML = res.html;
+                              // Re-inicializar formularios de sesiones
+                              if(typeof gwInitSesionesCharlasPanel === 'function') gwInitSesionesCharlasPanel();
+                            }
+                          });
+                        });
+                      }
+                    })();
+                    </script>
+                    <!-- Listado de charlas -->
+                    <div id="gw-listado-charlas">
+                    <?php
+                    // Listado de charlas
+                    function gw_render_listado_charlas_panel() {
+                        $charlas = get_posts([
+                            'post_type' => 'charla',
+                            'numberposts' => -1,
+                            'orderby' => 'title',
+                            'order' => 'ASC'
+                        ]);
+                        if (empty($charlas)) {
+                            echo '<p>No hay charlas registradas aún.</p>';
+                        } else {
+                            foreach ($charlas as $charla) {
+                                // Obtener sesiones
+                                $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
+                                if (!is_array($sesiones)) $sesiones = [];
+                                if (empty($sesiones)) $sesiones = [[]];
+                                echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
+                                echo '<h3 style="margin:0 0 12px 0;">' . esc_html($charla->post_title) . '</h3>';
+                                echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
+                                wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
+                                echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
+                                foreach ($sesiones as $idx => $sesion) {
+                                    ?>
+                                    <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
+                                        <label>Modalidad:
+                                            <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
+                                                <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
+                                                <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
+                                            </select>
+                                        </label>
+                                        <label style="margin-left:18px;">Fecha:
+                                            <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
+                                        </label>
+                                        <label style="margin-left:18px;">Hora:
+                                            <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
+                                        </label>
+                                        <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
+                                            Lugar físico:
+                                            <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
+                                        </label>
+                                        <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
+                                            Link:
+                                            <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
+                                        </label>
+                                        <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
+                                    </div>
+                                    <?php
+                                }
+                                echo '</div>';
+                                echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
+                                echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
+                                echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
+                                echo '</form>';
+                                echo '</div>';
+                            }
+                        }
+                    }
+                    gw_render_listado_charlas_panel();
+                    ?>
+                    </div>
+                    <script>
+                    function gwInitSesionesCharlasPanel() {
+                        // Elimina listeners previos para evitar duplicados
+                        document.querySelectorAll('.gw-form-sesiones-charla').forEach(function(form){
+                            if(form._gwInit) return; // solo inicializar una vez
+                            form._gwInit = true;
+                            var charlaId = form.getAttribute('data-charla');
+                            var container = form.querySelector('#gw-sesiones-list-'+charlaId);
+                            // Función para actualizar labels según modalidad
+                            function updateLabelsPanel(block) {
+                                var modalidad = block.querySelector('.gw-sesion-modalidad-panel').value;
+                                var lugarLabel = block.querySelector('.gw-lugar-label-panel');
+                                var lugarInput = lugarLabel.querySelector('input');
+                                var linkLabel = block.querySelector('.gw-link-label-panel');
+                                var linkInput = linkLabel.querySelector('input');
+                                if (modalidad.toLowerCase() === 'virtual') {
+                                    lugarLabel.style.display = 'none';
+                                    lugarInput.disabled = true;
+                                    linkLabel.style.display = '';
+                                    linkInput.disabled = false;
+                                } else {
+                                    lugarLabel.style.display = '';
+                                    lugarInput.disabled = false;
+                                    linkLabel.style.display = 'none';
+                                    linkInput.disabled = true;
+                                }
+                            }
+                            // Inicializar bloques existentes
+                            form.querySelectorAll('.gw-sesion-block-panel').forEach(function(block){
+                                block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
+                                    updateLabelsPanel(block);
+                                });
+                                block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
+                                    if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
+                                        block.parentNode.removeChild(block);
+                                    }
+                                });
+                                updateLabelsPanel(block);
+                            });
+                            // Agregar sesión nueva
+                            form.querySelector('.gw-add-sesion-panel').addEventListener('click', function(){
+                                var html = `
+                                <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
+                                    <label>Modalidad:
+                                        <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
+                                            <option value="Presencial">Presencial</option>
+                                            <option value="Virtual">Virtual</option>
+                                        </select>
+                                    </label>
+                                    <label style="margin-left:18px;">Fecha:
+                                        <input type="date" name="sesion_fecha[]" required>
+                                    </label>
+                                    <label style="margin-left:18px;">Hora:
+                                        <input type="time" name="sesion_hora[]" required>
+                                    </label>
+                                    <label class="gw-lugar-label-panel" style="margin-left:18px;">
+                                        Lugar físico:
+                                        <input type="text" name="sesion_lugar[]">
+                                    </label>
+                                    <label class="gw-link-label-panel" style="margin-left:18px;display:none;">
+                                        Link:
+                                        <input type="url" name="sesion_link[]" disabled>
+                                    </label>
+                                    <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
+                                </div>
+                                `;
+                                var temp = document.createElement('div');
+                                temp.innerHTML = html;
+                                var block = temp.firstElementChild;
+                                block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
+                                    updateLabelsPanel(block);
+                                });
+                                block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
+                                    if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
+                                        block.parentNode.removeChild(block);
+                                    }
+                                });
+                                updateLabelsPanel(block);
+                                container.appendChild(block);
+                            });
+                            // Guardar AJAX
+                            form.addEventListener('submit', function(e){
+                                e.preventDefault();
+                                var data = new FormData(form);
+                                data.append('action','gw_guardar_sesiones_charla');
+                                data.append('charla_id', charlaId);
+                                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    body: data
+                                }).then(r=>r.json()).then(res=>{
+                                    if(res && res.success){
+                                        // Recargar listado de charlas (para reflejar cambios, sesiones, etc)
+                                        if(res.html){
+                                            document.getElementById('gw-listado-charlas').innerHTML = res.html;
+                                            if(typeof gwInitSesionesCharlasPanel === 'function') gwInitSesionesCharlasPanel();
+                                        } else {
+                                            form.querySelector('.gw-sesiones-guardado').style.display = '';
+                                            setTimeout(function(){form.querySelector('.gw-sesiones-guardado').style.display='none';}, 1800);
+                                        }
+                                    }
+                                });
+                            });
+                        });
+                    }
+                    // Inicializar al cargar
+                    gwInitSesionesCharlasPanel();
+                    </script>
+                    <style>
+                    .gw-sesion-block-panel label {font-weight:normal;}
+                    </style>
+                    </div>
+                </div>
+
+                <!-- TAB PROYECTOS -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-proyectos" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Proyectos</h1>
+                        <p>Administra los proyectos disponibles.</p>
+                    </div>
+
+                    <?php if (current_user_can('manage_options') || current_user_can('coordinador_pais')): ?>
+                    <div style="max-width:500px;margin-bottom:28px;">
+                      <form id="gw-form-nuevo-proyecto">
+                        <label for="gw-nuevo-proyecto-title"><b>Nuevo proyecto:</b></label><br>
+                        <input type="text" id="gw-nuevo-proyecto-title" name="titulo" required style="width:82%;max-width:340px;padding:7px;margin:8px 0;">
+                        <button type="submit" class="button button-primary">Agregar</button>
+                        <span id="gw-proyecto-guardado" style="margin-left:12px;color:#388e3c;display:none;">Guardado</span>
+                      </form>
+                    </div>
+                    <script>
+                    (function(){
+                      var form = document.getElementById('gw-form-nuevo-proyecto');
+                      if(form){
+                        form.addEventListener('submit', function(e){
+                          e.preventDefault();
+                          var titulo = document.getElementById('gw-nuevo-proyecto-title').value;
+                          if(!titulo) return;
+                          var data = new FormData();
+                          data.append('action', 'gw_nuevo_proyecto');
+                          data.append('titulo', titulo);
+                          fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            method:'POST',
+                            credentials:'same-origin',
+                            body: data
+                          }).then(r=>r.json()).then(res=>{
+                            if(res.success){
+                              document.getElementById('gw-nuevo-proyecto-title').value = '';
+                              document.getElementById('gw-proyecto-guardado').style.display = '';
+                              setTimeout(()=>{document.getElementById('gw-proyecto-guardado').style.display='none';}, 1600);
+                              // Actualizar listado
+                              document.getElementById('gw-listado-proyectos').innerHTML = res.html;
+                            }
+                          });
+                        });
+                      }
+                    })();
+                    </script>
+                    <?php endif; ?>
+                    <div id="gw-listado-proyectos">
+                    <?php
+                    // Mostrar lista de proyectos actuales:
+                    $proyectos = get_posts([
+                        'post_type' => 'proyecto',
+                        'numberposts' => -1,
+                        'orderby' => 'title',
+                        'order' => 'ASC'
+                    ]);
+                    if(empty($proyectos)) {
+                        echo '<p>No hay proyectos registrados aún.</p>';
+                    } else {
+                        echo '<ul style="padding-left:12px;">';
+                        foreach($proyectos as $proy){
+                            $edit_url = admin_url('post.php?post='.$proy->ID.'&action=edit');
+                            echo '<li style="margin-bottom:8px;"><b>'.esc_html($proy->post_title).'</b> <a href="'.$edit_url.'" target="_blank" style="margin-left:8px;font-size:0.94em;">Editar en WordPress</a></li>';
+                        }
+                        echo '</ul>';
+                    }
+                    ?>
+                    </div>
+                </div>
+
+<!-- TAB CAPACITACIONES -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-capacitaciones" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Capacitaciones</h1>
+                        <p>Gestiona capacitaciones y sus sesiones.</p>
+                    </div>
+
+                    <div id="gw-capacitacion-wizard">
+                        <style>
+                        .gw-wizard-steps {
+                            display: flex; justify-content: space-between; margin-bottom: 30px; margin-top:10px;
+                        }
+                        .gw-wizard-step {
+                            flex:1; text-align:center; padding:12px 0; position:relative;
+                            background: #f7fafd;
+                            border-radius: 8px;
+                            font-weight: 600; color: #1d3557;
+                            cursor:pointer;
+                            border:2px solid #31568d;
+                            transition:.2s;
+                            margin:0 4px;
+                        }
+                        .gw-wizard-step.active, .gw-wizard-step:hover {
+                            background: #31568d;
+                            color:#fff;
+                        }
+                        .gw-wizard-form { background: #fff; padding: 24px 30px; border-radius: 14px; box-shadow:0 2px 10px #dde7f2; max-width:560px;margin:0 auto 28px; }
+                        .gw-wizard-form label { display:block; margin-top:14px;font-weight:500;}
+                        .gw-wizard-form input, .gw-wizard-form select { width:100%; padding:9px; margin-top:5px; border-radius:6px; border:1px solid #bcd; }
+                        .gw-wizard-sesiones { margin-top: 18px; }
+                        .gw-wizard-sesion { border:1px solid #bfd9f7; border-radius:8px; padding:14px; margin-bottom:12px; display:flex; flex-wrap:wrap; align-items:center; gap:12px;}
+                        .gw-wizard-sesion input, .gw-wizard-sesion select { width:auto; min-width:130px;}
+                        .gw-wizard-sesion .remove-sesion { background:#d50000;color:#fff;border:none;padding:7px 16px;border-radius:6px;margin-left:18px;cursor:pointer;}
+                        .gw-wizard-form .add-sesion { margin-top:8px;background:#31568d;color:#fff;padding:7px 20px;border:none;border-radius:6px;}
+                        .gw-capacitacion-list {max-width:700px; margin:0 auto;}
+                        .gw-cap-edit {color:#1e88e5; margin-left:14px; text-decoration:underline;cursor:pointer;}
+                        .gw-cap-delete {color:#e53935; margin-left:8px; text-decoration:underline;cursor:pointer;}
+                        </style>
+                        <div class="gw-wizard-steps">
+                            <div class="gw-wizard-step active" data-step="1">Proyecto</div>
+                            <div class="gw-wizard-step" data-step="2">Coach</div>
+                            <div class="gw-wizard-step" data-step="3">País</div>
+                            <div class="gw-wizard-step" data-step="4">Sesiones</div>
+                        </div>
+                        <form class="gw-wizard-form" id="gw-capacitacion-form">
+                            <div class="gw-wizard-step-content step-1">
+                                <label>Nombre de la capacitación:</label>
+                                <input type="text" name="titulo" required placeholder="Nombre de la capacitación">
+                                <label>Proyecto relacionado:</label>
+                                <select name="proyecto" required>
+                                    <option value="">Selecciona un proyecto</option>
+                                    <?php
+                                    $proyectos = get_posts(['post_type'=>'proyecto','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+                                    foreach($proyectos as $proy){
+                                        echo '<option value="'.$proy->ID.'">'.esc_html($proy->post_title).'</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+                            </div>
+                            <div class="gw-wizard-step-content step-2" style="display:none;">
+                                <label>Coach responsable:</label>
+                                <select name="coach" required>
+                                    <option value="">Selecciona un coach</option>
+                                    <?php
+                                    $coaches = get_users(['role'=>'coach']);
+                                    foreach($coaches as $coach){
+                                        echo '<option value="'.$coach->ID.'">'.esc_html($coach->display_name).'</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
+                                <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+                            </div>
+                            <div class="gw-wizard-step-content step-3" style="display:none;">
+                                <label>País relacionado:</label>
+                                <select name="pais" required>
+                                    <option value="">Selecciona un país</option>
+                                    <?php
+                                    $paises = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+                                    foreach($paises as $pais){
+                                        echo '<option value="'.$pais->ID.'">'.esc_html($pais->post_title).'</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
+                                <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+                            </div>
+                            <div class="gw-wizard-step-content step-4" style="display:none;">
+                                <div class="gw-wizard-sesiones"></div>
+                                <button type="button" class="add-sesion">Agregar sesión</button>
+                                <div style="margin-top:16px%;">
+                                    <button type="button" class="prev-step">← Anterior</button>
+                                    <button type="submit" class="button button-primary" style="float:right;">Guardar capacitación</button>
+                                </div>
+                            </div>
+                            <input type="hidden" name="edit_id" value="">
+                        </form>
+                    </div>
+                    <div class="gw-capacitacion-list">
+                        <h3 style="margin-top:36px;">Capacitaciones registradas</h3>
+                        <div id="gw-capacitaciones-listado">
+                        <?php
+                        $caps = get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+                        if(empty($caps)){
+                            echo '<p>No hay capacitaciones registradas.</p>';
+                        } else {
+                            echo '<ul>';
+                            foreach($caps as $cap){
+                                $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
+                                $proy_title = $proy ? get_the_title($proy) : '-';
+                                echo '<li><b>'.esc_html($cap->post_title).'</b> <span style="color:#aaa;">(Proyecto: '.$proy_title.')</span> <span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span> <span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span></li>';
+                            }
+                            echo '</ul>';
+                        }
+                        ?>
+                        </div>
+                    </div>
+                    <script>
+                    // Wizard steps JS
+                    (function(){
+                        let currentStep = 1;
+                        function showStep(n){
+                            document.querySelectorAll('.gw-wizard-step-content').forEach(div=>{
+                                div.style.display='none';
+                            });
+                            document.querySelector('.step-'+n).style.display = '';
+                            document.querySelectorAll('.gw-wizard-step').forEach(btn=>btn.classList.remove('active'));
+                            document.querySelector('.gw-wizard-step[data-step="'+n+'"]').classList.add('active');
+                        }
+                        document.querySelectorAll('.next-step').forEach(btn=>{
+                            btn.onclick = function(){ if(currentStep<4){ showStep(++currentStep); } };
+                        });
+                        document.querySelectorAll('.prev-step').forEach(btn=>{
+                            btn.onclick = function(){ if(currentStep>1){ showStep(--currentStep); } };
+                        });
+                        // Add sesiones
+                        const sesionesWrap = document.querySelector('.gw-wizard-sesiones');
+                        function addSesion(data){
+                            data = data||{};
+                            let sesion = document.createElement('div');
+                            sesion.className = 'gw-wizard-sesion';
+                            sesion.innerHTML = `
+                                <select name="sesion_modalidad[]"><option value="Presencial"${data.modalidad=="Presencial"?" selected":""}>Presencial</option><option value="Virtual"${data.modalidad=="Virtual"?" selected":""}>Virtual</option></select>
+                                <input type="date" name="sesion_fecha[]" value="${data.fecha||""}" required>
+                                <input type="time" name="sesion_hora[]" value="${data.hora||""}" required>
+                                <input type="text" name="sesion_lugar[]" placeholder="Lugar físico" value="${data.lugar||""}" ${data.modalidad=="Virtual"?"style='display:none;'":""}>
+                                <input type="url" name="sesion_link[]" placeholder="Link (si es virtual)" value="${data.link||""}" ${data.modalidad!="Virtual"?"style='display:none;'":""}>
+                                <button type="button" class="remove-sesion">Eliminar</button>
+                            `;
+                            // Toggle fields (mostrar/ocultar y limpiar según modalidad)
+                            let modalidad = sesion.querySelector('select');
+                            let lugarInput = sesion.querySelector('input[name="sesion_lugar[]"]');
+                            let linkInput = sesion.querySelector('input[name="sesion_link[]"]');
+                            function updateFields(){
+                                let isVirtual = modalidad.value=="Virtual";
+                                if(isVirtual){
+                                    lugarInput.style.display = "none";
+                                    lugarInput.value = "";
+                                    linkInput.style.display = "";
+                                } else {
+                                    lugarInput.style.display = "";
+                                    linkInput.style.display = "none";
+                                    linkInput.value = "";
+                                }
+                            }
+                            modalidad.onchange = updateFields;
+                            sesion.querySelector('.remove-sesion').onclick = function(){
+                                sesionesWrap.removeChild(sesion);
+                            };
+                            updateFields();
+                            sesionesWrap.appendChild(sesion);
+                        }
+                        document.querySelector('.add-sesion').onclick = function(){
+                            addSesion();
+                        };
+                        // AJAX submit
+                        document.getElementById('gw-capacitacion-form').onsubmit = function(e){
+                            e.preventDefault();
+                            const form = e.target;
+                            var data = new FormData(form);
+                            data.append('action','gw_guardar_capacitacion_wizard');
+                            fetch('<?php echo admin_url('admin-ajax.php'); ?>',{method:'POST',credentials:'same-origin',body:data})
+                            .then(r=>r.json()).then(res=>{
+                                if(res.success){
+                                    form.reset();
+                                    sesionesWrap.innerHTML="";
+                                    currentStep=1;showStep(1);
+                                    if (res && typeof res.html === 'string' && res.html.trim() !== '' && res.html !== 'undefined') {
+                                    document.getElementById('gw-capacitaciones-listado').innerHTML = res.html;
+                                    } else {
+                                     document.getElementById('gw-capacitaciones-listado').innerHTML = '<p>No hay capacitaciones registradas.</p>';
+                            };
+                                } else {
+                                    alert('Error: '+(res.msg||'No se pudo guardar'));
+                                }
+                            });
+                        };
+                        // Editar y Eliminar
+                        document.getElementById('gw-capacitaciones-listado').onclick = function(e){
+                            if(e.target.classList.contains('gw-cap-edit')){
+                                let id = e.target.getAttribute('data-id');
+                                fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=gw_obtener_capacitacion&id='+id)
+                                .then(r=>r.json()).then(res=>{
+                                    if(res.success){
+                                        const d = res.data;
+                                        document.querySelector('input[name="titulo"]').value = d.titulo||'';
+                                        document.querySelector('select[name="proyecto"]').value = d.proyecto;
+                                        document.querySelector('select[name="coach"]').value = d.coach;
+                                        document.querySelector('select[name="pais"]').value = d.pais;
+                                        sesionesWrap.innerHTML = '';
+                                        (d.sesiones||[]).forEach(s=>addSesion(s));
+                                        document.querySelector('input[name="edit_id"]').value = id;
+                                        currentStep=1;showStep(1);
+                                        window.scrollTo(0,document.getElementById('gw-capacitacion-wizard').offsetTop-40);
+                                    }
+                                });
+                            }
+                            if(e.target.classList.contains('gw-cap-delete')){
+                                if(!confirm("¿Eliminar esta capacitación?")) return;
+                                let id = e.target.getAttribute('data-id');
+                                var data = new FormData();
+                                data.append('action','gw_eliminar_capacitacion');
+                                data.append('id',id);
+                                fetch('<?php echo admin_url('admin-ajax.php'); ?>',{method:'POST',credentials:'same-origin',body:data})
+                                .then(r=>r.json()).then(res=>{
+                                    if(res.success){
+                                        document.getElementById('gw-capacitaciones-listado').innerHTML = res.html;
+                                    }
+                                });
+                            }
+                        };
+                        // Paso inicial
+                        showStep(currentStep);
+                    })();
+                    </script>
+                </div>
+
+                <!-- TAB PROGRESO -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-progreso" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Progreso del voluntario</h1>
+                        <p>Monitorea el progreso de los voluntarios.</p>
+                    </div>
+
+                    <?php
+                    // Mostrar el shortcode de progreso del voluntario (admin)
+                    echo do_shortcode('[gw_progreso_voluntario]');
+                    ?>
+                </div>
+
+                <!-- TAB AUSENCIAS -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Seguimiento de ausencias</h1>
+                        <p>Control de asistencia de voluntarios.</p>
+                    </div>
+
+                    <p>Aquí va la gestión de seguimiento de ausencias.</p>
+                </div>
+
+                <!-- TAB REPORTES -->
+                <div class="gw-admin-tab-content" id="gw-admin-tab-reportes" style="display:none;">
+                    <div class="gw-form-header">
+                        <h1>Reportes y listados</h1>
+                        <p>Genera reportes del sistema.</p>
+                    </div>
+
+                    <p>Aquí va la gestión de reportes y listados.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal QR para países -->
 <div id="gw-qr-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:rgba(30,40,50,0.36);">
   <div style="background:#fff;max-width:370px;margin:8% auto;padding:34px 28px 28px 28px;border-radius:15px;box-shadow:0 4px 40px #3050884d;position:relative;">
@@ -1240,25 +2244,49 @@ document.querySelectorAll('.gw-form-charlas-pais').forEach(form => {
     </div>
   </div>
 </div>
+
 <?php
 // --- DEJAR SOLO UNA DE ESTAS DOS LÍNEAS ACTIVA, SEGÚN EL ENTORNO ---
-
-// [DESARROLLO CON NGROK]
-// Cuando uses ngrok para pruebas en otros dispositivos, deja esta línea activa:
 $gw_qr_base = 'https://b97e34cfbb1f.ngrok-free.app/gwproject';
-
-// [PRODUCCIÓN O LOCALHOST]
-// Cuando subas a producción o regreses a localhost, comenta la línea de arriba y descomenta esta:
 // $gw_qr_base = site_url('/');
 ?>
+
 <script>
+// JavaScript para navegación entre tabs
+(function(){
+    const stepItems = document.querySelectorAll('.gw-step-item.gw-admin-tab-btn');
+    const tabContents = document.querySelectorAll('.gw-admin-tab-content');
+    
+    stepItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Remover clase active de todos los items
+            stepItems.forEach(step => step.classList.remove('active'));
+            // Agregar clase active al item clickeado
+            this.classList.add('active');
+            
+            // Obtener el tab a mostrar
+            const tabToShow = this.getAttribute('data-tab');
+            
+            // Ocultar todos los tabs
+            tabContents.forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Mostrar el tab seleccionado
+            const targetTab = document.getElementById('gw-admin-tab-' + tabToShow);
+            if (targetTab) {
+                targetTab.style.display = 'block';
+            }
+        });
+    });
+})();
+
+// JavaScript para QR codes
 document.querySelectorAll('.gw-generar-qr-btn').forEach(btn => {
   btn.addEventListener('click', function(){
     var paisId = this.getAttribute('data-pais-id');
     var paisNombre = this.getAttribute('data-pais-nombre');
     var url = '<?php echo $gw_qr_base; ?>?gw_pais=' + paisId;
-    // Línea importante: CAMBIA el valor de $gw_qr_base según el entorno.
-    // Cuando subas a producción, usa site_url('/'); y elimina la línea de ngrok.
     var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=' + encodeURIComponent(url);
     document.getElementById('gw-qr-modal-title').innerText = "Link/QR para " + paisNombre;
     document.getElementById('gw-qr-modal-qr').innerHTML = '<img src="'+qrUrl+'" alt="QR" style="max-width:210px;">';
@@ -1266,9 +2294,11 @@ document.querySelectorAll('.gw-generar-qr-btn').forEach(btn => {
     document.getElementById('gw-qr-modal').style.display = '';
   });
 });
+
 document.getElementById('gw-qr-modal-cerrar').onclick = function(){
   document.getElementById('gw-qr-modal').style.display = 'none';
 };
+
 document.getElementById('gw-qr-modal-copy').onclick = function(){
   var inp = document.getElementById('gw-qr-modal-link');
   inp.select(); inp.setSelectionRange(0, 99999);
@@ -1279,380 +2309,6 @@ document.getElementById('gw-qr-modal-copy').onclick = function(){
   }, 1500);
 };
 </script>
-            </div>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-usuarios" style="display:none;">
-    <h2>Gestión de usuarios</h2>
-    <?php
-      // Nonce para acciones AJAX de usuarios
-      $gw_users_nonce = wp_create_nonce('gw_admin_users');
-
-      // Ensure get_editable_roles() is available when shortcode runs outside wp-admin
-      if (!function_exists('get_editable_roles')) {
-          require_once ABSPATH . 'wp-admin/includes/user.php';
-      }
-      // Obtener solo los roles oficiales del proyecto
-      function gw_admin_roles_labels(){
-          // Asegurar disponibilidad cuando el shortcode corre fuera de wp-admin
-          if (!function_exists('get_editable_roles')) {
-              require_once ABSPATH . 'wp-admin/includes/user.php';
-          }
-          $registered = get_editable_roles();
-
-          // Solo los roles oficiales del proyecto
-          $allowed = [
-              'administrator'    => 'Administrador',
-              'coordinador_pais' => 'Coordinador de país',
-              'coach'            => 'Coach',
-              'voluntario'       => 'Voluntario',
-          ];
-
-          // Armar etiquetas únicamente de los roles permitidos y registrados
-          $labels = [];
-          foreach ($allowed as $slug => $label) {
-              if (isset($registered[$slug])) {
-                  $labels[$slug] = $label;
-              }
-          }
-          return $labels;
-      }
-
-      // Render de una fila HTML de usuario (para refrescar tras guardar)
-      function gw_admin_render_user_row($u){
-          $roles_labels = gw_admin_roles_labels();
-          $role = count($u->roles) ? $u->roles[0] : '';
-          $role_label = isset($roles_labels[$role]) ? $roles_labels[$role] : $role;
-
-          $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
-          $pais_titulo = $pais_id ? get_the_title($pais_id) : '—';
-          $activo = get_user_meta($u->ID, 'gw_active', true);
-          if($activo === '') $activo = '1';
-          $badge = $activo === '1' ? '<span style="background:#e8f5e9;color:#1b5e20;padding:2px 8px;border-radius:12px;font-size:12px;">Activo</span>' :
-                                     '<span style="background:#ffebee;color:#b71c1c;padding:2px 8px;border-radius:12px;font-size:12px;">Inactivo</span>';
-
-          $btn_toggle = $activo === '1' ? 'Desactivar' : 'Activar';
-
-          ob_start();
-          ?>
-          <tr id="gw-user-row-<?php echo $u->ID; ?>" data-role="<?php echo esc_attr($role); ?>" data-active="<?php echo esc_attr($activo); ?>">
-            <td><?php echo esc_html($u->display_name ?: $u->user_login); ?></td>
-            <td><?php echo esc_html($u->user_email); ?></td>
-            <td><?php echo esc_html($role_label ?: '—'); ?></td>
-            <td><?php echo esc_html($pais_titulo); ?></td>
-            <td><?php echo $badge; ?></td>
-            <td>
-              <button type="button" title="Editar usuario" class="button button-small gw-user-edit" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserEdit(<?php echo (int)$u->ID; ?>)">Editar</button>
-              <button type="button" title="Activar/Desactivar" class="button button-small gw-user-toggle" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserToggle(<?php echo (int)$u->ID; ?>)"><?php echo $btn_toggle; ?></button>
-              <button type="button" title="Ver historial" class="button button-small gw-user-history" data-user-id="<?php echo $u->ID; ?>" onclick="window.gwUserHistory(<?php echo (int)$u->ID; ?>)">Historial</button>
-            </td>
-          </tr>
-          <?php
-          return ob_get_clean();
-      }
-
-      // Obtener usuarios (máx 200 por ahora)
-      $usuarios = get_users(['number' => 200, 'fields' => 'all']);
-      // Países para filtros/modales
-      $paises_all = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-      $roles_labels = gw_admin_roles_labels();
-    ?>
-    <style>
-      .gw-users-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0 16px;}
-      .gw-users-toolbar input[type="text"], .gw-users-toolbar select{padding:6px 8px;min-width:190px;}
-      table.gw-users{width:100%;border-collapse:collapse;background:#fff;}
-      table.gw-users th, table.gw-users td{border-bottom:1px solid #e9eef4;padding:10px 8px;text-align:left;}
-      table.gw-users th{background:#f7f9fc;font-weight:600;}
-      /* ===== Responsive scroll for wide users table ===== */
-      .gw-users-responsive{
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        width: 100%;
-      }
-      /* Ensure the table can trigger horizontal scroll when viewport is narrow */
-      table.gw-users{
-        min-width: 980px; /* keeps columns readable; shows a horizontal scrollbar on smaller screens */
-      }
-      /* Modal genérico */
-      #gw-user-modal, #gw-user-history-modal{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.35);z-index:99999;}
-      .gw-modal-box{background:#fff;max-width:640px;margin:6% auto;padding:22px 22px;border-radius:12px;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.2);}
-      .gw-modal-close{position:absolute;right:14px;top:10px;border:none;background:transparent;font-size:22px;cursor:pointer;}
-      .gw-user-form label{display:block;margin:8px 0 4px;font-weight:600;}
-      .gw-user-form input[type="text"], .gw-user-form input[type="email"], .gw-user-form select{width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;}
-      .gw-user-form .actions{margin-top:14px;display:flex;gap:8px;justify-content:flex-end;}
-      .gw-user-form .desc{font-size:12px;color:#78909c;}
-      .gw-log-list{max-height:300px;overflow:auto;border:1px solid #e0e0e0;border-radius:8px;padding:8px;background:#fafafa;}
-      .gw-log-item{border-bottom:1px dashed #e0e0e0;padding:6px 4px;}
-      .gw-log-item small{color:#607d8b;}
-    </style>
-
-    <div class="gw-users-toolbar">
-      <input type="text" id="gw-users-search" placeholder="Buscar por nombre o email…">
-      <select id="gw-users-role-filter">
-        <option value="">Todos los roles</option>
-        <?php foreach($roles_labels as $slug=>$label): ?>
-          <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></option>
-        <?php endforeach; ?>
-      </select>
-      <select id="gw-users-status-filter">
-        <option value="">Todos</option>
-        <option value="1">Activos</option>
-        <option value="0">Inactivos</option>
-      </select>
-    </div>
-
-    <div class="gw-users-responsive">
-      <table class="widefat striped gw-users" id="gw-users-table">
-        <thead>
-          <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>País</th><th>Estado</th><th>Acciones</th></tr>
-        </thead>
-        <tbody>
-          <?php
-            foreach($usuarios as $u){
-                echo gw_admin_render_user_row($u);
-            }
-          ?>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Modal edición -->
-    <div id="gw-user-modal">
-      <div class="gw-modal-box">
-        <button class="gw-modal-close" onclick="document.getElementById('gw-user-modal').style.display='none'">&times;</button>
-        <h3>Editar usuario</h3>
-        <form class="gw-user-form" id="gw-user-form">
-          <input type="hidden" name="user_id" id="gw_user_id">
-          <label>Nombre a mostrar</label>
-          <input type="text" name="display_name" id="gw_display_name" required>
-          <label>Email</label>
-          <input type="email" name="user_email" id="gw_user_email" required>
-          <label>Rol</label>
-          <select name="role" id="gw_role" required>
-            <?php foreach($roles_labels as $slug=>$label): ?>
-              <option value="<?php echo esc_attr($slug); ?>"><?php echo esc_html($label); ?></option>
-            <?php endforeach; ?>
-          </select>
-          <label>País</label>
-          <select name="pais_id" id="gw_pais_id">
-            <option value="">— Sin país —</option>
-            <?php foreach($paises_all as $p): ?>
-              <option value="<?php echo $p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
-            <?php endforeach; ?>
-          </select>
-          <label>Estado</label>
-          <select name="activo" id="gw_activo">
-            <option value="1">Activo</option>
-            <option value="0">Inactivo</option>
-          </select>
-          <div class="desc" id="gw_last_login_info"></div>
-          <div class="actions">
-            <button type="button" class="button" onclick="document.getElementById('gw-user-modal').style.display='none'">Cancelar</button>
-            <button type="submit" class="button button-primary">Guardar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Modal historial -->
-    <div id="gw-user-history-modal">
-      <div class="gw-modal-box">
-        <button class="gw-modal-close" onclick="document.getElementById('gw-user-history-modal').style.display='none'">&times;</button>
-        <h3>Historial de actividad</h3>
-        <div class="gw-log-list" id="gw-user-log-list"></div>
-      </div>
-    </div>
-
-    <script>
-      (function(){
-        var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
-        var nonce = '<?php echo esc_js($gw_users_nonce); ?>';
-        window.gwAjaxUrl = ajaxurl;
-        window.gwUsersNonce = nonce;
-
-        // Filtros de búsqueda, rol y estado (cliente)
-        var search = document.getElementById('gw-users-search');
-        var roleFilter = document.getElementById('gw-users-role-filter');
-        var statusFilter = document.getElementById('gw-users-status-filter');
-        function applyFilters(){
-          var q = (search.value || '').toLowerCase();
-          var rf = roleFilter.value || '';
-          var sf = statusFilter.value || '';
-          document.querySelectorAll('#gw-users-table tbody tr').forEach(function(tr){
-            var name = tr.children[0].innerText.toLowerCase();
-            var email = tr.children[1].innerText.toLowerCase();
-            var roleSlug = tr.getAttribute('data-role') || '';
-            var active = tr.getAttribute('data-active') || '';
-            var match = (name.indexOf(q) !== -1 || email.indexOf(q) !== -1);
-            if(rf && roleSlug !== rf) match = false;
-            if(sf !== '' && active !== sf) match = false;
-            tr.style.display = match ? '' : 'none';
-          });
-        }
-        search.addEventListener('input', applyFilters);
-        roleFilter.addEventListener('change', applyFilters);
-        statusFilter.addEventListener('change', applyFilters);
-
-        // Delegación de eventos global para asegurar funcionamiento aunque se reemplacen filas
-        document.addEventListener('click', function(e){
-          var editBtn = e.target.closest('.gw-user-edit');
-          var toggleBtn = e.target.closest('.gw-user-toggle');
-          var historyBtn = e.target.closest('.gw-user-history');
-          if (!editBtn && !toggleBtn && !historyBtn) return;
-          e.preventDefault();
-
-          if (editBtn) {
-            var uid = editBtn.getAttribute('data-user-id');
-            var data = new FormData();
-            data.append('action','gw_admin_get_user');
-            data.append('nonce', nonce);
-            data.append('user_id', uid);
-            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data}).then(r=>r.json()).then(function(res){
-              if(!res.success) return;
-              var u = res.data.user;
-              document.getElementById('gw_user_id').value = u.ID;
-              document.getElementById('gw_display_name').value = u.display_name || '';
-              document.getElementById('gw_user_email').value = u.user_email || '';
-              document.getElementById('gw_role').value = u.role || '';
-              document.getElementById('gw_pais_id').value = u.pais_id || '';
-              document.getElementById('gw_activo').value = u.activo ? '1' : '0';
-              document.getElementById('gw_last_login_info').innerText = u.last_login ? ('Último acceso: ' + u.last_login) : '';
-              document.getElementById('gw-user-modal').style.display = '';
-            });
-            return;
-          }
-
-          if (toggleBtn) {
-            var uid = toggleBtn.getAttribute('data-user-id');
-            var data = new FormData();
-            data.append('action','gw_admin_toggle_active');
-            data.append('nonce', nonce);
-            data.append('user_id', uid);
-            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
-              .then(r=>r.json()).then(function(res){
-                if(res.success && res.data && res.data.row_html){
-                  var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
-                  var newRow = tmp.firstElementChild;
-                  var oldRow = document.getElementById('gw-user-row-'+uid);
-                  if(oldRow) oldRow.replaceWith(newRow);
-                }
-              });
-            return;
-          }
-
-          if (historyBtn) {
-            var uid = historyBtn.getAttribute('data-user-id');
-            var data = new FormData();
-            data.append('action','gw_admin_get_user');
-            data.append('nonce', nonce);
-            data.append('user_id', uid);
-            fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data}).then(r=>r.json()).then(function(res){
-              if(!res.success) return;
-              var logs = res.data.logs || [];
-              var box = document.getElementById('gw-user-log-list');
-              box.innerHTML = '';
-              if(!logs.length){ box.innerHTML = '<div class="gw-log-item"><em>Sin registros</em></div>'; }
-              logs.reverse().forEach(function(it){
-                var el = document.createElement('div');
-                el.className = 'gw-log-item';
-                el.innerHTML = '<small>'+ (it.time || '') +'</small><br>'+ (it.msg || '');
-                box.appendChild(el);
-              });
-              document.getElementById('gw-user-history-modal').style.display = '';
-            });
-          }
-        });
-
-        // Guardar en modal
-        document.getElementById('gw-user-form').addEventListener('submit', function(e){
-          e.preventDefault();
-          var data = new FormData(this);
-          data.append('action','gw_admin_save_user');
-          data.append('nonce', nonce);
-          fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:data})
-            .then(r=>r.json()).then(function(res){
-              if(res.success){
-                // Refrescar fila
-                if(res.data && res.data.row_html){
-                  var uid = document.getElementById('gw_user_id').value;
-                  var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
-                  var newRow = tmp.firstElementChild;
-                  var oldRow = document.getElementById('gw-user-row-'+uid);
-                  if(oldRow) oldRow.replaceWith(newRow);
-                }
-                document.getElementById('gw-user-modal').style.display='none';
-              } else {
-                alert(res.data && res.data.msg ? res.data.msg : 'No se pudo guardar');
-              }
-            });
-        });
-      })();
-</script>
-<script>
-// Global click handlers for inline onclick attributes
-window.gwUserEdit = function(uid){
-  try{
-    var data = new FormData();
-    data.append('action','gw_admin_get_user');
-    data.append('nonce', window.gwUsersNonce);
-    data.append('user_id', uid);
-    fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
-      .then(r=>r.json()).then(function(res){
-        if(!res || !res.success) return;
-        var u = res.data.user || {};
-        document.getElementById('gw_user_id').value = u.ID || '';
-        document.getElementById('gw_display_name').value = u.display_name || '';
-        document.getElementById('gw_user_email').value = u.user_email || '';
-        document.getElementById('gw_role').value = u.role || '';
-        document.getElementById('gw_pais_id').value = u.pais_id || '';
-        document.getElementById('gw_activo').value = u.activo ? '1' : '0';
-        document.getElementById('gw_last_login_info').innerText = u.last_login ? ('Último acceso: ' + u.last_login) : '';
-        document.getElementById('gw-user-modal').style.display = '';
-      });
-  }catch(e){ console.error(e); }
-};
-
-window.gwUserToggle = function(uid){
-  try{
-    var data = new FormData();
-    data.append('action','gw_admin_toggle_active');
-    data.append('nonce', window.gwUsersNonce);
-    data.append('user_id', uid);
-    fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
-      .then(r=>r.json()).then(function(res){
-        if(res && res.success && res.data && res.data.row_html){
-          var tmp = document.createElement('tbody'); tmp.innerHTML = res.data.row_html.trim();
-          var newRow = tmp.firstElementChild;
-          var oldRow = document.getElementById('gw-user-row-'+uid);
-          if(oldRow && newRow) oldRow.replaceWith(newRow);
-        }
-      });
-  }catch(e){ console.error(e); }
-};
-
-window.gwUserHistory = function(uid){
-  try{
-    var data = new FormData();
-    data.append('action','gw_admin_get_user');
-    data.append('nonce', window.gwUsersNonce);
-    data.append('user_id', uid);
-    fetch(window.gwAjaxUrl, {method:'POST', credentials:'same-origin', body:data})
-      .then(r=>r.json()).then(function(res){
-        if(!res || !res.success) return;
-        var logs = res.data.logs || [];
-        var box = document.getElementById('gw-user-log-list');
-        box.innerHTML = '';
-        if(!logs.length){ box.innerHTML = '<div class="gw-log-item"><em>Sin registros</em></div>'; }
-        logs.slice().reverse().forEach(function(it){
-          var el = document.createElement('div');
-          el.className = 'gw-log-item';
-          el.innerHTML = '<small>'+ (it.time || '') +'</small><br>'+ (it.msg || '');
-          box.appendChild(el);
-        });
-        document.getElementById('gw-user-history-modal').style.display = '';
-      });
-  }catch(e){ console.error(e); }
-};
-</script>
-  </div>
 
 <?php
 // ====== MÓDULO GESTIÓN DE USUARIOS: helpers y AJAX ======
@@ -1715,7 +2371,6 @@ add_action('wp_ajax_gw_admin_save_user', function(){
   $display_name = sanitize_text_field($_POST['display_name'] ?? '');
   $email = sanitize_email($_POST['user_email'] ?? '');
   $role = sanitize_text_field($_POST['role'] ?? '');
-  // Validar que el rol solicitado sea uno de los oficiales del proyecto
   $allowed_roles = ['administrator','coordinador_pais','coach','voluntario'];
   if ($role && !in_array($role, $allowed_roles, true)) {
       wp_send_json_error(['msg' => 'Rol no permitido']);
@@ -1723,7 +2378,6 @@ add_action('wp_ajax_gw_admin_save_user', function(){
   $pais_id = intval($_POST['pais_id'] ?? 0);
   $activo = isset($_POST['activo']) ? sanitize_text_field($_POST['activo']) : '1';
 
-  // Actualizar nombre/email
   $args = ['ID' => $uid];
   $changes = [];
 
@@ -1742,18 +2396,15 @@ add_action('wp_ajax_gw_admin_save_user', function(){
     wp_update_user($args);
   }
 
-  // Cambiar rol (evitar que un admin se quite su propio rol)
   if($role && (!in_array($role, (array)$u->roles) || count($u->roles) !== 1)){
     if(get_current_user_id() === $uid && $role !== 'administrator'){
-      // Seguridad básica: no permitir que un admin se remueva a sí mismo
+      // Seguridad básica
     } else {
-      // Establecer rol único principal
       $u->set_role($role);
       $changes[] = 'Rol cambiado a ' . $role;
     }
   }
 
-  // Reasignar país
   $old_pais = get_user_meta($uid, 'gw_pais_id', true);
   if((int)$old_pais !== (int)$pais_id){
     if($pais_id){
@@ -1765,7 +2416,6 @@ add_action('wp_ajax_gw_admin_save_user', function(){
     }
   }
 
-  // Activar / desactivar
   $prev_activo = get_user_meta($uid, 'gw_active', true);
   if($prev_activo === '') $prev_activo = '1';
   if($prev_activo !== $activo){
@@ -1773,14 +2423,12 @@ add_action('wp_ajax_gw_admin_save_user', function(){
     $changes[] = ($activo === '1') ? 'Usuario activado' : 'Usuario desactivado';
   }
 
-  // Registrar en log
   if(!empty($changes)){
     gw_admin_add_user_log($uid, implode(' | ', $changes));
   }
 
-  // Devolver nueva fila HTML para refrescar
   $u_refreshed = get_user_by('id', $uid);
-  if(!function_exists('gw_admin_render_user_row')){ // fallback por si el alcance difiere
+  if(!function_exists('gw_admin_render_user_row')){
     function gw_admin_render_user_row($u){
       $roles_labels = ['administrator'=>'Administrador','coach'=>'Coach','coordinador_pais'=>'Coordinador de país','voluntario'=>'Voluntario'];
       $role = count($u->roles) ? $u->roles[0] : '';
@@ -1830,702 +2478,36 @@ add_action('wp_ajax_gw_admin_toggle_active', function(){
     wp_send_json_success();
   }
 });
+
+// AJAX handler para agregar nueva charla y devolver listado actualizado
+add_action('wp_ajax_gw_agregar_charla', function(){
+  if (!current_user_can('manage_options')) wp_send_json_error();
+  $titulo = sanitize_text_field($_POST['titulo'] ?? '');
+  if (!$titulo) wp_send_json_error(['msg'=>'Falta el título']);
+  $id = wp_insert_post([
+    'post_title' => $titulo,
+    'post_type' => 'charla',
+    'post_status' => 'publish',
+  ]);
+  if (!$id) wp_send_json_error(['msg'=>'Error al guardar']);
+  
+  // Devolver listado actualizado
+  ob_start();
+  gw_render_listado_charlas_panel();
+  $html = ob_get_clean();
+  wp_send_json_success(['html'=>$html]);
+});
+
 // ====== FIN MÓDULO GESTIÓN DE USUARIOS ======
 ?>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-charlas" style="display:none;">
-                <h2>Charlas</h2>
-                <div style="max-width:700px;">
-                <!-- Formulario para agregar charla -->
-                <div style="margin-bottom:16px;">
-                  <form id="gw-form-nueva-charla" style="display:flex;gap:10px;align-items:center;">
-                    <input type="text" id="gw-nueva-charla-title" placeholder="Nombre de la charla" required style="padding:7px;width:230px;">
-                    <button type="submit" class="button button-primary">Agregar charla</button>
-                    <span id="gw-charla-guardado" style="color:#388e3c;display:none;">Guardado</span>
-                  </form>
-                </div>
-                <script>
-                (function(){
-                  var form = document.getElementById('gw-form-nueva-charla');
-                  if(form){
-                    form.addEventListener('submit', function(e){
-                      e.preventDefault();
-                      var titulo = document.getElementById('gw-nueva-charla-title').value;
-                      if(!titulo) return;
-                      var data = new FormData();
-                      data.append('action', 'gw_agregar_charla');
-                      data.append('titulo', titulo);
-                      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                        method:'POST',
-                        credentials:'same-origin',
-                        body: data
-                      }).then(r=>r.json()).then(res=>{
-                        if(res.success){
-                          document.getElementById('gw-nueva-charla-title').value = '';
-                          document.getElementById('gw-charla-guardado').style.display = '';
-                          setTimeout(()=>{document.getElementById('gw-charla-guardado').style.display='none';}, 1600);
-                          // Actualizar listado de charlas
-                          document.getElementById('gw-listado-charlas').innerHTML = res.html;
-                          // Re-inicializar formularios de sesiones
-                          if(typeof gwInitSesionesCharlasPanel === 'function') gwInitSesionesCharlasPanel();
-                        }
-                      });
-                    });
-                  }
-                })();
-                </script>
-                <!-- Listado de charlas -->
-                <div id="gw-listado-charlas">
-                <?php
-                // Listado de charlas
-                function gw_render_listado_charlas_panel() {
-                    $charlas = get_posts([
-                        'post_type' => 'charla',
-                        'numberposts' => -1,
-                        'orderby' => 'title',
-                        'order' => 'ASC'
-                    ]);
-                    if (empty($charlas)) {
-                        echo '<p>No hay charlas registradas aún.</p>';
-                    } else {
-                        foreach ($charlas as $charla) {
-                            // Obtener sesiones
-                            $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
-                            if (!is_array($sesiones)) $sesiones = [];
-                            if (empty($sesiones)) $sesiones = [[]];
-                            echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
-                            echo '<h3 style="margin:0 0 12px 0;">' . esc_html($charla->post_title) . '</h3>';
-                            echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
-                            wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
-                            echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
-                            foreach ($sesiones as $idx => $sesion) {
-                                ?>
-                                <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                                    <label>Modalidad:
-                                        <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                                            <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
-                                            <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
-                                        </select>
-                                    </label>
-                                    <label style="margin-left:18px;">Fecha:
-                                        <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
-                                    </label>
-                                    <label style="margin-left:18px;">Hora:
-                                        <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
-                                    </label>
-                                    <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
-                                        Lugar físico:
-                                        <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
-                                    </label>
-                                    <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
-                                        Link:
-                                        <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
-                                    </label>
-                                    <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-                                </div>
-                                <?php
-                            }
-                            echo '</div>';
-                            echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
-                            echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
-                            echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
-                            echo '</form>';
-                            echo '</div>';
-                        }
-                    }
-                }
-                gw_render_listado_charlas_panel();
-                ?>
-                </div>
-                <script>
-                function gwInitSesionesCharlasPanel() {
-                    // Elimina listeners previos para evitar duplicados
-                    document.querySelectorAll('.gw-form-sesiones-charla').forEach(function(form){
-                        if(form._gwInit) return; // solo inicializar una vez
-                        form._gwInit = true;
-                        var charlaId = form.getAttribute('data-charla');
-                        var container = form.querySelector('#gw-sesiones-list-'+charlaId);
-                        // Función para actualizar labels según modalidad
-                        function updateLabelsPanel(block) {
-                            var modalidad = block.querySelector('.gw-sesion-modalidad-panel').value;
-                            var lugarLabel = block.querySelector('.gw-lugar-label-panel');
-                            var lugarInput = lugarLabel.querySelector('input');
-                            var linkLabel = block.querySelector('.gw-link-label-panel');
-                            var linkInput = linkLabel.querySelector('input');
-                            if (modalidad.toLowerCase() === 'virtual') {
-                                lugarLabel.style.display = 'none';
-                                lugarInput.disabled = true;
-                                linkLabel.style.display = '';
-                                linkInput.disabled = false;
-                            } else {
-                                lugarLabel.style.display = '';
-                                lugarInput.disabled = false;
-                                linkLabel.style.display = 'none';
-                                linkInput.disabled = true;
-                            }
-                        }
-                        // Inicializar bloques existentes
-                        form.querySelectorAll('.gw-sesion-block-panel').forEach(function(block){
-                            block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
-                                updateLabelsPanel(block);
-                            });
-                            block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
-                                if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
-                                    block.parentNode.removeChild(block);
-                                }
-                            });
-                            updateLabelsPanel(block);
-                        });
-                        // Agregar sesión nueva
-                        form.querySelector('.gw-add-sesion-panel').addEventListener('click', function(){
-                            var html = `
-                            <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                                <label>Modalidad:
-                                    <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                                        <option value="Presencial">Presencial</option>
-                                        <option value="Virtual">Virtual</option>
-                                    </select>
-                                </label>
-                                <label style="margin-left:18px;">Fecha:
-                                    <input type="date" name="sesion_fecha[]" required>
-                                </label>
-                                <label style="margin-left:18px;">Hora:
-                                    <input type="time" name="sesion_hora[]" required>
-                                </label>
-                                <label class="gw-lugar-label-panel" style="margin-left:18px;">
-                                    Lugar físico:
-                                    <input type="text" name="sesion_lugar[]">
-                                </label>
-                                <label class="gw-link-label-panel" style="margin-left:18px;display:none;">
-                                    Link:
-                                    <input type="url" name="sesion_link[]" disabled>
-                                </label>
-                                <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-                            </div>
-                            `;
-                            var temp = document.createElement('div');
-                            temp.innerHTML = html;
-                            var block = temp.firstElementChild;
-                            block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
-                                updateLabelsPanel(block);
-                            });
-                            block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
-                                if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
-                                    block.parentNode.removeChild(block);
-                                }
-                            });
-                            updateLabelsPanel(block);
-                            container.appendChild(block);
-                        });
-                        // Guardar AJAX
-                        form.addEventListener('submit', function(e){
-                            e.preventDefault();
-                            var data = new FormData(form);
-                            data.append('action','gw_guardar_sesiones_charla');
-                            data.append('charla_id', charlaId);
-                            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                                method: 'POST',
-                                credentials: 'same-origin',
-                                body: data
-                            }).then(r=>r.json()).then(res=>{
-                                if(res && res.success){
-                                    // Recargar listado de charlas (para reflejar cambios, sesiones, etc)
-                                    if(res.html){
-                                        document.getElementById('gw-listado-charlas').innerHTML = res.html;
-                                        if(typeof gwInitSesionesCharlasPanel === 'function') gwInitSesionesCharlasPanel();
-                                    } else {
-                                        form.querySelector('.gw-sesiones-guardado').style.display = '';
-                                        setTimeout(function(){form.querySelector('.gw-sesiones-guardado').style.display='none';}, 1800);
-                                    }
-                                }
-                            });
-                        });
-                    });
-                }
-                // Inicializar al cargar
-                gwInitSesionesCharlasPanel();
-                </script>
-                <style>
-                .gw-sesion-block-panel label {font-weight:normal;}
-                </style>
-                </div>
-            </div>
-<?php
-// AJAX handler para agregar nueva charla y devolver listado actualizado
-add_action('wp_ajax_gw_agregar_charla', function(){
-  if (!current_user_can('manage_options')) wp_send_json_error();
-  $titulo = sanitize_text_field($_POST['titulo'] ?? '');
-  if (!$titulo) wp_send_json_error(['msg'=>'Falta el título']);
-  $id = wp_insert_post([
-    'post_title' => $titulo,
-    'post_type' => 'charla',
-    'post_status' => 'publish',
-  ]);
-  if (!$id) wp_send_json_error(['msg'=>'Error al guardar']);
-  // Devolver listado actualizado
-  $charlas = get_posts([
-    'post_type' => 'charla',
-    'numberposts' => -1,
-    'orderby' => 'title',
-    'order' => 'ASC'
-  ]);
-  ob_start();
-  if(empty($charlas)) {
-    echo '<p>No hay charlas registradas aún.</p>';
-  } else {
-    foreach ($charlas as $charla) {
-        // Obtener sesiones
-        $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
-        if (!is_array($sesiones)) $sesiones = [];
-        if (empty($sesiones)) $sesiones = [[]];
-        echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
-        echo '<h3 style="margin:0 0 12px 0;">' . esc_html($charla->post_title) . '</h3>';
-        echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
-        wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
-        echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
-        foreach ($sesiones as $idx => $sesion) {
-            ?>
-            <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                <label>Modalidad:
-                    <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                        <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
-                        <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
-                    </select>
-                </label>
-                <label style="margin-left:18px;">Fecha:
-                    <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
-                </label>
-                <label style="margin-left:18px;">Hora:
-                    <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
-                </label>
-                <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
-                    Lugar físico:
-                    <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
-                </label>
-                <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
-                    Link:
-                    <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
-                </label>
-                <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-            </div>
-            <?php
-        }
-        echo '</div>';
-        echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
-        echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
-        echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
-        echo '</form>';
-        echo '</div>';
-    }
-  }
-  $html = ob_get_clean();
-  wp_send_json_success(['html'=>$html]);
-});
-?>
-            <?php
-// AJAX handler para agregar nueva charla y devolver listado actualizado
-add_action('wp_ajax_gw_agregar_charla', function(){
-  if (!current_user_can('manage_options')) wp_send_json_error();
-  $titulo = sanitize_text_field($_POST['titulo'] ?? '');
-  if (!$titulo) wp_send_json_error(['msg'=>'Falta el título']);
-  $id = wp_insert_post([
-    'post_title' => $titulo,
-    'post_type' => 'charla',
-    'post_status' => 'publish',
-  ]);
-  if (!$id) wp_send_json_error(['msg'=>'Error al guardar']);
-  // Devolver listado actualizado
-  $charlas = get_posts([
-    'post_type' => 'charla',
-    'numberposts' => -1,
-    'orderby' => 'title',
-    'order' => 'ASC'
-  ]);
-  ob_start();
-  if(empty($charlas)) {
-    echo '<p>No hay charlas registradas aún.</p>';
-  } else {
-    foreach ($charlas as $charla) {
-        // Obtener sesiones
-        $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
-        if (!is_array($sesiones)) $sesiones = [];
-        if (empty($sesiones)) $sesiones = [[]];
-        echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
-        echo '<h3 style="margin:0 0 12px 0;">' . esc_html($charla->post_title) . '</h3>';
-        echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
-        wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
-        echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
-        foreach ($sesiones as $idx => $sesion) {
-            ?>
-            <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                <label>Modalidad:
-                    <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                        <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
-                        <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
-                    </select>
-                </label>
-                <label style="margin-left:18px;">Fecha:
-                    <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
-                </label>
-                <label style="margin-left:18px;">Hora:
-                    <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
-                </label>
-                <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
-                    Lugar físico:
-                    <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
-                </label>
-                <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
-                    Link:
-                    <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
-                </label>
-                <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-            </div>
-            <?php
-        }
-        echo '</div>';
-        echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
-        echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
-        echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
-        echo '</form>';
-        echo '</div>';
-    }
-  }
-  $html = ob_get_clean();
-  wp_send_json_success(['html'=>$html]);
-});
-?>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-proyectos" style="display:none;">
-<h2>Proyectos</h2>
-<?php if (current_user_can('manage_options') || current_user_can('coordinador_pais')): ?>
-<div style="max-width:500px;margin-bottom:28px;">
-  <form id="gw-form-nuevo-proyecto">
-    <label for="gw-nuevo-proyecto-title"><b>Nuevo proyecto:</b></label><br>
-    <input type="text" id="gw-nuevo-proyecto-title" name="titulo" required style="width:82%;max-width:340px;padding:7px;margin:8px 0;">
-    <button type="submit" class="button button-primary">Agregar</button>
-    <span id="gw-proyecto-guardado" style="margin-left:12px;color:#388e3c;display:none;">Guardado</span>
-  </form>
-</div>
-<script>
-(function(){
-  var form = document.getElementById('gw-form-nuevo-proyecto');
-  if(form){
-    form.addEventListener('submit', function(e){
-      e.preventDefault();
-      var titulo = document.getElementById('gw-nuevo-proyecto-title').value;
-      if(!titulo) return;
-      var data = new FormData();
-      data.append('action', 'gw_nuevo_proyecto');
-      data.append('titulo', titulo);
-      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-        method:'POST',
-        credentials:'same-origin',
-        body: data
-      }).then(r=>r.json()).then(res=>{
-        if(res.success){
-          document.getElementById('gw-nuevo-proyecto-title').value = '';
-          document.getElementById('gw-proyecto-guardado').style.display = '';
-          setTimeout(()=>{document.getElementById('gw-proyecto-guardado').style.display='none';}, 1600);
-          // Actualizar listado
-          document.getElementById('gw-listado-proyectos').innerHTML = res.html;
-        }
-      });
-    });
-  }
-})();
-</script>
-<?php endif; ?>
-<div id="gw-listado-proyectos">
-<?php
-// Mostrar lista de proyectos actuales:
-$proyectos = get_posts([
-    'post_type' => 'proyecto',
-    'numberposts' => -1,
-    'orderby' => 'title',
-    'order' => 'ASC'
-]);
-if(empty($proyectos)) {
-    echo '<p>No hay proyectos registrados aún.</p>';
-} else {
-    echo '<ul style="padding-left:12px;">';
-    foreach($proyectos as $proy){
-        $edit_url = admin_url('post.php?post='.$proy->ID.'&action=edit');
-        echo '<li style="margin-bottom:8px;"><b>'.esc_html($proy->post_title).'</b> <a href="'.$edit_url.'" target="_blank" style="margin-left:8px;font-size:0.94em;">Editar en WordPress</a></li>';
-    }
-    echo '</ul>';
-}
-?>
-</div>
-            </div>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-capacitaciones" style="display:none;">
-                <h2>Capacitaciones</h2>
-                <div id="gw-capacitacion-wizard">
-                    <style>
-                    .gw-wizard-steps {
-                        display: flex; justify-content: space-between; margin-bottom: 30px; margin-top:10px;
-                    }
-                    .gw-wizard-step {
-                        flex:1; text-align:center; padding:12px 0; position:relative;
-                        background: #f7fafd;
-                        border-radius: 8px;
-                        font-weight: 600; color: #1d3557;
-                        cursor:pointer;
-                        /* Cambia este color para modificar el tema principal del wizard */
-                        border:2px solid #31568d; /* <-- EDITA este color para el tema */
-                        transition:.2s;
-                        margin:0 4px;
-                    }
-                    .gw-wizard-step.active, .gw-wizard-step:hover {
-                        background: #31568d;
-                        color:#fff;
-                    }
-                    .gw-wizard-form { background: #fff; padding: 24px 30px; border-radius: 14px; box-shadow:0 2px 10px #dde7f2; max-width:560px;margin:0 auto 28px; }
-                    .gw-wizard-form label { display:block; margin-top:14px;font-weight:500;}
-                    .gw-wizard-form input, .gw-wizard-form select { width:100%; padding:9px; margin-top:5px; border-radius:6px; border:1px solid #bcd; }
-                    .gw-wizard-sesiones { margin-top: 18px; }
-                    .gw-wizard-sesion { border:1px solid #bfd9f7; border-radius:8px; padding:14px; margin-bottom:12px; display:flex; flex-wrap:wrap; align-items:center; gap:12px;}
-                    .gw-wizard-sesion input, .gw-wizard-sesion select { width:auto; min-width:130px;}
-                    .gw-wizard-sesion .remove-sesion { background:#d50000;color:#fff;border:none;padding:7px 16px;border-radius:6px;margin-left:18px;cursor:pointer;}
-                    .gw-wizard-form .add-sesion { margin-top:8px;background:#31568d;color:#fff;padding:7px 20px;border:none;border-radius:6px;}
-                    .gw-capacitacion-list {max-width:700px; margin:0 auto;}
-                    .gw-cap-edit {color:#1e88e5; margin-left:14px; text-decoration:underline;cursor:pointer;}
-                    .gw-cap-delete {color:#e53935; margin-left:8px; text-decoration:underline;cursor:pointer;}
-                    </style>
-                    <div class="gw-wizard-steps">
-                        <div class="gw-wizard-step active" data-step="1">Proyecto</div>
-                        <div class="gw-wizard-step" data-step="2">Coach</div>
-                        <div class="gw-wizard-step" data-step="3">País</div>
-                        <div class="gw-wizard-step" data-step="4">Sesiones</div>
-                    </div>
-                    <form class="gw-wizard-form" id="gw-capacitacion-form">
-                        <div class="gw-wizard-step-content step-1">
-                            <label>Nombre de la capacitación:</label>
-                            <input type="text" name="titulo" required placeholder="Nombre de la capacitación">
-                            <label>Proyecto relacionado:</label>
-                            <select name="proyecto" required>
-                                <option value="">Selecciona un proyecto</option>
-                                <?php
-                                $proyectos = get_posts(['post_type'=>'proyecto','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-                                foreach($proyectos as $proy){
-                                    echo '<option value="'.$proy->ID.'">'.esc_html($proy->post_title).'</option>';
-                                }
-                                ?>
-                            </select>
-                            <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
-                        </div>
-                        <div class="gw-wizard-step-content step-2" style="display:none;">
-                            <label>Coach responsable:</label>
-                            <select name="coach" required>
-                                <option value="">Selecciona un coach</option>
-                                <?php
-                                $coaches = get_users(['role'=>'coach']);
-                                foreach($coaches as $coach){
-                                    echo '<option value="'.$coach->ID.'">'.esc_html($coach->display_name).'</option>';
-                                }
-                                ?>
-                            </select>
-                            <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
-                            <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
-                        </div>
-                        <div class="gw-wizard-step-content step-3" style="display:none;">
-                            <label>País relacionado:</label>
-                            <select name="pais" required>
-                                <option value="">Selecciona un país</option>
-                                <?php
-                                $paises = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-                                foreach($paises as $pais){
-                                    echo '<option value="'.$pais->ID.'">'.esc_html($pais->post_title).'</option>';
-                                }
-                                ?>
-                            </select>
-                            <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
-                            <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
-                        </div>
-                        <div class="gw-wizard-step-content step-4" style="display:none;">
-                            <div class="gw-wizard-sesiones"></div>
-                            <button type="button" class="add-sesion">Agregar sesión</button>
-                            <div style="margin-top:16px;">
-                                <button type="button" class="prev-step">← Anterior</button>
-                                <button type="submit" class="button button-primary" style="float:right;">Guardar capacitación</button>
-                            </div>
-                        </div>
-                        <input type="hidden" name="edit_id" value="">
-                    </form>
-                </div>
-                <div class="gw-capacitacion-list">
-                    <h3 style="margin-top:36px;">Capacitaciones registradas</h3>
-                    <div id="gw-capacitaciones-listado">
-                    <?php
-                    $caps = get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-                    if(empty($caps)){
-                        echo '<p>No hay capacitaciones registradas.</p>';
-                    } else {
-                        echo '<ul>';
-                        foreach($caps as $cap){
-                            $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
-                            $proy_title = $proy ? get_the_title($proy) : '-';
-                            echo '<li><b>'.esc_html($cap->post_title).'</b> <span style="color:#aaa;">(Proyecto: '.$proy_title.')</span> <span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span> <span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span></li>';
-                        }
-                        echo '</ul>';
-                    }
-                    ?>
-                    </div>
-                </div>
-                <script>
-                // Wizard steps JS
-                (function(){
-                    let currentStep = 1;
-                    function showStep(n){
-                        document.querySelectorAll('.gw-wizard-step-content').forEach(div=>{
-                            div.style.display='none';
-                        });
-                        document.querySelector('.step-'+n).style.display = '';
-                        document.querySelectorAll('.gw-wizard-step').forEach(btn=>btn.classList.remove('active'));
-                        document.querySelector('.gw-wizard-step[data-step="'+n+'"]').classList.add('active');
-                    }
-                    document.querySelectorAll('.next-step').forEach(btn=>{
-                        btn.onclick = function(){ if(currentStep<4){ showStep(++currentStep); } };
-                    });
-                    document.querySelectorAll('.prev-step').forEach(btn=>{
-                        btn.onclick = function(){ if(currentStep>1){ showStep(--currentStep); } };
-                    });
-                    // Add sesiones
-                    const sesionesWrap = document.querySelector('.gw-wizard-sesiones');
-                    function addSesion(data){
-                        data = data||{};
-                        let sesion = document.createElement('div');
-                        sesion.className = 'gw-wizard-sesion';
-                        sesion.innerHTML = `
-                            <select name="sesion_modalidad[]"><option value="Presencial"${data.modalidad=="Presencial"?" selected":""}>Presencial</option><option value="Virtual"${data.modalidad=="Virtual"?" selected":""}>Virtual</option></select>
-                            <input type="date" name="sesion_fecha[]" value="${data.fecha||""}" required>
-                            <input type="time" name="sesion_hora[]" value="${data.hora||""}" required>
-                            <input type="text" name="sesion_lugar[]" placeholder="Lugar físico" value="${data.lugar||""}" ${data.modalidad=="Virtual"?"style='display:none;'":""}>
-                            <input type="url" name="sesion_link[]" placeholder="Link (si es virtual)" value="${data.link||""}" ${data.modalidad!="Virtual"?"style='display:none;'":""}>
-                            <button type="button" class="remove-sesion">Eliminar</button>
-                        `;
-                        // Toggle fields (mostrar/ocultar y limpiar según modalidad)
-                        let modalidad = sesion.querySelector('select');
-                        let lugarInput = sesion.querySelector('input[name="sesion_lugar[]"]');
-                        let linkInput = sesion.querySelector('input[name="sesion_link[]"]');
-                        function updateFields(){
-                            let isVirtual = modalidad.value=="Virtual";
-                            if(isVirtual){
-                                lugarInput.style.display = "none";
-                                lugarInput.value = "";
-                                linkInput.style.display = "";
-                                // No limpiar linkInput, permite edición
-                            } else {
-                                lugarInput.style.display = "";
-                                linkInput.style.display = "none";
-                                linkInput.value = "";
-                            }
-                        }
-                        modalidad.onchange = updateFields;
-                        sesion.querySelector('.remove-sesion').onclick = function(){
-                            sesionesWrap.removeChild(sesion);
-                        };
-                        updateFields();
-                        sesionesWrap.appendChild(sesion);
-                    }
-                    document.querySelector('.add-sesion').onclick = function(){
-                        addSesion();
-                    };
-                    // AJAX submit
-                    document.getElementById('gw-capacitacion-form').onsubmit = function(e){
-                        e.preventDefault();
-                        const form = e.target;
-                        var data = new FormData(form);
-                        data.append('action','gw_guardar_capacitacion_wizard');
-                        fetch('<?php echo admin_url('admin-ajax.php'); ?>',{method:'POST',credentials:'same-origin',body:data})
-                        .then(r=>r.json()).then(res=>{
-                            if(res.success){
-                                form.reset();
-                                sesionesWrap.innerHTML="";
-                                currentStep=1;showStep(1);
-                                if (res && typeof res.html === 'string' && res.html.trim() !== '' && res.html !== 'undefined') {
-                                document.getElementById('gw-capacitaciones-listado').innerHTML = res.html;
-                                } else {
-                                 document.getElementById('gw-capacitaciones-listado').innerHTML = '<p>No hay capacitaciones registradas.</p>';
-                        };
-                            } else {
-                                alert('Error: '+(res.msg||'No se pudo guardar'));
-                            }
-                        });
-                    };
-                    // Editar y Eliminar
-                    document.getElementById('gw-capacitaciones-listado').onclick = function(e){
-                        if(e.target.classList.contains('gw-cap-edit')){
-                            let id = e.target.getAttribute('data-id');
-                            fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=gw_obtener_capacitacion&id='+id)
-                            .then(r=>r.json()).then(res=>{
-                                if(res.success){
-                                    const d = res.data;
-                                    document.querySelector('input[name="titulo"]').value = d.titulo||'';
-                                    document.querySelector('select[name="proyecto"]').value = d.proyecto;
-                                    document.querySelector('select[name="coach"]').value = d.coach;
-                                    document.querySelector('select[name="pais"]').value = d.pais;
-                                    sesionesWrap.innerHTML = '';
-                                    (d.sesiones||[]).forEach(s=>addSesion(s));
-                                    document.querySelector('input[name="edit_id"]').value = id;
-                                    currentStep=1;showStep(1);
-                                    window.scrollTo(0,document.getElementById('gw-capacitacion-wizard').offsetTop-40);
-                                }
-                            });
-                        }
-                        if(e.target.classList.contains('gw-cap-delete')){
-                            if(!confirm("¿Eliminar esta capacitación?")) return;
-                            let id = e.target.getAttribute('data-id');
-                            var data = new FormData();
-                            data.append('action','gw_eliminar_capacitacion');
-                            data.append('id',id);
-                            fetch('<?php echo admin_url('admin-ajax.php'); ?>',{method:'POST',credentials:'same-origin',body:data})
-                            .then(r=>r.json()).then(res=>{
-                                if(res.success){
-                                    document.getElementById('gw-capacitaciones-listado').innerHTML = res.html;
-                                }
-                            });
-                        }
-                    };
-                    // Paso inicial
-                    showStep(currentStep);
-                })();
-                </script>
-            </div>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-progreso" style="display:none;">
-                <h2>Progreso del voluntario</h2>
-                <?php
-                // Mostrar el shortcode de progreso del voluntario (admin)
-                echo do_shortcode('[gw_progreso_voluntario]');
-                ?>
-            </div>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
-                <h2>Seguimiento de ausencias</h2>
-                <p>Aquí va la gestión de seguimiento de ausencias.</p>
-            </div>
-            <div class="gw-admin-tab-content" id="gw-admin-tab-reportes" style="display:none;">
-                <h2>Reportes y listados</h2>
-                <p>Aquí va la gestión de reportes y listados.</p>
-            </div>
-        </section>
-    </div>
-    <script>
-    (function(){
-        const btns = document.querySelectorAll('.gw-admin-tab-btn');
-        const tabs = document.querySelectorAll('.gw-admin-tab-content');
-        btns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                btns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const tabId = 'gw-admin-tab-' + btn.dataset.tab;
-                tabs.forEach(tab => {
-                    if(tab.id === tabId) tab.style.display = 'block';
-                    else tab.style.display = 'none';
-                });
-            });
-        });
-    })();
-    </script>
+
     <?php
     return ob_get_clean();
 });
+
+
+
+
 // AJAX handler para guardar charlas de país
 add_action('wp_ajax_gw_guardar_charlas_pais', function() {
     if (!current_user_can('manage_options')) wp_send_json_error();
