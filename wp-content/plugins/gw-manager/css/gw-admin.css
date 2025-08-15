@@ -83,7 +83,7 @@ html, body {
 
 /* PANEL LATERAL IZQUIERDO */
 .gw-sidebar {
-  width: 380px;
+  width: 423px;
   min-width: 380px;
   background: gainsboro;
   display: flex;
