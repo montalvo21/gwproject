@@ -754,9 +754,6 @@ label {
 }
 
 /* ESPACIADO PARA ACCIONES EN GENERAL */
-.gw-admin-tab-content .button + .button {
-  margin-left: 12px;
-}
 
 /* PÁGINA DE SIN PERMISOS */
 .gw-no-permissions {
@@ -840,9 +837,6 @@ label {
   .gw-no-permissions p {
     font-size: 16px;
   }
-}
-.gw-admin-tab-content .button + .button {
-  margin-left: 12px;
 }
 
 /* PÁGINA DE SIN PERMISOS */
