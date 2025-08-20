@@ -190,31 +190,33 @@ function gw_get_voluntario_step($user_id) {
                 <div class="gw-step-item">
                     <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                </div>
-                <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
-                    <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
                     </div>
                 </div>
                 <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
                     </div>
                 </div>
                 <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
                 </div>
+
+                      <!-- Paso 7 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
+                    </div>
             </div>
 
             <div class="gw-sidebar-footer">
@@ -328,6 +330,7 @@ function gw_get_voluntario_step($user_id) {
 
     $error = '';
     $nombre = $telefono = $pais = '';
+    $mostrar_exito = false; // Variable para controlar la pantalla de éxito
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_datos_nonce']) && wp_verify_nonce($_POST['gw_datos_nonce'], 'gw_datos_personales')) {
         $nombre = sanitize_text_field($_POST['nombre']);
@@ -340,18 +343,20 @@ function gw_get_voluntario_step($user_id) {
             update_user_meta($user_id, 'gw_nombre', $nombre);
             update_user_meta($user_id, 'gw_pais', $pais);
             update_user_meta($user_id, 'gw_telefono', $telefono);
-                        update_user_meta($user_id, 'gw_step2_completo', 1);
-                        // Cancela recordatorios
+            update_user_meta($user_id, 'gw_step2_completo', 1);
+            
+            // Cancela recordatorios
             gw_cancelar_recordatorios_aspirante($user_id);
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            exit;
+            
+            // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
+            $mostrar_exito = true;
         }
     } else {
         // Precargar si existen
         $nombre = get_user_meta($user_id, 'gw_nombre', true);
         $pais = get_user_meta($user_id, 'gw_pais', true);
         $telefono = get_user_meta($user_id, 'gw_telefono', true);
-            }
+    }
 
     // Obtener lista de países (CPT 'pais')
     $paises = get_posts([
@@ -376,7 +381,7 @@ function gw_get_voluntario_step($user_id) {
                 <div class="gw-steps-container">
                     <!-- Paso 1 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">1</div>
+                    <div class="gw-step-number"><?php echo $mostrar_exito ? '✓' : '1'; ?></div>
                     <div class="gw-step-content">
                         <h3>Información personal</h3>
                         <p>Cuéntanos quién eres para empezar.</p>
@@ -401,18 +406,9 @@ function gw_get_voluntario_step($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 4 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
-                    <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                    </div>
-
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -421,7 +417,7 @@ function gw_get_voluntario_step($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -430,11 +426,20 @@ function gw_get_voluntario_step($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
+                    </div>
+
+                      <!-- Paso 8 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
                     </div>
 
                 </div>
@@ -457,76 +462,102 @@ function gw_get_voluntario_step($user_id) {
             <!-- Contenido principal -->
             <div class="gw-main-content">
                 <div class="gw-form-container">
-                    <div class="gw-form-header">
-                        <h1>Información Personal</h1>
-                    </div>
 
-                    <?php if ($error): ?>
-                        <div class="gw-error-message">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"/>
-                                <line x1="15" y1="9" x2="9" y2="15"/>
-                                <line x1="9" y1="9" x2="15" y2="15"/>
-                            </svg>
-                            <span><?php echo esc_html($error); ?></span>
+                    <?php if ($mostrar_exito): ?>
+                        <!-- PANTALLA DE ÉXITO -->
+                        <div class="gw-form-header">
+                            <h1>¡Información guardada!</h1>
                         </div>
+                        
+                        <div class="gw-success-registration">
+                            <div class="gw-success-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 12l2 2 4-4"/>
+                                    <circle cx="12" cy="12" r="10"/>
+                                </svg>
+                            </div>
+                            <h2 class="gw-success-title">¡Gracias por completar tu información personal!</h2>
+                            <p class="gw-success-description">
+                                Hemos guardado tus datos correctamente: <strong><?php echo esc_html($nombre); ?></strong>.
+                                <br>Ahora puedes continuar al siguiente paso del proceso.
+                            </p>
+                            <div class="gw-loading-spinner"></div>
+                        </div>
+                        
+                        <!-- Redirección automática después de 3 segundos -->
+                        <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
+                        
+                    <?php else: ?>
+                        <!-- FORMULARIO NORMAL -->
+                        <div class="gw-form-header">
+                            <h1>Información Personal</h1>
+                        </div>
+
+                        <?php if ($error): ?>
+                            <div class="gw-error-message">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                                <span><?php echo esc_html($error); ?></span>
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="post" class="gw-form">
+                            <?php wp_nonce_field('gw_datos_personales', 'gw_datos_nonce'); ?>
+                            
+                            <div class="gw-form-grid">
+                                <div class="gw-form-group">
+                                    <label for="nombre">Nombre Completo<span class="gw-required">*</span></label>
+                                    <input type="text" 
+                                           name="nombre" 
+                                           id="nombre" 
+                                           value="<?php echo esc_attr($nombre); ?>" 
+                                           placeholder="Ejem. John Carter" 
+                                           required>
+                                </div>
+                                
+                                <div class="gw-form-group">
+                                    <label for="correo">Email<span class="gw-required">*</span></label>
+                                    <input type="email" 
+                                           name="correo" 
+                                           id="correo" 
+                                           value="<?php echo esc_attr($user->user_email); ?>" 
+                                           placeholder="Ingresa tu email"
+                                           readonly>
+                                </div>
+
+                                <div class="gw-form-group">
+                                    <label for="telefono">Numero de Telefonico<span class="gw-required">*</span></label>
+                                    <input type="text" 
+                                           name="telefono" 
+                                           id="telefono" 
+                                           value="<?php echo esc_attr($telefono); ?>" 
+                                           placeholder="(123) 000-0000" 
+                                           required>
+                                </div>
+
+                                <div class="gw-form-group">
+                                <label for="pais">País:</label>
+                     <select name="pais" id="pais" required>
+                         <option value="">Selecciona tu país</option>
+                         <?php foreach($paises as $p): ?>
+                             <option value="<?php echo esc_attr($p->post_title); ?>" <?php selected($pais, $p->post_title); ?>>
+                                 <?php echo esc_html($p->post_title); ?>
+                             </option>
+                         <?php endforeach; ?>
+                     </select>
+                                </div>
+                            </div>
+                            
+                            <div class="gw-form-actions">
+                                <button type="submit" class="gw-btn-primary">
+                                    Continue
+                                </button>
+                            </div>
+                        </form>
                     <?php endif; ?>
-
-                    <form method="post" class="gw-form">
-                        <?php wp_nonce_field('gw_datos_personales', 'gw_datos_nonce'); ?>
-                        
-                        <div class="gw-form-grid">
-                            <div class="gw-form-group">
-                                <label for="nombre">Nombre Completo<span class="gw-required">*</span></label>
-                                <input type="text" 
-                                       name="nombre" 
-                                       id="nombre" 
-                                       value="<?php echo esc_attr($nombre); ?>" 
-                                       placeholder="Ejem. John Carter" 
-                                       required>
-                            </div>
-                            
-                            <div class="gw-form-group">
-                                <label for="correo">Email<span class="gw-required">*</span></label>
-                                <input type="email" 
-                                       name="correo" 
-                                       id="correo" 
-                                       value="<?php echo esc_attr($user->user_email); ?>" 
-                                       placeholder="Ingresa tu email"
-                                       readonly>
-                            </div>
-
-                            <div class="gw-form-group">
-                                <label for="telefono">Numero de Telefonico<span class="gw-required">*</span></label>
-                                <input type="text" 
-                                       name="telefono" 
-                                       id="telefono" 
-                                       value="<?php echo esc_attr($telefono); ?>" 
-                                       placeholder="(123) 000-0000" 
-                                       required>
-                            </div>
-
-                            <div class="gw-form-group">
-                            <label for="pais">País:</label>
-             <select name="pais" id="pais" required>
-                 <option value="">Selecciona tu país</option>
-                 <?php foreach($paises as $p): ?>
-                     <option value="<?php echo esc_attr($p->post_title); ?>" <?php selected($pais, $p->post_title); ?>>
-                         <?php echo esc_html($p->post_title); ?>
-                     </option>
-                 <?php endforeach; ?>
-             </select>
-                            </div>
-                            
-                        
-                        </div>
-                        
-                        <div class="gw-form-actions">
-                            <button type="submit" class="gw-btn-primary">
-                                Continue
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
@@ -542,14 +573,16 @@ function gw_step_3_video_intro($user_id) {
 
     // YouTube Video ID (Cambiar esto por el ID del video que se necesita mostrar)
     $video_id = '9zCLT0GJKfk';
+    $mostrar_exito = false; // Variable para controlar la pantalla de éxito
 
     // Procesar formulario
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_video_nonce']) && wp_verify_nonce($_POST['gw_video_nonce'], 'gw_video_intro')) {
         update_user_meta($user_id, 'gw_step3_completo', 1);
         // Cancela recordatorios
         gw_cancelar_recordatorios_aspirante($user_id);
-        wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-        exit;
+        
+        // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
+        $mostrar_exito = true;
     }
 
     ob_start();
@@ -575,7 +608,7 @@ function gw_step_3_video_intro($user_id) {
 
                     <!-- Paso 2 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">2</div>
+                    <div class="gw-step-number"><?php echo $mostrar_exito ? '✓' : '2'; ?></div>
                     <div class="gw-step-content">
                         <h3>Video introductorio</h3>
                         <p>Mira este breve video para conocer Glasswing y tu rol.</p>
@@ -591,18 +624,9 @@ function gw_step_3_video_intro($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 4 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
-                    <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                    </div>
-
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -611,7 +635,7 @@ function gw_step_3_video_intro($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -620,11 +644,20 @@ function gw_step_3_video_intro($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
+                    </div>
+
+                      <!-- Paso 8 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
                     </div>
 
                 </div>
@@ -646,43 +679,72 @@ function gw_step_3_video_intro($user_id) {
 
             <!-- Contenido principal -->
             <div class="gw-main-content">
-    <div class="gw-form-container">
-        <div class="gw-form-header">
-            <h1>Video introductorio</h1>
-            <p>Mira este breve video para conocer Glasswing y tu rol como voluntario.</p>
-        </div>
+                <div class="gw-form-container">
 
-        <div class="gw-video-help-info">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polygon points="10,8 16,12 10,16 10,8"/>
-            </svg>
-            <span><strong>Importante:</strong> Debes ver el video completo para continuar al siguiente paso.</span>
-        </div>
+                    <?php if ($mostrar_exito): ?>
+                        <!-- PANTALLA DE ÉXITO -->
+                        <div class="gw-form-header">
+                            <h1>¡Video completado!</h1>
+                        </div>
+                        
+                        <div class="gw-success-registration">
+                            <div class="gw-success-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 12l2 2 4-4"/>
+                                    <circle cx="12" cy="12" r="10"/>
+                                </svg>
+                            </div>
+                            <h2 class="gw-success-title">¡Gracias por ver el video introductorio!</h2>
+                            <p class="gw-success-description">
+                                Has completado exitosamente la introducción sobre <strong>Glasswing</strong> y tu rol como voluntario.
+                                <br>Ahora estás listo para continuar con la verificación de identidad.
+                            </p>
+                            <div class="gw-loading-spinner"></div>
+                        </div>
+                        
+                        <!-- Redirección automática después de 3 segundos -->
+                        <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
+                        
+                    <?php else: ?>
+                        <!-- CONTENIDO NORMAL DEL VIDEO -->
+                        <div class="gw-form-header">
+                            <h1>Video introductorio</h1>
+                            <p>Mira este breve video para conocer Glasswing y tu rol como voluntario.</p>
+                        </div>
 
-        <div class="gw-video-container">
-            <div id="gw-video-youtube"></div>
-        </div>
-        
-        <form method="post" class="gw-form">
-            <?php wp_nonce_field('gw_video_intro', 'gw_video_nonce'); ?>
-            
-            <div class="gw-form-actions">
-                <button type="submit" id="gw-video-btn" class="gw-btn-primary" disabled>
-                    He visto el video / Continuar
-                </button>
+                        <div class="gw-video-help-info">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polygon points="10,8 16,12 10,16 10,8"/>
+                            </svg>
+                            <span><strong>Importante:</strong> Debes ver el video completo para continuar al siguiente paso.</span>
+                        </div>
+
+                        <div class="gw-video-container">
+                            <div id="gw-video-youtube"></div>
+                        </div>
+                        
+                        <form method="post" class="gw-form">
+                            <?php wp_nonce_field('gw_video_intro', 'gw_video_nonce'); ?>
+                            
+                            <div class="gw-form-actions">
+                                <button type="submit" id="gw-video-btn" class="gw-btn-primary" disabled>
+                                    He visto el video / Continuar
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="gw-video-info">
+                            <p>🔒 Tu progreso se guarda automáticamente</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
-        </form>
-
-        <div class="gw-video-info">
-            <p>🔒 Tu progreso se guarda automáticamente</p>
-        </div>
-    </div>
-</div>
 
         </div>
     </div>
     
+    <?php if (!$mostrar_exito): ?>
     <script>
     // Cargar API de YouTube
     if (!window.GW_YTLoaded) {
@@ -721,6 +783,7 @@ function gw_step_3_video_intro($user_id) {
        });
     }
     </script>
+    <?php endif; ?>
     <?php
     return ob_get_clean();
 }
@@ -732,6 +795,7 @@ function gw_step_4_form_induccion($user_id) {
 
     $error = '';
     $nombre = $motivo = $edad = $pais = '';
+    $mostrar_exito = false; // Variable para controlar la pantalla de éxito
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_induccion_nonce']) && wp_verify_nonce($_POST['gw_induccion_nonce'], 'gw_form_induccion')) {
         $nombre = sanitize_text_field($_POST['nombre']);
@@ -751,10 +815,12 @@ function gw_step_4_form_induccion($user_id) {
             update_user_meta($user_id, 'gw_induccion_edad', $edad);
             update_user_meta($user_id, 'gw_induccion_pais', $pais);
             update_user_meta($user_id, 'gw_step4_completo', 1);
+            
             // Cancela recordatorios
             gw_cancelar_recordatorios_aspirante($user_id);
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            exit;
+            
+            // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
+            $mostrar_exito = true;
         }
     } else {
         // Cargar datos existentes si los hay
@@ -815,25 +881,16 @@ function gw_step_4_form_induccion($user_id) {
 
                     <!-- Paso 3 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">3</div>
+                    <div class="gw-step-number"><?php echo $mostrar_exito ? '✓' : '3'; ?></div>
                     <div class="gw-step-content">
                         <h3>Registro para inducción</h3>
                         <p>Completa tu información para la inducción.</p>
                     </div>
                     </div>
 
-                    <!-- Paso 4 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
-                    <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                    </div>
-
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -842,7 +899,7 @@ function gw_step_4_form_induccion($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -851,11 +908,20 @@ function gw_step_4_form_induccion($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
+                    </div>
+
+                    <!-- Paso 8 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
                     </div>
 
                 </div>
@@ -878,104 +944,133 @@ function gw_step_4_form_induccion($user_id) {
             <!-- Contenido principal -->
             <div class="gw-main-content">
                 <div class="gw-form-container">
-                    <div class="gw-form-header">
-                        <h1>Registro para inducción</h1>
-                        <p>Completa tu información para el proceso de inducción.</p>
-                    </div>
 
-                    <?php if ($error): ?>
-                        <div class="gw-error-message">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"/>
-                                <line x1="15" y1="9" x2="9" y2="15"/>
-                                <line x1="9" y1="9" x2="15" y2="15"/>
-                            </svg>
-                            <span><?php echo esc_html($error); ?></span>
+                    <?php if ($mostrar_exito): ?>
+                        <!-- PANTALLA DE ÉXITO -->
+                        <div class="gw-form-header">
+                            <h1>¡Registro completado!</h1>
                         </div>
-                    <?php endif; ?>
-
-                    <form method="post" class="gw-form" id="gw-induction-form" novalidate>
-                        <?php wp_nonce_field('gw_form_induccion', 'gw_induccion_nonce'); ?>
                         
-                        <div class="gw-form-grid">
-                            <div class="gw-form-group gw-full-width">
-                                <label for="nombre">Nombre completo<span class="gw-required">*</span></label>
-                                <input type="text" 
-                                       name="nombre" 
-                                       id="nombre" 
-                                       value="<?php echo esc_attr($nombre); ?>" 
-                                       placeholder="Ingresa tu nombre completo" 
-                                       required
-                                       minlength="2"
-                                       maxlength="100"
-                                       autocomplete="name">
+                        <div class="gw-success-registration">
+                            <div class="gw-success-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 12l2 2 4-4"/>
+                                    <circle cx="12" cy="12" r="10"/>
+                                </svg>
+                            </div>
+                            <h2 class="gw-success-title">¡Gracias por completar tu registro para la inducción!</h2>
+                            <p class="gw-success-description">
+                                Hemos guardado tu información correctamente, <strong><?php echo esc_html($nombre); ?></strong>.
+                                <br>Ya estás registrado para el proceso de inducción y puedes continuar con las charlas.
+                            </p>
+                            <div class="gw-loading-spinner"></div>
+                        </div>
+                        
+                        <!-- Redirección automática después de 3 segundos -->
+                        <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
+                        
+                    <?php else: ?>
+                        <!-- FORMULARIO NORMAL -->
+                        <div class="gw-form-header">
+                            <h1>Registro para inducción</h1>
+                            <p>Completa tu información para el proceso de inducción.</p>
+                        </div>
+
+                        <?php if ($error): ?>
+                            <div class="gw-error-message">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                                <span><?php echo esc_html($error); ?></span>
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="post" class="gw-form" id="gw-induction-form" novalidate>
+                            <?php wp_nonce_field('gw_form_induccion', 'gw_induccion_nonce'); ?>
+                            
+                            <div class="gw-form-grid">
+                                <div class="gw-form-group gw-full-width">
+                                    <label for="nombre">Nombre completo<span class="gw-required">*</span></label>
+                                    <input type="text" 
+                                           name="nombre" 
+                                           id="nombre" 
+                                           value="<?php echo esc_attr($nombre); ?>" 
+                                           placeholder="Ingresa tu nombre completo" 
+                                           required
+                                           minlength="2"
+                                           maxlength="100"
+                                           autocomplete="name">
+                                </div>
+                                
+                                <div class="gw-form-group">
+                                    <label for="edad">Edad<span class="gw-required">*</span></label>
+                                    <input type="number" 
+                                           name="edad" 
+                                           id="edad" 
+                                           min="15" 
+                                           max="99" 
+                                           value="<?php echo esc_attr($edad); ?>" 
+                                           placeholder="Tu edad"
+                                           required>
+                                    <small class="gw-field-help">Debes tener entre 15 y 99 años para participar</small>
+                                </div>
+
+                                <div class="gw-form-group">
+                                    <label for="pais">País de residencia<span class="gw-required">*</span></label>
+                                    <select name="pais" id="pais" required>
+                                        <option value="">Selecciona tu país</option>
+                                        <?php if (!empty($paises)): ?>
+                                            <?php foreach($paises as $p): ?>
+                                                <option value="<?php echo esc_attr($p->post_title); ?>" <?php selected($pais, $p->post_title); ?>>
+                                                    <?php echo esc_html($p->post_title); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <?php foreach($paises_basicos as $pais_basico): ?>
+                                                <option value="<?php echo esc_attr($pais_basico); ?>" <?php selected($pais, $pais_basico); ?>>
+                                                    <?php echo esc_html($pais_basico); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </select>
+                                </div>
+
+                                <div class="gw-form-group gw-full-width">
+                                    <label for="motivo">Motivo de inscripción<span class="gw-required">*</span></label>
+                                    <textarea name="motivo" 
+                                              id="motivo" 
+                                              rows="4" 
+                                              required
+                                              minlength="10"
+                                              maxlength="500"
+                                              placeholder="Cuéntanos por qué te interesa participar en este programa..."><?php echo esc_textarea($motivo); ?></textarea>
+                                    <small class="gw-char-counter">
+                                        <span id="motivo-count"><?php echo strlen($motivo); ?></span>/500 caracteres
+                                    </small>
+                                </div>
                             </div>
                             
-                            <div class="gw-form-group">
-                                <label for="edad">Edad<span class="gw-required">*</span></label>
-                                <input type="number" 
-                                       name="edad" 
-                                       id="edad" 
-                                       min="15" 
-                                       max="99" 
-                                       value="<?php echo esc_attr($edad); ?>" 
-                                       placeholder="Tu edad"
-                                       required>
-                                <small class="gw-field-help">Debes tener entre 15 y 99 años para participar</small>
+                            <div class="gw-form-actions">
+                                <button type="submit" class="gw-btn-primary" id="gw-submit-btn">
+                                    <span class="gw-btn-text">Guardar y continuar</span>
+                                    <span class="gw-btn-loading" style="display: none;">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        Guardando...
+                                    </span>
+                                </button>
                             </div>
-
-                            <div class="gw-form-group">
-                                <label for="pais">País de residencia<span class="gw-required">*</span></label>
-                                <select name="pais" id="pais" required>
-                                    <option value="">Selecciona tu país</option>
-                                    <?php if (!empty($paises)): ?>
-                                        <?php foreach($paises as $p): ?>
-                                            <option value="<?php echo esc_attr($p->post_title); ?>" <?php selected($pais, $p->post_title); ?>>
-                                                <?php echo esc_html($p->post_title); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <?php foreach($paises_basicos as $pais_basico): ?>
-                                            <option value="<?php echo esc_attr($pais_basico); ?>" <?php selected($pais, $pais_basico); ?>>
-                                                <?php echo esc_html($pais_basico); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </select>
-                            </div>
-
-                            <div class="gw-form-group gw-full-width">
-                                <label for="motivo">Motivo de inscripción<span class="gw-required">*</span></label>
-                                <textarea name="motivo" 
-                                          id="motivo" 
-                                          rows="4" 
-                                          required
-                                          minlength="10"
-                                          maxlength="500"
-                                          placeholder="Cuéntanos por qué te interesa participar en este programa..."><?php echo esc_textarea($motivo); ?></textarea>
-                                <small class="gw-char-counter">
-                                    <span id="motivo-count"><?php echo strlen($motivo); ?></span>/500 caracteres
-                                </small>
-                            </div>
-                        </div>
-                        
-                        <div class="gw-form-actions">
-                            <button type="submit" class="gw-btn-primary" id="gw-submit-btn">
-                                <span class="gw-btn-text">Guardar y continuar</span>
-                                <span class="gw-btn-loading" style="display: none;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    Guardando...
-                                </span>
-                            </button>
-                        </div>
-                    </form>
+                        </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
     
+    <?php if (!$mostrar_exito): ?>
     <script>
     (function() {
         'use strict';
@@ -1111,10 +1206,10 @@ function gw_step_4_form_induccion($user_id) {
         });
     })();
     </script>
+    <?php endif; ?>
     <?php
     return ob_get_clean();
 }
-
 // FLUJO SECUENCIAL: voluntario solo ve y completa UNA charla a la vez.
 // Solo admin puede usar atajos o regresar.
 function gw_step_5_charla($user_id) {
@@ -1205,16 +1300,8 @@ function gw_step_5_charla($user_id) {
                     </div>
                     </div>
 
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                    </div>
-
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -1222,7 +1309,7 @@ function gw_step_5_charla($user_id) {
                     </div>
 
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -1230,11 +1317,20 @@ function gw_step_5_charla($user_id) {
                     </div>
 
                     <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
+                    </div>
+
+                                          <!-- Paso 8 -->
+                                          <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
                     </div>
 
                 </div>
@@ -1413,7 +1509,8 @@ function gw_step_5_charla($user_id) {
         
         $predicted_completadas = count($charlas_completadas) + 1;
         $has_more = count($charlas_asignadas) > $predicted_completadas;
-        $button_label = $has_more ? 'Siguiente charla' : 'Ir a capacitación';
+        $button_label = $has_more ? 'Siguiente charla' : 'Ir a 
+        Selección de proyecto';
         
         $content .= '
             </div>
@@ -1659,6 +1756,8 @@ function gw_step_6_proyecto($user_id) {
     }
     $error = '';
     $success = false;
+    $mostrar_exito = false; // Variable para controlar la pantalla de éxito
+    $proyecto_seleccionado = null; // Para almacenar el proyecto seleccionado
     $user_pais = get_user_meta($user_id, 'gw_pais', true);
 
     // Obtener lista de proyectos (CPT 'proyecto'), filtrar por país si existe
@@ -1725,14 +1824,143 @@ function gw_step_6_proyecto($user_id) {
             update_user_meta($user_id, 'gw_proyecto_id', $confirm_proyecto_id);
             // Cancela recordatorios
             gw_cancelar_recordatorios_aspirante($user_id);
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            exit;
+            
+            // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
+            $mostrar_exito = true;
+            $proyecto_seleccionado = $proy;
         }
         
         // Procesar cancelar
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancelar'])) {
             wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
             exit;
+        }
+        
+        // Si hay que mostrar la pantalla de éxito
+        if ($mostrar_exito && $proyecto_seleccionado) {
+            ob_start();
+            ?>
+<link rel="stylesheet" href="<?php echo plugins_url('gw-manager/css/gw-step6-styles.css?v=' . time()); ?>">
+    <div class="gw-modern-wrapper">
+        <div class="gw-form-wrapper">
+            <!-- Panel lateral con pasos -->
+            <div class="gw-sidebar">
+            <div class="gw-hero-logo2">
+                <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
+            </div> 
+
+                <div class="gw-steps-container">
+                    <!-- Paso 1 -->
+                    <div class="gw-step-item">
+                    <div class="gw-step-number">✓</div>
+                    <div class="gw-step-content">
+                        <h3>Información personal</h3>
+                        <p>Cuéntanos quién eres para empezar.</p>
+                    </div>
+                    </div>
+
+                    <!-- Paso 2 -->
+                    <div class="gw-step-item">
+                    <div class="gw-step-number">✓</div>
+                    <div class="gw-step-content">
+                        <h3>Video introductorio</h3>
+                        <p>Mira este breve video para conocer Glasswing y tu rol.</p>
+                    </div>
+                    </div>
+
+                    <!-- Paso 3 -->
+                    <div class="gw-step-item">
+                    <div class="gw-step-number">✓</div>
+                    <div class="gw-step-content">
+                        <h3>Registro para inducción</h3>
+                        <p>Completa tu información para la inducción.</p>
+                    </div>
+                    </div>
+
+                    <!-- Paso 5 -->
+                    <div class="gw-step-item">
+                    <div class="gw-step-number">✓</div>
+                    <div class="gw-step-content">
+                        <h3>Charlas</h3>
+                        <p>Regístrate en la charla asignada y participa.</p>
+                    </div>
+                    </div>
+
+                    <!-- Paso 6 -->
+                    <div class="gw-step-item active">
+                    <div class="gw-step-number">✓</div>
+                    <div class="gw-step-content">
+                        <h3>Selección de proyecto</h3>
+                        <p>Elige el proyecto en el que participarás.</p>
+                    </div>
+                    </div>
+
+                    <!-- Paso 7 -->
+                    <div class="gw-step-item">
+                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-content">
+                        <h3>Capacitaciones</h3>
+                        <p>Inscríbete y marca tu asistencia para continuar.</p>
+                    </div>
+                    </div>
+
+                    <!-- Paso 8 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="gw-sidebar-footer">
+                    <div class="gw-help-section">
+                    <div class="gw-help-text">
+                        <h4>Conoce más sobre Glasswing</h4>
+                        <p>
+                            Visita nuestro sitio oficial  
+                            <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">
+                            Ve a glasswing.org
+                            </a>
+                        </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido principal -->
+            <div class="gw-main-content">
+                <div class="gw-form-container">
+                    <!-- PANTALLA DE ÉXITO -->
+                    <div class="gw-form-header">
+                        <h1>¡Proyecto seleccionado!</h1>
+                    </div>
+                    
+                    <div class="gw-success-registration">
+                        <div class="gw-success-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 12l2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                        </div>
+                        <h2 class="gw-success-title">¡Gracias por unirte al proyecto!</h2>
+                        <p class="gw-success-description">
+                            Te has inscrito exitosamente en <strong><?php echo esc_html($proyecto_seleccionado->post_title); ?></strong>.
+                            <br>Ahora puedes continuar con las capacitaciones para completar tu registro.
+                        </p>
+                        <div class="gw-loading-spinner"></div>
+                    </div>
+                    
+                    <!-- Redirección automática después de 3 segundos -->
+                    <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
+                </div>
+            </div>
+        </div>
+    </div>
+            <?php
+            return ob_get_clean();
         }
         
         // Mostrar página de confirmación
@@ -1775,14 +2003,6 @@ function gw_step_6_proyecto($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 4 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                    </div>
 
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
@@ -1795,7 +2015,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -1804,11 +2024,20 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
+                    </div>
+
+                                          <!-- Paso 8 -->
+                                          <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
                     </div>
 
                 </div>
@@ -1912,15 +2141,6 @@ function gw_step_6_proyecto($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 4 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Activar cuenta</h3>
-                        <p>Confirma y activa tu cuenta para empezar.</p>
-                    </div>
-                    </div>
-
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
                     <div class="gw-step-number">✓</div>
@@ -1932,7 +2152,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -1941,11 +2161,20 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number">6</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
                     </div>
+                    </div>
+
+                                          <!-- Paso 8 -->
+                                          <div class="gw-step-item">
+                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
                     </div>
 
                 </div>
@@ -2038,8 +2267,69 @@ function gw_step_6_proyecto($user_id) {
     return ob_get_clean();
 }
 
+
+// === PASO 7: Capacitaciones ===
+// === FUNCIÓN HELPER PARA NORMALIZAR FECHA Y HORA ===
+function gw_normalize_datetime($fecha, $hora) {
+    // Normalizar fecha: convertir dd/mm/yyyy a yyyy-mm-dd
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $fecha, $matches)) {
+        $fecha = $matches[3] . '-' . str_pad($matches[2], 2, '0', STR_PAD_LEFT) . '-' . str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+    }
+    
+    // Normalizar hora: convertir formato 12h con p.m./a.m. a 24h
+    if (preg_match('/^(\d{1,2}):(\d{2})\s*(p\.?m\.?|a\.?m\.?)$/i', $hora, $matches)) {
+        $hour = intval($matches[1]);
+        $minute = intval($matches[2]);
+        $ampm = strtolower($matches[3]);
+        
+        // Convertir a formato 24h
+        if (strpos($ampm, 'p') === 0 && $hour !== 12) {
+            $hour += 12;
+        } elseif (strpos($ampm, 'a') === 0 && $hour === 12) {
+            $hour = 0;
+        }
+        
+        $hora = str_pad($hour, 2, '0', STR_PAD_LEFT) . ':' . str_pad($minute, 2, '0', STR_PAD_LEFT);
+    }
+    
+    return [$fecha, $hora];
+}
+
+function gw_get_session_timestamp($sesion) {
+    if (empty($sesion['fecha']) || empty($sesion['hora'])) {
+        return false;
+    }
+    
+    list($fecha_norm, $hora_norm) = gw_normalize_datetime($sesion['fecha'], $sesion['hora']);
+    $ts = strtotime($fecha_norm . ' ' . $hora_norm);
+    
+    return $ts;
+}
+
 // === PASO 7: Capacitaciones ===
 function gw_step_7_capacitacion($user_id) {
+
+    // Variable para controlar la pantalla de éxito
+    $mostrar_exito = false;
+    $capacitacion_completada_nombre = '';
+
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST'
+        && isset($_POST['gw_force_step8'])
+        && isset($_POST['gw_force_step8_nonce'])
+        && wp_verify_nonce($_POST['gw_force_step8_nonce'], 'gw_force_step8')
+    ) {
+        // Marca el paso 7 como completado y redirige al portal (carga el paso 8)
+        update_user_meta($user_id, 'gw_step7_completo', 1);
+    
+        // Limpia estado temporal si existiera (no rompe si no existe)
+        delete_user_meta($user_id, 'gw_capacitacion_agendada');
+    
+        // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
+        $mostrar_exito = true;
+        $capacitacion_completada_nombre = 'las capacitaciones';
+    }
+
     $current_user = wp_get_current_user();
     $is_admin = in_array('administrator', (array) $current_user->roles);
     $testing_mode = defined('GW_TESTING_MODE');
@@ -2090,7 +2380,7 @@ function gw_step_7_capacitacion($user_id) {
     if (!is_array($capacitacion_agendada)) $capacitacion_agendada = null;
 
     // Helpers UI (sidebar y envoltura)
-    $render_sidebar = function($active_step = 7) {
+    $render_sidebar = function($active_step = 7, $mostrar_exito = false) {
         ob_start(); ?>
         <div class="gw-sidebar">
             <div class="gw-hero-logo2">
@@ -2100,12 +2390,18 @@ function gw_step_7_capacitacion($user_id) {
                 <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Información personal</h3><p>Cuéntanos quién eres para empezar.</p></div></div>
                 <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Video introductorio</h3><p>Mira este breve video para conocer Glasswing y tu rol.</p></div></div>
                 <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Registro para inducción</h3><p>Completa tu información para la inducción.</p></div></div>
-                <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Activar cuenta</h3><p>Confirma y activa tu cuenta para empezar.</p></div></div>
                 <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Charlas</h3><p>Regístrate en la charla asignada y participa.</p></div></div>
                 <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Selección de proyecto</h3><p>Elige el proyecto en el que participarás.</p></div></div>
                 <div class="gw-step-item <?php echo ($active_step === 7 ? 'active' : ''); ?>">
-                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-number"><?php echo $mostrar_exito ? '✓' : '6'; ?></div>
                     <div class="gw-step-content"><h3>Capacitaciones</h3><p>Inscríbete y marca tu asistencia para continuar.</p></div>
+                </div>
+                <div class="gw-step-item">
+                    <div class="gw-step-number">7</div>
+                    <div class="gw-step-content">
+                        <h3>Documentos y escuela</h3>
+                        <p>Selecciona tu escuela y sube tus documentos.</p>
+                    </div>
                 </div>
             </div>
             <div class="gw-sidebar-footer">
@@ -2120,12 +2416,12 @@ function gw_step_7_capacitacion($user_id) {
         <?php return ob_get_clean();
     };
 
-    $open_shell = function($title, $subtitle = '') use ($render_sidebar) {
+    $open_shell = function($title, $subtitle = '') use ($render_sidebar, $mostrar_exito) {
         ob_start(); ?>
         <link rel="stylesheet" href="<?php echo plugins_url(path: 'gw-manager/css/gw-step7-styles.css?v=' . time()); ?>">
         <div class="gw-modern-wrapper">
             <div class="gw-form-wrapper">
-                <?php echo $render_sidebar(7); ?>
+                <?php echo $render_sidebar(7, $mostrar_exito); ?>
                 <div class="gw-main-content">
                     <div class="gw-form-container">
                         <div class="gw-form-header">
@@ -2137,6 +2433,33 @@ function gw_step_7_capacitacion($user_id) {
     $close_shell = function() {
         return "</div></div></div></div>";
     };
+
+    // ========== PANTALLA DE ÉXITO ==========
+    if ($mostrar_exito) {
+        ob_start();
+        echo $open_shell('¡Capacitaciones completadas!');
+        ?>
+        <div class="gw-success-registration">
+            <div class="gw-success-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 12l2 2 4-4"/>
+                    <circle cx="12" cy="12" r="10"/>
+                </svg>
+            </div>
+            <h2 class="gw-success-title">¡Gracias por completar las capacitaciones!</h2>
+            <p class="gw-success-description">
+                Has finalizado exitosamente el proceso de capacitación.
+                <br>Ahora puedes continuar con el último paso: subir tus documentos y seleccionar tu escuela.
+            </p>
+            <div class="gw-loading-spinner"></div>
+        </div>
+        
+        <!-- Redirección automática después de 3 segundos -->
+        <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
+        <?php
+        echo $close_shell();
+        return ob_get_clean();
+    }
 
     // ========== 3) CONFIRMACIÓN DE REGISTRO A SESIÓN ==========
     if (isset($_GET['capacitacion_id'], $_GET['cap_idx']) && $_GET['capacitacion_id'] !== '' && $_GET['cap_idx'] !== '') {
@@ -2182,8 +2505,9 @@ function gw_step_7_capacitacion($user_id) {
         $error = '';
         $success = false;
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_registrarme_nonce']) && wp_verify_nonce($_POST['gw_capacitacion_registrarme_nonce'], 'gw_capacitacion_registrarme')) {
-            $ts = strtotime($sesion['fecha'].' '.$sesion['hora']);
-            if ($ts && $ts > time()) {
+            $ts = gw_get_session_timestamp($sesion);
+            $ts_vencimiento = $ts ? $ts + (30 * 60) : false;
+            if ($ts && $ts_vencimiento > time()) {
                 $capacitacion_agendada = [
                     'cap_id'   => $capacitacion->ID,
                     'cap_title'=> $capacitacion->post_title,
@@ -2191,7 +2515,7 @@ function gw_step_7_capacitacion($user_id) {
                     'fecha'    => $sesion['fecha'],
                     'hora'     => $sesion['hora'],
                     'lugar'    => isset($sesion['lugar']) ? $sesion['lugar'] : '',
-                    'enlace'   => isset($sesion['enlace']) ? $sesion['enlace'] : '',
+                    'enlace'   => isset($sesion['link']) ? $sesion['link'] : '',
                     'idx'      => $cap_idx,
                 ];
                 update_user_meta($user_id, 'gw_capacitacion_agendada', $capacitacion_agendada);
@@ -2275,14 +2599,15 @@ function gw_step_7_capacitacion($user_id) {
             return ob_get_clean();
         }
 
-        // Sesiones futuras / de hoy
+        // Sesiones futuras / de hoy (considerando el tiempo de vencimiento de 30 minutos)
         $sesiones = get_post_meta($capacitacion->ID, '_gw_sesiones', true);
         $cap_sesiones = [];
         if (is_array($sesiones)) {
             foreach ($sesiones as $idx => $ses) {
                 if (empty($ses['fecha']) || empty($ses['hora'])) continue;
-                $ts = strtotime($ses['fecha'].' '.$ses['hora']);
-                if ($ts >= strtotime('today')) {
+                $ts = gw_get_session_timestamp($ses);
+                $ts_vencimiento = $ts ? $ts + (30 * 60) : false;
+                if ($ts && $ts_vencimiento >= time()) { // Cambiado para incluir el período de gracia
                     $cap_sesiones[] = [
                         'cap_id'   => $capacitacion->ID,
                         'cap_title'=> $capacitacion->post_title,
@@ -2290,7 +2615,7 @@ function gw_step_7_capacitacion($user_id) {
                         'fecha'    => $ses['fecha'],
                         'hora'     => $ses['hora'],
                         'lugar'    => isset($ses['lugar']) ? $ses['lugar'] : '',
-                        'enlace'   => isset($ses['enlace']) ? $ses['enlace'] : '',
+                        'enlace'   => isset($ses['link']) ? $ses['link'] : '',
                         'idx'      => $idx,
                     ];
                 }
@@ -2372,9 +2697,23 @@ function gw_step_7_capacitacion($user_id) {
                     <div class="gw-training-description">
                         <p><?php echo $descripcion ? esc_html(wp_trim_words($descripcion, 24)) : 'Participa en esta capacitación para continuar con tu proceso.'; ?></p>
                     </div>
+                    
+                    <!-- INDICADOR DE CAPACITACIÓN AGENDADA -->
+                    <?php if ($capacitacion_agendada && intval($capacitacion_agendada['cap_id']) === intval($cap->ID)): ?>
+                        <div class="gw-training-status gw-training-registered">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Ya estás inscrito en esta capacitación
+                        </div>
+                    <?php endif; ?>
+                    
                     <div class="gw-training-actions">
                         <?php if ($capacitacion_agendada && intval($capacitacion_agendada['cap_id']) !== intval($cap->ID)) : ?>
                             <button class="gw-btn-disabled" disabled title="Debes finalizar tu capacitación actual para seleccionar otra">Seleccionar</button>
+                        <?php elseif ($capacitacion_agendada && intval($capacitacion_agendada['cap_id']) === intval($cap->ID)): ?>
+                            <!-- Si es la capacitación agendada, mostrar botón para ver detalles -->
+                            <form method="get" action="" style="margin:0;">
+                                <button type="submit" class="gw-btn-primary">Ver mi capacitación</button>
+                            </form>
                         <?php else: ?>
                             <form method="get" action="" style="margin:0;">
                                 <input type="hidden" name="capacitacion_id" value="<?php echo esc_attr($cap->ID); ?>">
@@ -2393,8 +2732,17 @@ function gw_step_7_capacitacion($user_id) {
 
     // ========== ESTADO: YA TIENE CAPACITACIÓN AGENDADA ==========
     if ($capacitacion_agendada) {
-        $ts = strtotime($capacitacion_agendada['fecha'].' '.$capacitacion_agendada['hora']);
+        $ts = gw_get_session_timestamp($capacitacion_agendada);
+        $ts_vencimiento = $ts ? $ts + (30 * 60) : false;
         $ya_ocurrio = $ts && ($ts <= time());
+        $ya_vencio = $ts_vencimiento && ($ts_vencimiento <= time());
+
+        // Si ya venció (más de 30 minutos después), eliminar automáticamente la capacitación agendada
+        if ($ya_vencio) {
+            delete_user_meta($user_id, 'gw_capacitacion_agendada');
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
+            exit;
+        }
 
         // ¿ya marcada como completada?
         $completada = false;
@@ -2405,7 +2753,7 @@ function gw_step_7_capacitacion($user_id) {
         }
 
         // POST handlers (después de render)
-        $post_handlers = function() use ($user_id, $ya_ocurrio, &$capacitaciones_completadas, $capacitacion_agendada) {
+        $post_handlers = function() use ($user_id, $ya_ocurrio, &$capacitaciones_completadas, $capacitacion_agendada, &$mostrar_exito, &$capacitacion_completada_nombre) {
             // Marcar asistencia completada
             if (
                 $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -2417,27 +2765,29 @@ function gw_step_7_capacitacion($user_id) {
                 update_user_meta($user_id, 'gw_capacitaciones_completadas', $capacitaciones_completadas);
                 delete_user_meta($user_id, 'gw_capacitacion_agendada');
                 update_user_meta($user_id, 'gw_step7_completo', 1);
-                wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
-                exit;
+                
+                // En lugar de redirigir, mostrar pantalla de éxito
+                $mostrar_exito = true;
+                $capacitacion_completada_nombre = $capacitacion_agendada['cap_title'];
+                return;
             }
-
-            // Volver al menú (libera agendada)
+        
+            // CORREGIDO: Volver al menú (NO elimina la capacitación agendada)
             if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_volver_menu'])) {
-                delete_user_meta($user_id, 'gw_capacitacion_agendada');
+                // Solo redirige al menú, mantiene la capacitación agendada
                 wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
                 exit;
             }
-
-            // Cancelar capacitación
+        
+            // Cancelar capacitación (SÍ elimina la capacitación agendada)
             if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_cancelar'])) {
                 delete_user_meta($user_id, 'gw_capacitacion_agendada');
                 wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
                 exit;
             }
-
+        
             // Forzar completar (admin/testing)
             if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_forzar_completar'])) {
-                // Seguridad adicional: solo admin/testing
                 $curr = wp_get_current_user();
                 $is_admin_local = in_array('administrator', (array) $curr->roles) || defined('GW_TESTING_MODE');
                 if ($is_admin_local) {
@@ -2445,15 +2795,167 @@ function gw_step_7_capacitacion($user_id) {
                     update_user_meta($user_id, 'gw_capacitaciones_completadas', $capacitaciones_completadas);
                     delete_user_meta($user_id, 'gw_capacitacion_agendada');
                     update_user_meta($user_id, 'gw_step7_completo', 1);
-                    wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-                    exit;
+                    
+                    // En lugar de redirigir, mostrar pantalla de éxito
+                    $mostrar_exito = true;
+                    $capacitacion_completada_nombre = $capacitacion_agendada['cap_title'];
+                    return;
                 }
             }
         };
 
+        // Si hay que mostrar la pantalla de éxito después del POST
+        if ($mostrar_exito) {
+            ob_start();
+            echo $open_shell('¡Capacitación completada!');
+            ?>
+            <div class="gw-success-registration">
+                <div class="gw-success-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12l2 2 4-4"/>
+                        <circle cx="12" cy="12" r="10"/>
+                    </svg>
+                </div>
+                <h2 class="gw-success-title">¡Gracias por completar la capacitación!</h2>
+                <p class="gw-success-description">
+                    Has finalizado exitosamente <strong><?php echo esc_html($capacitacion_completada_nombre); ?></strong>.
+                    <br>Ahora puedes continuar con el último paso: subir tus documentos y seleccionar tu escuela.
+                </p>
+                <div class="gw-loading-spinner"></div>
+            </div>
+            
+            <!-- Redirección automática después de 3 segundos -->
+            <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
+            <?php
+            echo $close_shell();
+            return ob_get_clean();
+        }
+
         // Render
         ob_start();
         echo $open_shell($capacitacion_agendada['cap_title'], 'Revisa los detalles y gestiona tu asistencia');
+        
+        // Mostrar contador de vencimiento si ya empezó la reunión pero aún no ha vencido
+        if ($ya_ocurrio && !$ya_vencio) {
+            $tiempo_restante_vencimiento = $ts_vencimiento - time();
+            ?>
+            <div class="gw-expiration-warning" id="gwExpirationWarning">
+                <div class="gw-expiration-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                </div>
+                <div class="gw-expiration-content">
+                    <strong>⚠️ Esta sesión se vencerá en: <span id="gwExpirationCountdown"><?php echo gw_format_time_remaining($tiempo_restante_vencimiento); ?></span></strong>
+                    <p>Después de este tiempo, deberás seleccionar otra capacitación.</p>
+                </div>
+            </div>
+            
+            <script>
+            (function(){
+                const expirationTime = <?php echo $ts_vencimiento * 1000; ?>; // Convertir a milliseconds
+                const countdown = document.getElementById('gwExpirationCountdown');
+                const warningContainer = document.getElementById('gwExpirationWarning');
+                
+                function updateExpirationCountdown() {
+                    const now = new Date().getTime();
+                    const timeLeft = expirationTime - now;
+                    
+                    if (timeLeft <= 0) {
+                        // Tiempo vencido - recargar página para eliminar la capacitación
+                        location.reload();
+                    } else if (countdown) {
+                        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                        
+                        let timeStr = '';
+                        if (hours > 0) timeStr += hours + 'h ';
+                        if (minutes > 0) timeStr += minutes + 'm ';
+                        timeStr += seconds + 's';
+                        
+                        countdown.textContent = timeStr;
+                        
+                        // Cambiar color a rojo cuando quedan menos de 5 minutos
+                        if (timeLeft < 5 * 60 * 1000) {
+                            warningContainer.classList.add('gw-expiration-critical');
+                        }
+                    }
+                }
+                
+                // Actualizar cada segundo
+                const expirationTimer = setInterval(updateExpirationCountdown, 1000);
+                updateExpirationCountdown(); // Ejecutar inmediatamente
+            })();
+            </script>
+            
+            <style>
+            .gw-expiration-warning {
+                background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+                border: 2px solid #ffc107;
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 24px;
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+                transition: all 0.3s ease;
+            }
+            
+            .gw-expiration-warning.gw-expiration-critical {
+                background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+                border-color: #dc3545;
+                animation: pulse 2s infinite;
+            }
+            
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.02); }
+                100% { transform: scale(1); }
+            }
+            
+            .gw-expiration-icon {
+                flex-shrink: 0;
+                color: #856404;
+                margin-top: 2px;
+            }
+            
+            .gw-expiration-critical .gw-expiration-icon {
+                color: #721c24;
+            }
+            
+            .gw-expiration-content {
+                flex: 1;
+            }
+            
+            .gw-expiration-content strong {
+                display: block;
+                color: #856404;
+                font-size: 16px;
+                margin-bottom: 4px;
+            }
+            
+            .gw-expiration-critical .gw-expiration-content strong {
+                color: #721c24;
+            }
+            
+            .gw-expiration-content p {
+                margin: 0;
+                color: #6c757d;
+                font-size: 14px;
+            }
+            
+            #gwExpirationCountdown {
+                font-weight: 900;
+                font-size: 18px;
+                color: #d32f2f;
+            }
+            </style>
+            <?php
+        }
+        
         if ($completada) {
             ?>
             <div class="gw-completion-message">
@@ -2484,10 +2986,165 @@ function gw_step_7_capacitacion($user_id) {
                             <div class="gw-reminder-detail"><strong>Lugar:</strong> <?php echo esc_html($capacitacion_agendada['lugar']); ?></div>
                         <?php else: ?>
                             <div class="gw-reminder-detail"><strong>Enlace:</strong>
-                                <?php if ($ya_ocurrio && !empty($capacitacion_agendada['enlace'])): ?>
-                                    <a class="gw-link" href="<?php echo esc_url($capacitacion_agendada['enlace']); ?>" target="_blank" rel="noopener">Abrir reunión</a>
+                                <?php if (!empty($capacitacion_agendada['enlace'])): ?>
+                                    <?php
+                                    // Calcular si ya es hora o no
+                                    $ts_capacitacion = gw_get_session_timestamp($capacitacion_agendada);
+                                    $ya_es_hora = $ts_capacitacion && ($ts_capacitacion <= time());
+                                    $tiempo_restante = $ts_capacitacion ? $ts_capacitacion - time() : 0;
+                                    ?>
+                                    <div class="gw-meet-link-container" id="gwMeetLinkContainer">
+                                        <?php if ($ya_es_hora): ?>
+                                            <!-- ENLACE HABILITADO -->
+                                            <a class="gw-meet-link gw-meet-enabled" href="<?php echo esc_url($capacitacion_agendada['enlace']); ?>" target="_blank" rel="noopener">
+                                                <svg class="gw-meet-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
+                                                    <circle cx="12" cy="16" r="1"/>
+                                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                                </svg>
+                                                Unirse a la capacitación
+                                            </a>
+                                            <span class="gw-meet-status gw-meet-available">Disponible ahora</span>
+                                        <?php else: ?>
+                                            <!-- ENLACE BLOQUEADO -->
+                                            <span class="gw-meet-link gw-meet-disabled">
+                                                <svg class="gw-meet-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
+                                                    <circle cx="12" cy="16" r="1"/>
+                                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                                    <path d="M7 11H17M7 11V7a5 5 0 0 1 10 0v4"/>
+                                                </svg>
+                                                Unirse a la capacitación
+                                            </span>
+                                            <span class="gw-meet-status gw-meet-waiting" id="gwMeetCountdown">
+                                                Se habilitará en: <span id="gwTimeRemaining"><?php echo gw_format_time_remaining($tiempo_restante); ?></span>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <!-- JavaScript para actualizar en tiempo real -->
+                                    <script>
+                                    (function(){
+                                        const targetTime = <?php echo $ts_capacitacion ? $ts_capacitacion * 1000 : 0; ?>; // Convertir a milliseconds
+                                        const container = document.getElementById('gwMeetLinkContainer');
+                                        const countdown = document.getElementById('gwTimeRemaining');
+                                        
+                                        if (!targetTime) return; // No hacer nada si no hay timestamp válido
+                                        
+                                        function updateMeetLink() {
+                                            const now = new Date().getTime();
+                                            const timeLeft = targetTime - now;
+                                            
+                                            if (timeLeft <= 0) {
+                                                // Tiempo cumplido - habilitar enlace
+                                                container.innerHTML = `
+                                                    <a class="gw-meet-link gw-meet-enabled" href="<?php echo esc_url($capacitacion_agendada['enlace']); ?>" target="_blank" rel="noopener">
+                                                        <svg class="gw-meet-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
+                                                            <circle cx="12" cy="16" r="1"/>
+                                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                                        </svg>
+                                                        Unirse a la capacitación
+                                                    </a>
+                                                    <span class="gw-meet-status gw-meet-available">¡Disponible ahora!</span>
+                                                `;
+                                                clearInterval(timer);
+                                            } else {
+                                                // Actualizar countdown
+                                                if (countdown) {
+                                                    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                                                    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                                                    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                                                    
+                                                    let timeStr = '';
+                                                    if (hours > 0) timeStr += hours + 'h ';
+                                                    if (minutes > 0) timeStr += minutes + 'm ';
+                                                    timeStr += seconds + 's';
+                                                    
+                                                    countdown.textContent = timeStr;
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Actualizar cada segundo
+                                        const timer = setInterval(updateMeetLink, 1000);
+                                        updateMeetLink(); // Ejecutar inmediatamente
+                                    })();
+                                    </script>
+                                    
+                                    <style>
+                                    .gw-meet-link-container {
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 8px;
+                                        margin-top: 8px;
+                                    }
+                                    
+                                    .gw-meet-link {
+                                        display: inline-flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                        padding: 12px 16px;
+                                        border-radius: 8px;
+                                        text-decoration: none;
+                                        font-weight: 600;
+                                        transition: all 0.3s ease;
+                                        border: 2px solid;
+                                    }
+                                    
+                                    .gw-meet-enabled {
+                                        background: #34a853;
+                                        color: white;
+                                        border-color: #34a853;
+                                        cursor: pointer;
+                                    }
+                                    
+                                    .gw-meet-enabled:hover {
+                                        background: #2d8e47;
+                                        border-color: #2d8e47;
+                                        transform: translateY(-1px);
+                                        box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
+                                    }
+                                    
+                                    .gw-meet-disabled {
+                                        background: #f5f5f5;
+                                        color: #999;
+                                        border-color: #ddd;
+                                        cursor: not-allowed;
+                                        opacity: 0.7;
+                                    }
+                                    
+                                    .gw-meet-icon {
+                                        flex-shrink: 0;
+                                    }
+                                    
+                                    .gw-meet-status {
+                                        font-size: 14px;
+                                        font-weight: 500;
+                                        padding: 4px 8px;
+                                        border-radius: 4px;
+                                        display: inline-block;
+                                    }
+                                    
+                                    .gw-meet-available {
+                                        background: #e8f5e8;
+                                        color: #34a853;
+                                        border: 1px solid #34a853;
+                                    }
+                                    
+                                    .gw-meet-waiting {
+                                        background: #fff3e0;
+                                        color: #f57c00;
+                                        border: 1px solid #f57c00;
+                                    }
+                                    
+                                    #gwTimeRemaining {
+                                        font-weight: 700;
+                                        color: #d32f2f;
+                                    }
+                                    </style>
                                 <?php else: ?>
-                                    <span class="gw-text-muted">(se habilitará al llegar la hora)</span>
+                                    <span class="gw-text-muted">No hay enlace configurado</span>
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
@@ -2518,14 +3175,211 @@ function gw_step_7_capacitacion($user_id) {
                     <button type="submit" name="gw_capacitacion_cancelar" class="gw-btn-danger">Cancelar capacitación</button>
                 </form>
             </div>
-
-            <?php if ($is_admin || $testing_mode): ?>
                 <!-- ================== ELIMINAR EN PRODUCCIÓN ================== -->
+            <?php if ($is_admin || $testing_mode): ?>
                 <form method="post" class="gw-admin-controls">
                     <button type="submit" name="gw_capacitacion_forzar_completar" class="gw-btn-admin">Forzar completar capacitación</button>
                 </form>
-                <!-- ================== FIN TEST/ADMIN ================== -->
             <?php endif; ?>
+
+            <!-- Botón de avance manual - solo habilitado cuando procede -->
+            <?php 
+            // Determinar si el botón debe estar habilitado
+            $habilitar_continuar = false;
+            $mensaje_tooltip = '';
+            
+            if ($completada) {
+                // Si ya completó esta capacitación, puede continuar
+                $habilitar_continuar = true;
+                $mensaje_tooltip = 'Continuar al siguiente paso';
+            } elseif ($ya_ocurrio) {
+                // Si la capacitación ya comenzó, puede continuar
+                $habilitar_continuar = true;
+                $mensaje_tooltip = 'La capacitación ya comenzó - Continuar';
+            } else {
+                // Si la capacitación no ha comenzado, no puede continuar
+                $habilitar_continuar = false;
+                $tiempo_restante = $ts ? $ts - time() : 0;
+                if ($tiempo_restante > 0) {
+                    $horas = floor($tiempo_restante / 3600);
+                    $minutos = floor(($tiempo_restante % 3600) / 60);
+                    if ($horas > 0) {
+                        $tiempo_texto = $horas . 'h ' . $minutos . 'm';
+                    } else {
+                        $tiempo_texto = $minutos . 'm';
+                    }
+                    $mensaje_tooltip = 'Debes esperar ' . $tiempo_texto . ' hasta que comience la capacitación';
+                } else {
+                    $mensaje_tooltip = 'Debes esperar hasta que comience la capacitación';
+                }
+            }
+            ?>
+            
+            <div class="gw-force-step8-form" style="justify-self: center; right:16px; bottom:16px; z-index:9999;">
+                <?php if ($habilitar_continuar): ?>
+                    <form method="post" style="display:inline;">
+                        <?php wp_nonce_field('gw_force_step8', 'gw_force_step8_nonce'); ?>
+                        <button type="submit" name="gw_force_step8" class="gw-btn-primary" title="<?php echo esc_attr($mensaje_tooltip); ?>">
+                            Continuar
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <button class="gw-btn-disabled" disabled title="<?php echo esc_attr($mensaje_tooltip); ?>">
+                        Continuar
+                    </button>
+                <?php endif; ?>
+                
+                <!-- Indicador visual del estado -->
+                <div class="gw-continue-status">
+                    <?php if ($completada): ?>
+                        <span class="gw-status-completed">✓ Capacitación completada</span>
+                    <?php elseif ($ya_ocurrio): ?>
+                        <span class="gw-status-active">🔴 En vivo ahora</span>
+                    <?php else: ?>
+                        <span class="gw-status-waiting" id="gwContinueCountdown">
+                            ⏳ Inicia en: <span class="gw-time-remaining"><?php echo gw_format_time_remaining($tiempo_restante); ?></span>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <?php if (!$habilitar_continuar && !$completada): ?>
+            <!-- JavaScript para actualizar el countdown del botón continuar -->
+            <script>
+            (function(){
+                const targetTime = <?php echo $ts ? $ts * 1000 : 0; ?>;
+                const countdownElement = document.getElementById('gwContinueCountdown');
+                const timeElement = countdownElement?.querySelector('.gw-time-remaining');
+                const buttonContainer = document.querySelector('.gw-force-step8-form');
+                
+                if (!targetTime || !countdownElement) return;
+                
+                function updateContinueButton() {
+                    const now = new Date().getTime();
+                    const timeLeft = targetTime - now;
+                    
+                    if (timeLeft <= 0) {
+                        // Tiempo cumplido - habilitar botón y actualizar estado
+                        buttonContainer.innerHTML = `
+                            <form method="post" style="display:inline;">
+                                <?php echo wp_nonce_field('gw_force_step8', 'gw_force_step8_nonce', true, false); ?>
+                                <button type="submit" name="gw_force_step8" class="gw-btn-primary" title="La capacitación ya comenzó - Continuar">
+                                    Continuar
+                                </button>
+                            </form>
+                            <div class="gw-continue-status">
+                                <span class="gw-status-active">🔴 En vivo ahora</span>
+                            </div>
+                        `;
+                        clearInterval(timer);
+                    } else {
+                        // Actualizar countdown
+                        if (timeElement) {
+                            const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                            
+                            let timeStr = '';
+                            if (hours > 0) timeStr += hours + 'h ';
+                            if (minutes > 0) timeStr += minutes + 'm ';
+                            timeStr += seconds + 's';
+                            
+                            timeElement.textContent = timeStr;
+                        }
+                    }
+                }
+                
+                const timer = setInterval(updateContinueButton, 1000);
+                updateContinueButton();
+            })();
+            </script>
+            <?php endif; ?>
+            
+            <style>
+            .gw-force-step8-form {
+                padding: 12px;
+    border-radius: 12px;
+    min-width: 140px;
+    justify-items: center;
+            }
+            
+            .gw-continue-status {
+                margin-top: 8px;
+                text-align: center;
+            }
+            
+            .gw-continue-status span {
+                font-size: 11px;
+                font-weight: 600;
+                padding: 4px 8px;
+                border-radius: 6px;
+                display: inline-block;
+            }
+            
+            .gw-status-completed {
+                background: #e8f5e8;
+                color: #2e7d32;
+                border: 1px solid #4caf50;
+            }
+            
+            .gw-status-active {
+                background: #ffebee;
+                color: #c62828;
+                border: 1px solid #f44336;
+                animation: pulse-red 2s infinite;
+            }
+            
+            .gw-status-waiting {
+                background: #fff3e0;
+                color: #ef6c00;
+                border: 1px solid #ff9800;
+            }
+            
+            @keyframes pulse-red {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            
+            .gw-time-remaining {
+                font-weight: 900;
+                color: #d32f2f;
+            }
+            
+            /* Mejorar el tooltip del botón deshabilitado */
+            .gw-btn-disabled {
+                position: relative;
+            }
+            
+            .gw-btn-disabled:hover::after {
+                content: attr(title);
+                position: absolute;
+                bottom: 115%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #333;
+                color: #fff;
+                padding: 8px 12px;
+                border-radius: 8px;
+                font-size: 12px;
+                white-space: nowrap;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                z-index: 1000;
+                max-width: 200px;
+                white-space: normal;
+                text-align: center;
+            }
+            
+            /* Responsivo */
+            @media (max-width: 640px) {
+                .gw-force-step8-form {
+                    position: static !important;
+                    margin: 20px auto;
+                    text-align: center;
+                    width: fit-content;
+                }
+            }
+            </style>
             <?php
         }
 
@@ -2541,6 +3395,21 @@ function gw_step_7_capacitacion($user_id) {
     exit;
 }
 
+// Función helper para formatear tiempo restante
+function gw_format_time_remaining($seconds) {
+    if ($seconds <= 0) return '0s';
+    
+    $hours = floor($seconds / 3600);
+    $minutes = floor(($seconds % 3600) / 60);
+    $secs = $seconds % 60;
+    
+    $result = '';
+    if ($hours > 0) $result .= $hours . 'h ';
+    if ($minutes > 0) $result .= $minutes . 'm ';
+    $result .= $secs . 's';
+    
+    return $result;
+}
 
 if (!defined('ABSPATH')) exit; // Seguridad: salir si se accede directamente
 
@@ -2914,6 +3783,11 @@ function gw_step_8_documentos($user_id) {
     $escuela_id = get_user_meta($user_id, 'gw_escuela_seleccionada', true);
     $horario = get_user_meta($user_id, 'gw_escuela_horario', true);
 
+    // Variables para mensajes
+    $error = '';
+    $success = '';
+    $just_submitted = false; // Variable para controlar el contador
+
     // Procesar selección nueva
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['escuela_id']) && isset($_POST['horario_idx']) && check_admin_referer('gw_step8_seleccion', 'gw_step8_nonce')) {
         $escuela_id = intval($_POST['escuela_id']);
@@ -2927,191 +3801,911 @@ function gw_step_8_documentos($user_id) {
         if ($escuela && isset($horarios[$horario_idx])) {
             update_user_meta($user_id, 'gw_escuela_seleccionada', $escuela_id);
             update_user_meta($user_id, 'gw_escuela_horario', $horarios[$horario_idx]);
-            // Refrescar para evitar repost
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            exit;
-        }
-    }
-
-    ob_start();
-    ?>
-    <div style="margin-bottom:24px;">
-        <a href="<?php echo esc_url( site_url('/index.php/portal-voluntario/?paso7_menu=1') ); ?>"
-           class="gw-charla-my-btn" style="background:#1976d2;">
-            &larr; Regresar a capacitaciones
-        </a>
-    </div>
-    <?php
-    if ($escuela_id && $horario) {
-        // Mostrar resumen de selección
-        $escuela = get_post($escuela_id);
-        echo '<div class="notice notice-success" style="margin-bottom:24px;"><b>¡Escuela seleccionada!</b><br>';
-        echo 'Escuela: <b>' . esc_html($escuela ? $escuela->post_title : 'Escuela eliminada') . '</b><br>';
-        echo 'Día: <b>' . esc_html($horario['dia']) . '</b> | Hora: <b>' . esc_html($horario['hora']) . '</b>';
-        echo '</div>';
-        // Botón para cambiar de escuela/horario si lo deseas (desactívalo si no lo necesitas)
-        /*
-        echo '<form method="post"><button type="submit" name="cambiar_escuela" class="button">Cambiar escuela/horario</button></form>';
-        if (isset($_POST['cambiar_escuela'])) {
-            delete_user_meta($user_id, 'gw_escuela_seleccionada');
-            delete_user_meta($user_id, 'gw_escuela_horario');
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            exit;
-        }
-        */
-    } else {
-        // Listar todas las escuelas y horarios
-        $escuelas = get_posts([
-            'post_type' => 'escuela',
-            'post_status' => 'publish',
-            'numberposts' => -1,
-            'orderby' => 'title',
-            'order' => 'ASC',
-        ]);
-        if (empty($escuelas)) {
-            echo '<div class="notice notice-error">No hay escuelas disponibles por el momento.</div>';
+            $success = '¡Escuela y horario seleccionados correctamente!';
         } else {
-            echo '<h3>Selecciona la escuela y horario donde vas a servir</h3>'
-        .'<form method="post">';
-            wp_nonce_field('gw_step8_seleccion', 'gw_step8_nonce');
-            foreach ($escuelas as $esc) {
-                $horarios = get_post_meta($esc->ID, '_gw_escuela_horarios', true);
-                if (!is_array($horarios) || empty($horarios)) continue;
-                echo '<div style="border:1px solid #e2e2e2;border-radius:10px;padding:14px 20px;margin-bottom:18px;background:#f9f9ff;">';
-                echo '<strong>' . esc_html($esc->post_title) . '</strong><br><br>';
-                foreach ($horarios as $idx => $h) {
-                    if (!$h['dia'] && !$h['hora']) continue;
-                    echo '<label style="display:block;margin-bottom:8px;">';
-                    echo '<input type="radio" name="escuela_id" value="'.esc_attr($esc->ID).'" required>';
-                    echo ' Día: <b>'.esc_html($h['dia']).'</b> | Hora: <b>'.esc_html($h['hora']).'</b>';
-                    echo ' <button type="submit" name="horario_idx" value="'.esc_attr($idx).'" class="button button-primary" style="margin-left:15px;">Seleccionar</button>';
-                    echo '</label>';
-                }
-                echo '</div>';
-            }
-            echo '</form>';
+            $error = 'Error al seleccionar la escuela. Inténtalo de nuevo.';
         }
     }
 
     // ------ SUBIDA DE DOCUMENTOS (DUI/ID) -------
-global $wpdb;
-$docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
-$status = $docs ? $docs['status'] : '';
+    global $wpdb;
+    $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
+    $status = $docs ? $docs['status'] : '';
 
-if ($escuela_id && $horario && $status !== 'validado') {
-    $msg = '';
-    // Procesar subida
+    // Procesar subida de documentos
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_docs_nonce']) && wp_verify_nonce($_POST['gw_docs_nonce'], 'gw_docs_subida')) {
         $cons1 = isset($_POST['consentimiento1']) ? 1 : 0;
         $cons2 = isset($_POST['consentimiento2']) ? 1 : 0;
 
-        // Archivos
+        // Archivos (actualizado para manejar hasta 4 documentos)
         $errors = [];
-           $file_names = [null, null];
-                for ($i = 1; $i <= 2; $i++) {
-                    if (isset($_FILES["documento_$i"]) && $_FILES["documento_$i"]['size'] > 0) {
-                        $file = $_FILES["documento_$i"];
-                        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                    if (!in_array($ext, ['jpg','jpeg','png','gif','webp'])) {
-                        $errors[] = "Documento $i: Formato inválido ($ext)";
-                continue;
-            }
-        // Subir a uploads
-            require_once(ABSPATH . 'wp-admin/includes/file.php');
+        $file_names = [null, null, null, null]; // Array para 4 documentos
+        
+        for ($i = 1; $i <= 4; $i++) {
+            if (isset($_FILES["documento_$i"]) && $_FILES["documento_$i"]['size'] > 0) {
+                $file = $_FILES["documento_$i"];
+                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                if (!in_array($ext, ['jpg','jpeg','png','gif','webp'])) {
+                    $errors[] = "Documento $i: Formato inválido ($ext)";
+                    continue;
+                }
+                // Subir a uploads
+                require_once(ABSPATH . 'wp-admin/includes/file.php');
                 $upload = wp_handle_upload($file, ['test_form' => false]);
-            if (!empty($upload['error'])) {
-                $errors[] = "Documento $i: " . $upload['error'];
-            continue;
+                if (!empty($upload['error'])) {
+                    $errors[] = "Documento $i: " . $upload['error'];
+                    continue;
+                }
+                $file_names[$i-1] = $upload['url'];
+            } else {
+                // Si ya tenía antes, conservar
+                if ($docs && isset($docs["documento_{$i}_url"]) && $docs["documento_{$i}_url"]) {
+                    $file_names[$i-1] = $docs["documento_{$i}_url"];
+                }
+            }
         }
-        $file_names[$i-1] = $upload['url'];
-    } else {
-        // Si ya tenía antes, conservar (usa la columna *_url)
-        if ($docs && $docs["documento_{$i}_url"]) {
-            $file_names[$i-1] = $docs["documento_{$i}_url"];
+        
+        // Validar que al menos los primeros 2 documentos estén subidos
+        if (!$file_names[0] || !$file_names[1]) {
+            $errors[] = "Debes subir al menos los primeros 2 documentos obligatorios.";
         }
-    }
-}
-        if (!$file_names[0] || !$file_names[1]) $errors[] = "Debes subir ambos documentos.";
         if (!$cons1 || !$cons2) $errors[] = "Debes aceptar ambos consentimientos.";
 
         if (empty($errors)) {
             // Insertar/actualizar en la tabla personalizada
-                if ($docs) {
-                    $wpdb->update($wpdb->prefix . 'voluntario_docs', [
-                        'documento_1_url' => $file_names[0],
-                        'documento_2_url' => $file_names[1],
-                        'consent_1'       => $cons1,
-                        'consent_2'       => $cons2,
-                        'status'          => 'pendiente',
-                        'updated_at'      => current_time('mysql', 1)
-                    ], [ 'user_id' => $user_id ]);
-                } else {
-                    $wpdb->insert(
-                        $wpdb->prefix . 'voluntario_docs',
-                        [
-                            'user_id'           => $user_id,
-                            'escuela_id'        => $escuela_id,
-                            'documento_1_url'   => esc_url_raw($file_names[0]),
-                            'documento_2_url'   => esc_url_raw($file_names[1]),
-                            'consent_1'         => $cons1,
-                            'consent_2'         => $cons2,
-                            'status'            => 'pendiente',
-                            'fecha_subida'      => current_time('mysql', 1),
-                            'fecha_revision'    => current_time('mysql', 1),
-                        ],
-                        [ '%d','%d','%s','%s','%d','%d','%s','%s','%s' ]
-            );
-    }
-            $msg = '<div class="notice notice-success"><b>¡Documentos enviados! Espera a que sean validados por el coach/admin.</b></div>';
+            if ($docs) {
+                $wpdb->update($wpdb->prefix . 'voluntario_docs', [
+                    'documento_1_url' => $file_names[0],
+                    'documento_2_url' => $file_names[1],
+                    'documento_3_url' => $file_names[2],
+                    'documento_4_url' => $file_names[3],
+                    'consent_1'       => $cons1,
+                    'consent_2'       => $cons2,
+                    'status'          => 'pendiente',
+                    'updated_at'      => current_time('mysql', 1)
+                ], [ 'user_id' => $user_id ]);
+            } else {
+                $wpdb->insert(
+                    $wpdb->prefix . 'voluntario_docs',
+                    [
+                        'user_id'           => $user_id,
+                        'escuela_id'        => $escuela_id,
+                        'documento_1_url'   => esc_url_raw($file_names[0]),
+                        'documento_2_url'   => esc_url_raw($file_names[1]),
+                        'documento_3_url'   => esc_url_raw($file_names[2]),
+                        'documento_4_url'   => esc_url_raw($file_names[3]),
+                        'consent_1'         => $cons1,
+                        'consent_2'         => $cons2,
+                        'status'            => 'pendiente',
+                        'fecha_subida'      => current_time('mysql', 1),
+                        'fecha_revision'    => current_time('mysql', 1),
+                    ],
+                    [ '%d','%d','%s','%s','%s','%s','%d','%d','%s','%s','%s' ]
+                );
+            }
+            $just_submitted = true; // Activar el contador
+            $success = '¡Documentos enviados correctamente! Espera a que sean validados.';
         } else {
-            $msg = '<div class="notice notice-error"><b>Corrige los siguientes errores:</b><ul><li>' . implode('</li><li>', $errors) . '</li></ul></div>';
+            $error = implode(' ', $errors);
         }
     }
 
-    // Cargar de nuevo el estado
+    // Cargar datos actuales
     $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
     $status = $docs && isset($docs['status']) ? $docs['status'] : '';
     $doc1 = $docs && isset($docs['documento_1_url']) ? $docs['documento_1_url'] : '';
     $doc2 = $docs && isset($docs['documento_2_url']) ? $docs['documento_2_url'] : '';
+    $doc3 = $docs && isset($docs['documento_3_url']) ? $docs['documento_3_url'] : '';
+    $doc4 = $docs && isset($docs['documento_4_url']) ? $docs['documento_4_url'] : '';
     $cons1 = $docs && isset($docs['consent_1']) ? $docs['consent_1'] : '';
     $cons2 = $docs && isset($docs['consent_2']) ? $docs['consent_2'] : '';
+
+    // Obtener escuelas
+    $escuelas = get_posts([
+        'post_type' => 'escuela',
+        'post_status' => 'publish',
+        'numberposts' => -1,
+        'orderby' => 'title',
+        'order' => 'ASC',
+    ]);
+
+    ob_start();
+    ?>
+<link rel="stylesheet" href="<?php echo plugins_url('gw-manager/css/gw-step8-styles.css?v=' . time()); ?>">
+    <div class="gw-modern-wrapper">
+        <div class="gw-form-wrapper">
+            <!-- Panel lateral con pasos -->
+            <div class="gw-sidebar">
+                <div class="gw-hero-logo2">
+                    <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
+                </div> 
+
+                <div class="gw-steps-container">
+                    <!-- Paso 1 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">✓</div>
+                        <div class="gw-step-content">
+                            <h3>Información personal</h3>
+                            <p>Cuéntanos quién eres para empezar.</p>
+                        </div>
+                    </div>
+
+                    <!-- Paso 2 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">✓</div>
+                        <div class="gw-step-content">
+                            <h3>Video introductorio</h3>
+                            <p>Mira este breve video para conocer Glasswing.</p>
+                        </div>
+                    </div>
+
+                    <!-- Paso 3 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">✓</div>
+                        <div class="gw-step-content">
+                            <h3>Registro para inducción</h3>
+                            <p>Completa tu información para la inducción.</p>
+                        </div>
+                    </div>
+
+                    <!-- Paso 4 -->
+
+                    <!-- Paso 5 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">✓</div>
+                        <div class="gw-step-content">
+                            <h3>Charlas</h3>
+                            <p>Regístrate en la charla asignada y participa.</p>
+                        </div>
+                    </div>
+
+                    <!-- Paso 6 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">✓</div>
+                        <div class="gw-step-content">
+                            <h3>Selección de proyecto</h3>
+                            <p>Elige el proyecto en el que participarás.</p>
+                        </div>
+                    </div>
+
+                    <!-- Paso 7 -->
+                    <div class="gw-step-item">
+                        <div class="gw-step-number">✓</div>
+                        <div class="gw-step-content">
+                            <h3>Capacitaciones</h3>
+                            <p>Inscríbete y marca tu asistencia para continuar.</p>
+                        </div>
+                    </div>
+
+                    <!-- Paso 8 - ACTIVO -->
+                    <div class="gw-step-item active">
+                        <div class="gw-step-number">8</div>
+                        <div class="gw-step-content">
+                            <h3>Documentos y escuela</h3>
+                            <p>Selecciona tu escuela y sube tus documentos.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gw-sidebar-footer">
+                    <div class="gw-help-section">
+                        <div class="gw-help-text">
+                            <h4>Conoce más sobre Glasswing</h4>
+                            <p>
+                                Visita nuestro sitio oficial  
+                                <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">
+                                    Ve a glasswing.org
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido principal -->
+            <div class="gw-main-content">
+                <div class="gw-form-container">
+                    
+                    <?php if ($just_submitted): ?>
+                        <!-- Pantalla de confirmación con contador -->
+                        <div class="gw-submission-success">
+                            <div class="gw-success-animation">
+                                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22,4 12,14.01 9,11.01"/>
+                                </svg>
+                            </div>
+                            <h1>¡Documentos enviados exitosamente!</h1>
+                            <p class="gw-thank-you-message">
+                                Gracias por completar todos los pasos del proceso de registro como voluntario. 
+                                Tus documentos han sido enviados y están siendo revisados por nuestro equipo.
+                            </p>
+                            <div class="gw-info-box">
+                                <h3>¿Qué sigue ahora?</h3>
+                                <ul>
+                                    <li>📋 Nuestro equipo revisará tus documentos</li>
+                                    <li>📧 Recibirás una notificación cuando sean aprobados</li>
+                                    <li>🎉 Podrás comenzar tu voluntariado una vez aprobado</li>
+                                </ul>
+                            </div>
+                            <div class="gw-countdown-section">
+                                <p>Cerrando sesión automáticamente en:</p>
+                                <div class="gw-countdown" id="gw-countdown">10</div>
+                                <p class="gw-countdown-text">segundos</p>
+                            </div>
+                        </div>
+                    
+                    <?php elseif ($status === 'validado'): ?>
+                        <!-- Estado aprobado -->
+                        <div class="gw-approved-status">
+                            <div class="gw-success-icon">
+                                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22,4 12,14.01 9,11.01"/>
+                                </svg>
+                            </div>
+                            <h1>¡Documentos aprobados!</h1>
+                            <p>Tus documentos han sido validados exitosamente. Tu voluntariado está confirmado y puedes comenzar a participar en las actividades programadas.</p>
+                            <div class="gw-countdown-section">
+                                <p>Cerrando sesión automáticamente en:</p>
+                                <div class="gw-countdown" id="gw-countdown">15</div>
+                                <p class="gw-countdown-text">segundos</p>
+                            </div>
+                        </div>
+                    
+                    <?php elseif ($status === 'rechazado' || $status === 'denegado'): ?>
+                        <!-- Estado denegado -->
+                        <div class="gw-rejected-status">
+                            <div class="gw-error-icon">
+                                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                            </div>
+                            <h1>Documentos no aprobados</h1>
+                            <p>Lamentablemente, tus documentos no pudieron ser aprobados. Por favor, contacta con nuestro equipo para más información sobre los próximos pasos.</p>
+                            <div class="gw-contact-info">
+                                <h3>Información de contacto:</h3>
+                                <p>📧 Email: voluntarios@glasswing.org</p>
+                                <p>📞 Teléfono: [NÚMERO DE CONTACTO]</p>
+                            </div>
+                            <div class="gw-countdown-section">
+                                <p>Cerrando sesión automáticamente en:</p>
+                                <div class="gw-countdown" id="gw-countdown">15</div>
+                                <p class="gw-countdown-text">segundos</p>
+                            </div>
+                        </div>
+                    
+                    <?php else: ?>
+                        <!-- Formulario normal -->
+                        <div class="gw-form-header">
+                            <h1>Documentos y escuela</h1>
+                            <p>Selecciona tu escuela, horario y sube los documentos requeridos.</p>
+                        </div>
+
+                        <?php if ($error): ?>
+                            <div class="gw-error-message">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                                <span><?php echo esc_html($error); ?></span>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($success && !$just_submitted): ?>
+                            <div class="gw-success-message">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22,4 12,14.01 9,11.01"/>
+                                </svg>
+                                <span><?php echo esc_html($success); ?></span>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($escuela_id && $horario): ?>
+                            <!-- Resumen de selección -->
+                            <div class="gw-selection-summary">
+                                <div class="gw-summary-header">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                        <polyline points="22,4 12,14.01 9,11.01"/>
+                                    </svg>
+                                    <h3>¡Escuela seleccionada!</h3>
+                                </div>
+                                <div class="gw-summary-content">
+                                    <?php 
+                                    $escuela = get_post($escuela_id);
+                                    echo '<p><strong>Escuela:</strong> ' . esc_html($escuela ? $escuela->post_title : 'Escuela eliminada') . '</p>';
+                                    echo '<p><strong>Día:</strong> ' . esc_html($horario['dia']) . ' | <strong>Hora:</strong> ' . esc_html($horario['hora']) . '</p>';
+                                    ?>
+                                </div>
+                            </div>
+                        <?php else: ?>
+                            <!-- Selección de escuela y horario -->
+                            <div class="gw-section">
+                                <div class="gw-section-header">
+                                    <h2>Selecciona tu escuela y horario</h2>
+                                    <p>Elige la escuela y el horario donde vas a realizar tu voluntariado.</p>
+                                </div>
+
+                                <?php if (empty($escuelas)): ?>
+                                    <div class="gw-error-message">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="15" y1="9" x2="9" y2="15"/>
+                                            <line x1="9" y1="9" x2="15" y2="15"/>
+                                        </svg>
+                                        <span>No hay escuelas disponibles por el momento.</span>
+                                    </div>
+                                <?php else: ?>
+                                    <form method="post" class="gw-school-form">
+                                        <?php wp_nonce_field('gw_step8_seleccion', 'gw_step8_nonce'); ?>
+                                        <div class="gw-schools-grid">
+                                            <?php foreach ($escuelas as $esc): 
+                                                $horarios = get_post_meta($esc->ID, '_gw_escuela_horarios', true);
+                                                if (!is_array($horarios) || empty($horarios)) continue;
+                                            ?>
+                                                <div class="gw-school-card">
+                                                    <div class="gw-school-header">
+                                                        <h3><?php echo esc_html($esc->post_title); ?></h3>
+                                                    </div>
+                                                    <div class="gw-school-schedules">
+                                                        <?php foreach ($horarios as $idx => $h): 
+                                                            if (!$h['dia'] && !$h['hora']) continue;
+                                                        ?>
+                                                            <div class="gw-schedule-option">
+                                                                <input type="radio" 
+                                                                       name="escuela_id" 
+                                                                       value="<?php echo esc_attr($esc->ID); ?>" 
+                                                                       id="schedule_<?php echo esc_attr($esc->ID . '_' . $idx); ?>"
+                                                                       data-horario="<?php echo esc_attr($idx); ?>"
+                                                                       required>
+                                                                <label for="schedule_<?php echo esc_attr($esc->ID . '_' . $idx); ?>" class="gw-schedule-label">
+                                                                    <div class="gw-schedule-info">
+                                                                        <span class="gw-day"><?php echo esc_html($h['dia']); ?></span>
+                                                                        <span class="gw-time"><?php echo esc_html($h['hora']); ?></span>
+                                                                    </div>
+                                                                    <button type="submit" 
+                                                                            name="horario_idx" 
+                                                                            value="<?php echo esc_attr($idx); ?>" 
+                                                                            class="gw-select-btn">
+                                                                        Seleccionar
+                                                                    </button>
+                                                                </label>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($escuela_id && $horario && $status !== 'validado' && $status !== 'rechazado' && $status !== 'denegado'): ?>
+                            <!-- Sección de documentos -->
+                            <div class="gw-section">
+                                <div class="gw-section-header">
+                                    <h2>Subir documentos</h2>
+                                    <p>Sube tu DUI o documento de identidad para completar tu registro.</p>
+                                </div>
+
+                                <?php if ($status === 'pendiente'): ?>
+                                    <div class="gw-info-message">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M12 16v-4"/>
+                                            <path d="M12 8h.01"/>
+                                        </svg>
+                                        <span>Documentos enviados. Espera validación del coach/admin.</span>
+                                    </div>
+                                <?php endif; ?>
+
+                                <form method="post" enctype="multipart/form-data" class="gw-documents-form" id="gw-documents-form">
+                                    <?php wp_nonce_field('gw_docs_subida', 'gw_docs_nonce'); ?>
+                                    
+                                    <div class="gw-documents-grid" id="documents-container">
+                                        <!-- Documento 1 - SIEMPRE VISIBLE -->
+                                        <div class="gw-document-upload" data-doc="1">
+                                            <label class="gw-upload-label">
+                                                <span class="gw-label-text">Documento de identidad (Foto 1)</span>
+                                                <span class="gw-required">*</span>
+                                            </label>
+                                            <?php if ($doc1): ?>
+                                                <div class="gw-document-preview">
+                                                    <img src="<?php echo esc_url($doc1); ?>" alt="Documento 1">
+                                                    <div class="gw-document-status">✓ Subido</div>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="gw-file-upload">
+                                                <input type="file" 
+                                                       name="documento_1" 
+                                                       id="documento_1"
+                                                       accept="image/*"
+                                                       class="gw-file-input"
+                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                <label for="documento_1" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                        <polyline points="7,10 12,15 17,10"/>
+                                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                                    </svg>
+                                                    <span><?php echo $doc1 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Documento 2 - SIEMPRE VISIBLE -->
+                                        <div class="gw-document-upload" data-doc="2">
+                                            <label class="gw-upload-label">
+                                                <span class="gw-label-text">Documento de identidad (Foto 2)</span>
+                                                <span class="gw-required">*</span>
+                                            </label>
+                                            <?php if ($doc2): ?>
+                                                <div class="gw-document-preview">
+                                                    <img src="<?php echo esc_url($doc2); ?>" alt="Documento 2">
+                                                    <div class="gw-document-status">✓ Subido</div>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="gw-file-upload">
+                                                <input type="file" 
+                                                       name="documento_2" 
+                                                       id="documento_2"
+                                                       accept="image/*"
+                                                       class="gw-file-input"
+                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                <label for="documento_2" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                        <polyline points="7,10 12,15 17,10"/>
+                                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                                    </svg>
+                                                    <span><?php echo $doc2 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Documento 3 - OPCIONAL -->
+                                        <div class="gw-document-upload optional-doc" data-doc="3" style="<?php echo $doc3 ? 'display: flex;' : 'display: none;'; ?>">
+                                            <label class="gw-upload-label">
+                                                <span class="gw-label-text">Documento adicional (Foto 3)</span>
+                                                <button type="button" class="gw-remove-doc" data-target="3" <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
+                                            <?php if ($doc3): ?>
+                                                <div class="gw-document-preview">
+                                                    <img src="<?php echo esc_url($doc3); ?>" alt="Documento 3">
+                                                    <div class="gw-document-status">✓ Subido</div>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="gw-file-upload">
+                                                <input type="file" 
+                                                       name="documento_3" 
+                                                       id="documento_3"
+                                                       accept="image/*"
+                                                       class="gw-file-input"
+                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                <label for="documento_3" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                        <polyline points="7,10 12,15 17,10"/>
+                                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                                    </svg>
+                                                    <span><?php echo $doc3 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Documento 4 - OPCIONAL -->
+                                        <div class="gw-document-upload optional-doc" data-doc="4" style="<?php echo $doc4 ? 'display: flex;' : 'display: none;'; ?>">
+                                            <label class="gw-upload-label">
+                                                <span class="gw-label-text">Documento adicional (Foto 4)</span>
+                                                <button type="button" class="gw-remove-doc" data-target="4" <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                                    </svg>
+                                                </button>
+                                            </label>
+                                            <?php if ($doc4): ?>
+                                                <div class="gw-document-preview">
+                                                    <img src="<?php echo esc_url($doc4); ?>" alt="Documento 4">
+                                                    <div class="gw-document-status">✓ Subido</div>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="gw-file-upload">
+                                                <input type="file" 
+                                                       name="documento_4" 
+                                                       id="documento_4"
+                                                       accept="image/*"
+                                                       class="gw-file-input"
+                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                <label for="documento_4" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                        <polyline points="7,10 12,15 17,10"/>
+                                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                                    </svg>
+                                                    <span><?php echo $doc4 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Botones para agregar más fotos -->
+                                    <?php if ($status !== 'pendiente'): ?>
+                                        <div class="gw-add-photos-section">
+                                            <button type="button" id="add-photo-btn" class="gw-add-photo-btn">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="5" x2="12" y2="19"/>
+                                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                                </svg>
+                                                Agregar otra foto
+                                            </button>
+                                            <p class="gw-photo-help">Puedes subir hasta 4 fotos de tus documentos</p>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <!-- Consentimientos -->
+                                    <div class="gw-consent-section">
+                                        <div class="gw-consent-item">
+                                            <input type="checkbox" 
+                                                   name="consentimiento1" 
+                                                   id="consentimiento1"
+                                                   value="1" 
+                                                   <?php checked($cons1, 1); ?>
+                                                   <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                            <label for="consentimiento1">
+                                                <span class="gw-checkbox-custom"></span>
+                                                Acepto el consentimiento #1 y autorizo el uso de mi información personal
+                                            </label>
+                                        </div>
+                                        <div class="gw-consent-item">
+                                            <input type="checkbox" 
+                                                   name="consentimiento2" 
+                                                   id="consentimiento2"
+                                                   value="1" 
+                                                   <?php checked($cons2, 1); ?>
+                                                   <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                            <label for="consentimiento2">
+                                                <span class="gw-checkbox-custom"></span>
+                                                Acepto el consentimiento #2 y las políticas de privacidad
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="gw-form-actions">
+                                        <button type="submit" 
+                                                class="gw-btn-primary" 
+                                                id="gw-submit-docs"
+                                                <?php if ($status === 'pendiente') echo 'disabled'; ?>>
+                                            <span class="gw-btn-text">
+                                                <?php echo $status === 'pendiente' ? 'Documentos enviados' : 'Enviar documentos'; ?>
+                                            </span>
+                                            <span class="gw-btn-loading" style="display: none;">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                Enviando...
+                                            </span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
     
-
-    echo $msg;
-
-    if ($status === 'pendiente') {
-        echo '<div class="notice notice-info"><b>Documentos enviados. Espera validación del coach/admin.</b></div>';
-    }
-
-    // Si ya están validados, mostrar mensaje final
-    if ($status === 'validado') {
-        echo '<div class="notice notice-success"><b>¡Tus documentos han sido validados! Tu voluntariado está confirmado.</b></div>';
-    } else {
-        ?>
-        <form method="post" enctype="multipart/form-data" style="margin-top:26px;background:#f9f9ff;padding:18px 32px;border-radius:14px;max-width:520px;">
-            <?php wp_nonce_field('gw_docs_subida', 'gw_docs_nonce'); ?>
-            <div style="margin-bottom:18px;">
-                <label><b>Subir documento 1 (DUI/ID):</b></label><br>
-                <?php if ($doc1): ?>
-                    <img src="<?php echo esc_url($doc1); ?>" alt="Documento 1" style="max-width:120px;max-height:120px;display:block;margin:8px 0;">
-                <?php endif; ?>
-                <input type="file" name="documento_1" accept="image/*" <?php if($doc1) echo ''; ?>><br>
-            </div>
-            <div style="margin-bottom:18px;">
-                <label><b>Subir documento 2 (DUI/ID):</b></label><br>
-                <?php if ($doc2): ?>
-                    <img src="<?php echo esc_url($doc2); ?>" alt="Documento 2" style="max-width:120px;max-height:120px;display:block;margin:8px 0;">
-                <?php endif; ?>
-                <input type="file" name="documento_2" accept="image/*" <?php if($doc2) echo ''; ?>><br>
-            </div>
-            <div style="margin-bottom:18px;">
-                <input type="checkbox" name="consentimiento1" value="1" <?php checked($cons1,1); ?>> Acepto el consentimiento #1<br>
-                <input type="checkbox" name="consentimiento2" value="1" <?php checked($cons2,1); ?>> Acepto el consentimiento #2
-            </div>
-            <button type="submit" class="button button-primary" <?php if ($status === 'pendiente') echo 'disabled'; ?>>Enviar</button>
-        </form>
-        <?php
-    }
-}
+    <script>
+    (function() {
+        'use strict';
+        
+        // FUNCIÓN PARA CERRAR SESIÓN Y REDIRIGIR
+        function logoutAndRedirect() {
+            // Usar logout personalizado que maneja el flujo completo
+            window.location.href = '<?php echo home_url(); ?>?gw_logout=1';
+        }
+        
+        // CONTADOR REGRESIVO
+        function startCountdown(seconds, callback) {
+            const countdownElement = document.getElementById('gw-countdown');
+            if (!countdownElement) return;
+            
+            let count = seconds;
+            countdownElement.textContent = count;
+            
+            const interval = setInterval(() => {
+                count--;
+                countdownElement.textContent = count;
+                
+                // Cambiar color cuando quedan pocos segundos
+                if (count <= 3) {
+                    countdownElement.style.color = '#ef4444';
+                    countdownElement.style.transform = 'scale(1.1)';
+                } else if (count <= 5) {
+                    countdownElement.style.color = '#f59e0b';
+                }
+                
+                if (count <= 0) {
+                    clearInterval(interval);
+                    if (callback) callback();
+                }
+            }, 1000);
+        }
+        
+        // INICIALIZAR CONTADOR SEGÚN EL ESTADO
+        <?php if ($just_submitted): ?>
+            // Recién enviado - 10 segundos
+            startCountdown(10, logoutAndRedirect);
+        <?php elseif ($status === 'validado'): ?>
+            // Aprobado - 15 segundos (más tiempo para leer)
+            startCountdown(15, logoutAndRedirect);
+        <?php elseif ($status === 'rechazado' || $status === 'denegado'): ?>
+            // Rechazado - 15 segundos (más tiempo para leer)
+            startCountdown(15, logoutAndRedirect);
+        <?php endif; ?>
+        
+        // El resto del código del formulario solo si no estamos en estados finales
+        <?php if (!$just_submitted && $status !== 'validado' && $status !== 'rechazado' && $status !== 'denegado'): ?>
+        
+        // Elementos del DOM
+        const form = document.getElementById('gw-documents-form');
+        if (!form) return;
+        
+        const submitBtn = document.getElementById('gw-submit-docs');
+        const btnText = submitBtn?.querySelector('.gw-btn-text');
+        const btnLoading = submitBtn?.querySelector('.gw-btn-loading');
+        const fileInputs = form.querySelectorAll('.gw-file-input');
+        const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+        
+        // Manejo de documentos dinámicos
+        const addPhotoBtn = document.getElementById('add-photo-btn');
+        const documentsContainer = document.getElementById('documents-container');
+        let visibleDocs = 2; // Por defecto se muestran 2
+        
+        // Contar documentos visibles al cargar
+        <?php if ($doc3): ?>visibleDocs = 3;<?php endif; ?>
+        <?php if ($doc4): ?>visibleDocs = 4;<?php endif; ?>
+        
+        if (addPhotoBtn) {
+            addPhotoBtn.addEventListener('click', function() {
+                if (visibleDocs < 4) {
+                    const nextDoc = visibleDocs + 1;
+                    const docElement = document.querySelector(`[data-doc="${nextDoc}"]`);
+                    
+                    if (docElement) {
+                        docElement.style.display = 'flex';
+                        visibleDocs++;
+                        
+                        // Actualizar el grid para acomodar más elementos
+                        updateGridLayout();
+                        
+                        // Ocultar botón si ya se llegó al máximo
+                        if (visibleDocs >= 4) {
+                            addPhotoBtn.style.display = 'none';
+                        }
+                        
+                        // Actualizar texto del botón
+                        updateAddButtonText();
+                    }
+                }
+            });
+        }
+        
+        // Manejo de botones de remover documento
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.gw-remove-doc')) {
+                const removeBtn = e.target.closest('.gw-remove-doc');
+                const targetDoc = removeBtn.getAttribute('data-target');
+                const docElement = document.querySelector(`[data-doc="${targetDoc}"]`);
+                
+                if (docElement) {
+                    // Limpiar el input
+                    const fileInput = docElement.querySelector('.gw-file-input');
+                    if (fileInput) {
+                        fileInput.value = '';
+                        const label = fileInput.nextElementSibling;
+                        if (label) {
+                            label.classList.remove('file-selected');
+                            const span = label.querySelector('span');
+                            if (span) span.textContent = 'Seleccionar archivo';
+                        }
+                    }
+                    
+                    // Ocultar el elemento
+                    docElement.style.display = 'none';
+                    visibleDocs--;
+                    
+                    // Mostrar botón de agregar si no está visible
+                    if (addPhotoBtn) {
+                        addPhotoBtn.style.display = 'flex';
+                    }
+                    
+                    // Actualizar layout
+                    updateGridLayout();
+                    updateAddButtonText();
+                }
+            }
+        });
+        
+        function updateGridLayout() {
+            if (documentsContainer) {
+                // Ajustar el grid según la cantidad de documentos visibles
+                if (visibleDocs <= 2) {
+                    documentsContainer.style.gridTemplateColumns = '1fr 1fr';
+                } else {
+                    documentsContainer.style.gridTemplateColumns = '1fr 1fr';
+                }
+            }
+        }
+        
+        function updateAddButtonText() {
+            if (addPhotoBtn) {
+                const remaining = 4 - visibleDocs;
+                if (remaining > 0) {
+                    const photoText = remaining === 1 ? 'foto' : 'fotos';
+                    const span = addPhotoBtn.querySelector('svg').nextElementSibling;
+                    if (span) span.textContent = `Agregar otra foto (${remaining} restante${remaining > 1 ? 's' : ''})`;
+                } else {
+                    addPhotoBtn.style.display = 'none';
+                }
+            }
+        }
+        
+        // Previsualización de archivos
+        fileInputs.forEach(input => {
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Validar tipo de archivo
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    alert('Por favor selecciona un archivo de imagen válido (JPG, PNG, GIF, WEBP)');
+                    this.value = '';
+                    return;
+                }
+                
+                // Validar tamaño (5MB máximo)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('El archivo es demasiado grande. Máximo 5MB.');
+                    this.value = '';
+                    return;
+                }
+                
+                // Actualizar label
+                const label = this.nextElementSibling;
+                if (label) {
+                    const span = label.querySelector('span');
+                    if (span) span.textContent = file.name;
+                    label.classList.add('file-selected');
+                }
+            });
+        });
+        
+        // Validación de formulario
+        function validateForm() {
+            const consent1 = document.getElementById('consentimiento1');
+            const consent2 = document.getElementById('consentimiento2');
+            
+            let isValid = true;
+            let errors = [];
+            
+            // Verificar que al menos los 2 documentos obligatorios estén subidos
+            const doc1Input = document.getElementById('documento_1');
+            const doc2Input = document.getElementById('documento_2');
+            
+            const hasDoc1 = doc1Input.files.length > 0 || document.querySelector('[data-doc="1"]').querySelector('.gw-document-preview');
+            const hasDoc2 = doc2Input.files.length > 0 || document.querySelector('[data-doc="2"]').querySelector('.gw-document-preview');
+            
+            if (!hasDoc1) {
+                errors.push('Debes subir el primer documento (Foto 1)');
+                isValid = false;
+            }
+            
+            if (!hasDoc2) {
+                errors.push('Debes subir el segundo documento (Foto 2)');
+                isValid = false;
+            }
+            
+            if (!consent1.checked) {
+                errors.push('Debes aceptar el consentimiento #1');
+                isValid = false;
+            }
+            
+            if (!consent2.checked) {
+                errors.push('Debes aceptar el consentimiento #2');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                alert('Por favor corrige los siguientes errores:\n• ' + errors.join('\n• '));
+            }
+            
+            return isValid;
+        }
+        
+        // Manejo del envío del formulario
+        if (submitBtn) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                if (!validateForm()) {
+                    return;
+                }
+                
+                // Mostrar estado de carga
+                submitBtn.disabled = true;
+                submitBtn.classList.add('loading');
+                if (btnText) btnText.style.display = 'none';
+                if (btnLoading) btnLoading.style.display = 'flex';
+                
+                // Enviar formulario
+                this.submit();
+            });
+        }
+        
+        // Manejo de selección de escuela
+        const schoolRadios = document.querySelectorAll('input[name="escuela_id"]');
+        schoolRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Actualizar estado visual de las tarjetas
+                document.querySelectorAll('.gw-school-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                
+                const selectedCard = this.closest('.gw-school-card');
+                if (selectedCard) {
+                    selectedCard.classList.add('selected');
+                }
+            });
+        });
+        
+        // Prevenir envío doble
+        let isSubmitting = false;
+        form.addEventListener('submit', function() {
+            if (isSubmitting) {
+                return false;
+            }
+            isSubmitting = true;
+        });
+        
+        // Animación para checkboxes personalizados
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const customBox = this.nextElementSibling.querySelector('.gw-checkbox-custom');
+                if (customBox) {
+                    if (this.checked) {
+                        customBox.classList.add('checked');
+                    } else {
+                        customBox.classList.remove('checked');
+                    }
+                }
+            });
+            
+            // Inicializar estado
+            if (checkbox.checked) {
+                const customBox = checkbox.nextElementSibling.querySelector('.gw-checkbox-custom');
+                if (customBox) {
+                    customBox.classList.add('checked');
+                }
+            }
+        });
+        
+        <?php endif; ?>
+    })();
+    </script>
+    <?php
     return ob_get_clean();
 }
