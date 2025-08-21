@@ -2307,1092 +2307,213 @@ function gw_get_session_timestamp($sesion) {
 }
 
 // === PASO 7: Capacitaciones ===
-function gw_step_7_capacitacion($user_id) {
+{function gw_step_7_capacitacion($user_id) {
 
-    // Variable para controlar la pantalla de éxito
-    $mostrar_exito = false;
-    $capacitacion_completada_nombre = '';
+    $forzar_menu  = (isset($_GET['paso7_menu']) && $_GET['paso7_menu'] == 1);
 
-    if (
-        $_SERVER['REQUEST_METHOD'] === 'POST'
-        && isset($_POST['gw_force_step8'])
-        && isset($_POST['gw_force_step8_nonce'])
-        && wp_verify_nonce($_POST['gw_force_step8_nonce'], 'gw_force_step8')
-    ) {
-        // Marca el paso 7 como completado y redirige al portal (carga el paso 8)
-        update_user_meta($user_id, 'gw_step7_completo', 1);
-    
-        // Limpia estado temporal si existiera (no rompe si no existe)
-        delete_user_meta($user_id, 'gw_capacitacion_agendada');
-    
-        // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
-        $mostrar_exito = true;
-        $capacitacion_completada_nombre = 'las capacitaciones';
-    }
+    // --- Datos persistentes ---
+    $capacitaciones_asignadas = get_user_meta($user_id, 'gw_capacitaciones_asignadas', true);
+    if (!is_array($capacitaciones_asignadas)) $capacitaciones_asignadas = [];
 
-    $current_user = wp_get_current_user();
-    $is_admin = in_array('administrator', (array) $current_user->roles);
-    $testing_mode = defined('GW_TESTING_MODE');
-    $forzar_menu = isset($_GET['paso7_menu']) && $_GET['paso7_menu'] == 1;
-
-    // Si ya está completo, refresca a dashboard
-    if (get_user_meta($user_id, 'gw_step7_completo', true)) {
-        return '<meta http-equiv="refresh" content="0">';
-    }
-
-    // Datos base del usuario
-    $user_pais   = get_user_meta($user_id, 'gw_pais', true);
-    $proyecto_id = get_user_meta($user_id, 'gw_proyecto_id', true);
-
-    // Obtener capacitaciones (CPT 'capacitacion')
-    $capacitaciones = get_posts([
-        'post_type'   => 'capacitacion',
-        'post_status' => 'publish',
-        'numberposts' => -1,
-        'orderby'     => 'title',
-        'order'       => 'ASC',
-    ]);
-
-    // Filtrar por proyecto y país
-    $capacitaciones_filtradas = [];
-    foreach ($capacitaciones as $cap) {
-        // Por proyecto
-        $cap_proyecto_id = get_post_meta($cap->ID, '_gw_proyecto_id', true);
-        if ($proyecto_id && $cap_proyecto_id && intval($cap_proyecto_id) !== intval($proyecto_id)) {
-            continue;
-        }
-        // Por país (si el CPT guarda referencia al país como post)
-        $pais_id = get_post_meta($cap->ID, '_gw_pais_id', true);
-        if ($pais_id && $user_pais) {
-            $pais_post = get_post($pais_id);
-            if ($pais_post && $pais_post->post_title && strtolower(trim($pais_post->post_title)) !== strtolower(trim($user_pais))) {
-                continue;
+    // Autoasignación por proyecto/país si el coach no asignó
+    if (empty($capacitaciones_asignadas)) {
+        $proyecto_id = get_user_meta($user_id, 'gw_proyecto_id', true);
+        $user_pais   = get_user_meta($user_id, 'gw_pais', true);
+        $all_caps = get_posts([
+            'post_type'   => 'capacitacion',
+            'post_status' => 'publish',
+            'numberposts' => -1,
+            'orderby'     => 'menu_order',
+            'order'       => 'ASC',
+        ]);
+        foreach ($all_caps as $cap) {
+            $cap_proyecto_id = get_post_meta($cap->ID, '_gw_proyecto_id', true);
+            if ($proyecto_id && $cap_proyecto_id && (int)$cap_proyecto_id !== (int)$proyecto_id) continue;
+            $pais_id = get_post_meta($cap->ID, '_gw_pais_id', true);
+            if ($pais_id && $user_pais) {
+                $pais_post = get_post($pais_id);
+                if ($pais_post && $pais_post->post_title && strcasecmp(trim($pais_post->post_title), trim($user_pais)) !== 0) continue;
             }
+            $capacitaciones_asignadas[] = (int)$cap->ID;
         }
-        $capacitaciones_filtradas[] = $cap;
     }
 
-    // Estado del usuario
     $capacitaciones_completadas = get_user_meta($user_id, 'gw_capacitaciones_completadas', true);
     if (!is_array($capacitaciones_completadas)) $capacitaciones_completadas = [];
-
     $capacitacion_agendada = get_user_meta($user_id, 'gw_capacitacion_agendada', true);
-    if (!is_array($capacitacion_agendada)) $capacitacion_agendada = null;
 
-    // Helpers UI (sidebar y envoltura)
-    $render_sidebar = function($active_step = 7, $mostrar_exito = false) {
+    // Siguiente capacitación pendiente (primera no completada)
+    $cap_pendiente_id = null;
+    foreach ($capacitaciones_asignadas as $cid) {
+        if (!in_array((int)$cid, array_map('intval', $capacitaciones_completadas), true)) { $cap_pendiente_id = (int)$cid; break; }
+    }
+
+    // === Layout helper: mismo CSS/look del paso 5 ===
+    $render_layout = function($title, $subtitle, $content) {
         ob_start(); ?>
-        <div class="gw-sidebar">
-            <div class="gw-hero-logo2">
-                <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
-            </div>
-            <div class="gw-steps-container">
-                <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Información personal</h3><p>Cuéntanos quién eres para empezar.</p></div></div>
-                <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Video introductorio</h3><p>Mira este breve video para conocer Glasswing y tu rol.</p></div></div>
-                <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Registro para inducción</h3><p>Completa tu información para la inducción.</p></div></div>
-                <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Charlas</h3><p>Regístrate en la charla asignada y participa.</p></div></div>
-                <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Selección de proyecto</h3><p>Elige el proyecto en el que participarás.</p></div></div>
-                <div class="gw-step-item <?php echo ($active_step === 7 ? 'active' : ''); ?>">
-                    <div class="gw-step-number"><?php echo $mostrar_exito ? '✓' : '6'; ?></div>
-                    <div class="gw-step-content"><h3>Capacitaciones</h3><p>Inscríbete y marca tu asistencia para continuar.</p></div>
-                </div>
-                <div class="gw-step-item">
-                    <div class="gw-step-number">7</div>
-                    <div class="gw-step-content">
-                        <h3>Documentos y escuela</h3>
-                        <p>Selecciona tu escuela y sube tus documentos.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="gw-sidebar-footer">
-                <div class="gw-help-section">
-                    <div class="gw-help-text">
-                        <h4>Conoce más sobre Glasswing</h4>
-                        <p>Visita nuestro sitio oficial <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">Ve a glasswing.org</a></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php return ob_get_clean();
-    };
+<link rel="stylesheet" href="<?php echo plugins_url('gw-manager/css/gw-step5-styles.css?v=' . time()); ?>">
+<div class="gw-modern-wrapper">
+  <div class="gw-form-wrapper">
+    <div class="gw-sidebar">
+      <div class="gw-hero-logo2">
+        <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
+      </div>
+      <div class="gw-steps-container">
+        <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Información personal</h3><p>Cuéntanos quién eres para empezar.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Video introductorio</h3><p>Mira este breve video para conocer Glasswing y tu rol.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Registro para inducción</h3><p>Completa tu información para la inducción.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">4</div><div class="gw-step-content"><h3>Charlas</h3><p>Regístrate en la charla asignada y participa.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">5</div><div class="gw-step-content"><h3>Selección de proyecto</h3><p>Elige el proyecto en el que participarás.</p></div></div>
+        <div class="gw-step-item active"><div class="gw-step-number">6</div><div class="gw-step-content"><h3>Capacitaciones</h3><p>Inscríbete y marca tu asistencia para continuar.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">7</div><div class="gw-step-content"><h3>Documentos y escuela</h3><p>Selecciona tu escuela y sube tus documentos.</p></div></div>
+      </div>
+      <div class="gw-sidebar-footer"><div class="gw-help-section"><div class="gw-help-text"><h4>Conoce más sobre Glasswing</h4><p>Visita nuestro sitio oficial <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">Ve a glasswing.org</a></p></div></div></div>
+    </div>
+    <div class="gw-main-content">
+      <div class="gw-form-container">
+        <div class="gw-form-header"><h1><?php echo esc_html($title); ?></h1><p><?php echo esc_html($subtitle); ?></p></div>
+        <?php echo $content; ?>
+      </div>
+    </div>
+  </div>
+</div>
+<?php return ob_get_clean(); };
 
-    $open_shell = function($title, $subtitle = '') use ($render_sidebar, $mostrar_exito) {
-        ob_start(); ?>
-        <link rel="stylesheet" href="<?php echo plugins_url(path: 'gw-manager/css/gw-step7-styles.css?v=' . time()); ?>">
-        <div class="gw-modern-wrapper">
-            <div class="gw-form-wrapper">
-                <?php echo $render_sidebar(7, $mostrar_exito); ?>
-                <div class="gw-main-content">
-                    <div class="gw-form-container">
-                        <div class="gw-form-header">
-                            <h1><?php echo esc_html($title); ?></h1>
-                            <?php if ($subtitle): ?><p><?php echo esc_html($subtitle); ?></p><?php endif; ?>
-                        </div>
-        <?php return ob_get_clean();
-    };
-    $close_shell = function() {
-        return "</div></div></div></div>";
-    };
+    // ===== 2) Confirmación =====
+    if (isset($_GET['capacitacion_id']) && isset($_GET['cap_idx']) && !isset($_GET['confirm'])) {
+        $cap_id  = intval($_GET['capacitacion_id']);
+        $cap_idx = intval($_GET['cap_idx']);
+        if ($cap_pendiente_id && $cap_id !== $cap_pendiente_id) { wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1')); exit; }
+        $capacitacion = get_post($cap_id);
+        if (!$capacitacion) { wp_safe_redirect(site_url('/index.php/portal-voluntario/')); exit; }
+        $sesiones = get_post_meta($capacitacion->ID, '_gw_sesiones_cap', true);
+        if (!is_array($sesiones) || empty($sesiones)) $sesiones = get_post_meta($capacitacion->ID, '_gw_sesiones', true);
+        if (!is_array($sesiones) || empty($sesiones)) $sesiones = get_post_meta($capacitacion->ID, '_gw_fechas_horas', true);
+        $sesion = (is_array($sesiones) && isset($sesiones[$cap_idx])) ? $sesiones[$cap_idx] : null;
+        if (!$sesion) { wp_safe_redirect(site_url('/index.php/portal-voluntario/')); exit; }
 
-    // ========== PANTALLA DE ÉXITO ==========
-    if ($mostrar_exito) {
-        ob_start();
-        echo $open_shell('¡Capacitaciones completadas!');
-        ?>
-        <div class="gw-success-registration">
-            <div class="gw-success-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 12l2 2 4-4"/>
-                    <circle cx="12" cy="12" r="10"/>
-                </svg>
-            </div>
-            <h2 class="gw-success-title">¡Gracias por completar las capacitaciones!</h2>
-            <p class="gw-success-description">
-                Has finalizado exitosamente el proceso de capacitación.
-                <br>Ahora puedes continuar con el último paso: subir tus documentos y seleccionar tu escuela.
-            </p>
-            <div class="gw-loading-spinner"></div>
-        </div>
-        
-        <!-- Redirección automática después de 3 segundos -->
-        <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
-        <?php
-        echo $close_shell();
-        return ob_get_clean();
+        $modalidad = isset($sesion['modalidad']) ? $sesion['modalidad'] : '';
+        $fecha     = isset($sesion['fecha']) ? $sesion['fecha'] : '';
+        $hora      = isset($sesion['hora']) ? $sesion['hora'] : '';
+        $lugar     = isset($sesion['lugar']) ? $sesion['lugar'] : '';
+
+        $volver_a_sesiones = add_query_arg(['capacitacion_id' => $cap_id, 'capacitacion_menu' => '1'], site_url('/index.php/portal-voluntario/'));
+
+        $content = '<div class="gw-session-confirmation"><div class="gw-session-card"><div class="gw-session-header"><div class="gw-session-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div><h3>' . esc_html($capacitacion->post_title) . ' / Opción ' . ($cap_idx+1) . '</h3></div><div class="gw-session-details"><div class="gw-session-detail"><strong>Modalidad:</strong> ' . esc_html(ucfirst($modalidad)) . '</div><div class="gw-session-detail"><strong>Fecha:</strong> ' . date('d/m/Y', strtotime($fecha)) . '</div><div class="gw-session-detail"><strong>Hora:</strong> ' . esc_html($hora) . '</div>' . ($modalidad === 'presencial' ? '<div class="gw-session-detail"><strong>Lugar:</strong> ' . esc_html($lugar) . '</div>' : '<div class="gw-session-detail"><strong>Enlace:</strong> (se habilitará al llegar la hora)</div>') . '</div></div></div><div class="gw-confirmation-actions"><a href="' . esc_url($volver_a_sesiones) . '" class="gw-btn-secondary">Cancelar (volver a sesiones)</a><a href="' . esc_url(add_query_arg(['capacitacion_id'=>$cap_id,'cap_idx'=>$cap_idx,'confirm'=>'1'], site_url('/index.php/portal-voluntario/'))) . '" class="gw-btn-primary">Sí, inscribirme</a></div>';
+
+        return $render_layout('Confirmar registro', 'Revisa y confirma tu inscripción.', $content);
     }
 
-    // ========== 3) CONFIRMACIÓN DE REGISTRO A SESIÓN ==========
-    if (isset($_GET['capacitacion_id'], $_GET['cap_idx']) && $_GET['capacitacion_id'] !== '' && $_GET['cap_idx'] !== '') {
-        $capacitacion_id = intval($_GET['capacitacion_id']);
-        $cap_idx         = intval($_GET['cap_idx']);
+    // ===== 3) Éxito =====
+    if (isset($_GET['capacitacion_id']) && isset($_GET['cap_idx']) && isset($_GET['confirm'])) {
+        $cap_id  = intval($_GET['capacitacion_id']);
+        $cap_idx = intval($_GET['cap_idx']);
+        $capacitacion = get_post($cap_id);
+        if (!$capacitacion) { wp_safe_redirect(site_url('/index.php/portal-voluntario/')); exit; }
+        $sesiones = get_post_meta($cap_id, '_gw_sesiones_cap', true);
+        if (!is_array($sesiones) || empty($sesiones)) $sesiones = get_post_meta($cap_id, '_gw_sesiones', true);
+        if (!is_array($sesiones) || empty($sesiones)) $sesiones = get_post_meta($cap_id, '_gw_fechas_horas', true);
+        $sesion = (is_array($sesiones) && isset($sesiones[$cap_idx])) ? $sesiones[$cap_idx] : null;
+        if (!$sesion) { wp_safe_redirect(site_url('/index.php/portal-voluntario/')); exit; }
 
-        // Buscar la capacitación dentro del filtrado
-        $capacitacion = null;
-        foreach ($capacitaciones_filtradas as $cap) {
-            if ($cap->ID == $capacitacion_id) { $capacitacion = $cap; break; }
-        }
-        if (!$capacitacion) {
-            ob_start();
-            echo $open_shell('Confirmar capacitación');
-            ?>
-            <div class="gw-error-message"><span>La capacitación seleccionada no existe.</span></div>
-            <div class="gw-confirmation-actions">
-                <a href="<?php echo esc_url(site_url('/index.php/portal-voluntario/?paso7_menu=1')); ?>" class="gw-btn-primary">Volver a mi cuenta</a>
-            </div>
-            <?php
-            echo $close_shell();
-            return ob_get_clean();
-        }
+        $enlace = isset($sesion['enlace']) ? $sesion['enlace'] : (isset($sesion['link']) ? $sesion['link'] : '');
+        update_user_meta($user_id, 'gw_capacitacion_agendada', [
+            'cap_id'    => $cap_id,
+            'cap_title' => $capacitacion->post_title,
+            'modalidad' => isset($sesion['modalidad']) ? $sesion['modalidad'] : '',
+            'fecha'     => isset($sesion['fecha']) ? $sesion['fecha'] : '',
+            'hora'      => isset($sesion['hora']) ? $sesion['hora'] : '',
+            'lugar'     => isset($sesion['lugar']) ? $sesion['lugar'] : '',
+            'enlace'    => $enlace,
+            'idx'       => $cap_idx,
+        ]);
 
-        // Sesión específica
-        $sesiones = get_post_meta($capacitacion->ID, '_gw_sesiones', true);
-        $sesion   = (is_array($sesiones) && isset($sesiones[$cap_idx])) ? $sesiones[$cap_idx] : null;
+        $content = '<div class="gw-success-registration"><div class="gw-success-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></div><h2 class="gw-success-title">¡Te has registrado con éxito!</h2><p class="gw-success-description">Tu registro en la capacitación <strong>' . esc_html($capacitacion->post_title) . '</strong> ha sido confirmado.</p><div class="gw-loading-spinner"></div></div><meta http-equiv="refresh" content="3;url=' . esc_url(site_url('/index.php/portal-voluntario/')) . '">';
 
-        if (!$sesion) {
-            ob_start();
-            echo $open_shell('Confirmar capacitación');
-            ?>
-            <div class="gw-error-message"><span>La sesión seleccionada ya no está disponible.</span></div>
-            <div class="gw-confirmation-actions">
-                <a href="<?php echo esc_url(site_url('/index.php/portal-voluntario/?paso7_menu=1')); ?>" class="gw-btn-primary">Volver a mi cuenta</a>
-            </div>
-            <?php
-            echo $close_shell();
-            return ob_get_clean();
-        }
-
-        // POST: Confirmar registro
-        $error = '';
-        $success = false;
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_registrarme_nonce']) && wp_verify_nonce($_POST['gw_capacitacion_registrarme_nonce'], 'gw_capacitacion_registrarme')) {
-            $ts = gw_get_session_timestamp($sesion);
-            $ts_vencimiento = $ts ? $ts + (30 * 60) : false;
-            if ($ts && $ts_vencimiento > time()) {
-                $capacitacion_agendada = [
-                    'cap_id'   => $capacitacion->ID,
-                    'cap_title'=> $capacitacion->post_title,
-                    'modalidad'=> isset($sesion['modalidad']) ? $sesion['modalidad'] : '',
-                    'fecha'    => $sesion['fecha'],
-                    'hora'     => $sesion['hora'],
-                    'lugar'    => isset($sesion['lugar']) ? $sesion['lugar'] : '',
-                    'enlace'   => isset($sesion['link']) ? $sesion['link'] : '',
-                    'idx'      => $cap_idx,
-                ];
-                update_user_meta($user_id, 'gw_capacitacion_agendada', $capacitacion_agendada);
-                $success = true;
-            } else {
-                $error = 'La sesión seleccionada ya no está disponible.';
-            }
-        }
-
-        ob_start();
-        echo $open_shell('Confirmar capacitación', '¿Deseas inscribirte en la siguiente sesión?');
-        if ($error) {
-            echo '<div class="gw-error-message"><span>'.esc_html($error).'</span></div>';
-        }
-        if ($success) {
-            echo '<div class="gw-success-message"><span>¡Te has registrado con éxito!</span></div>';
-            echo '<meta http-equiv="refresh" content="2;url='.esc_url(site_url('/index.php/portal-voluntario/?paso7_menu=1')).'">';
-        }
-
-        // Tarjeta de sesión (si no se ha confirmado aún)
-        if (!$success) : ?>
-            <div class="gw-session-details">
-                <div class="gw-session-card">
-                    <div class="gw-session-header">
-                        <div class="gw-session-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        </div>
-                        <h3><?php echo esc_html($capacitacion->post_title) . ' / Opción ' . ($cap_idx+1); ?></h3>
-                    </div>
-                    <div class="gw-session-detail"><strong>Modalidad:</strong> <span class="gw-modalidad <?php echo ($sesion['modalidad']==='presencial'?'presencial':'virtual'); ?>"><?php echo $sesion['modalidad']==='presencial' ? 'Presencial' : 'Virtual / Google Meet'; ?></span></div>
-                    <div class="gw-session-detail"><strong>Fecha:</strong> <?php echo date_i18n('d/m/Y', strtotime($sesion['fecha'])); ?></div>
-                    <div class="gw-session-detail"><strong>Hora:</strong> <?php echo esc_html($sesion['hora']); ?></div>
-                    <?php if ($sesion['modalidad']==='presencial'): ?>
-                        <div class="gw-session-detail"><strong>Lugar:</strong> <?php echo esc_html($sesion['lugar']); ?></div>
-                    <?php else: ?>
-                        <div class="gw-session-detail"><strong>Enlace:</strong> <span class="gw-text-muted">(se habilitará al llegar la hora)</span></div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="gw-confirmation-actions">
-                <form method="post" style="display:inline;">
-                    <?php wp_nonce_field('gw_capacitacion_registrarme','gw_capacitacion_registrarme_nonce'); ?>
-                    <button type="submit" class="gw-btn-primary">Sí, inscribirme</button>
-                </form>
-                <form method="post" style="display:inline;">
-                    <button type="submit" name="cancelar" class="gw-btn-secondary">Cancelar</button>
-                </form>
-            </div>
-        <?php endif;
-
-        echo $close_shell();
-
-        // POST: cancelar → volver a cuenta
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancelar'])) {
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            exit;
-        }
-
-        return ob_get_clean();
+        return $render_layout('¡Registro exitoso!', 'Serás redirigido automáticamente...', $content);
     }
 
-    // ========== 2) LISTA DE SESIONES DE UNA CAPACITACIÓN ==========
-    if ((!$capacitacion_agendada || $forzar_menu || (isset($_GET['capacitacion_menu']) && $_GET['capacitacion_menu'] == 1))
-        && isset($_GET['capacitacion_id']) && $_GET['capacitacion_id'] !== '' && !isset($_GET['cap_idx'])) {
+    // ===== 4/5) Recordatorio + \"Siguiente capacitación\" =====
+    if ($capacitacion_agendada && !$forzar_menu) {
+        $predicted   = count($capacitaciones_completadas) + 1;
+        $has_more    = count($capacitaciones_asignadas) > $predicted;
+        $button_text = $has_more ? 'Siguiente capacitación' : 'Ir a documentos y escuela';
 
-        $capacitacion_id = intval($_GET['capacitacion_id']);
-        $capacitacion = null;
-        foreach ($capacitaciones_filtradas as $cap) {
-            if ($cap->ID == $capacitacion_id) { $capacitacion = $cap; break; }
-        }
-        if (!$capacitacion) {
-            ob_start();
-            echo $open_shell('Capacitaciones');
-            ?>
-            <div class="gw-error-message"><span>La capacitación seleccionada no existe.</span></div>
-            <div class="gw-confirmation-actions">
-                <a class="gw-btn-primary" href="<?php echo esc_url(site_url('/index.php/portal-voluntario/?paso7_menu=1')); ?>">Volver a mi cuenta</a>
-            </div>
-            <?php
-            echo $close_shell();
-            return ob_get_clean();
-        }
-
-        // Sesiones futuras / de hoy (considerando el tiempo de vencimiento de 30 minutos)
-        $sesiones = get_post_meta($capacitacion->ID, '_gw_sesiones', true);
-        $cap_sesiones = [];
-        if (is_array($sesiones)) {
-            foreach ($sesiones as $idx => $ses) {
-                if (empty($ses['fecha']) || empty($ses['hora'])) continue;
-                $ts = gw_get_session_timestamp($ses);
-                $ts_vencimiento = $ts ? $ts + (30 * 60) : false;
-                if ($ts && $ts_vencimiento >= time()) { // Cambiado para incluir el período de gracia
-                    $cap_sesiones[] = [
-                        'cap_id'   => $capacitacion->ID,
-                        'cap_title'=> $capacitacion->post_title,
-                        'modalidad'=> isset($ses['modalidad']) ? $ses['modalidad'] : '',
-                        'fecha'    => $ses['fecha'],
-                        'hora'     => $ses['hora'],
-                        'lugar'    => isset($ses['lugar']) ? $ses['lugar'] : '',
-                        'enlace'   => isset($ses['link']) ? $ses['link'] : '',
-                        'idx'      => $idx,
-                    ];
-                }
-            }
-        }
-
-        ob_start();
-        echo $open_shell($capacitacion->post_title, 'Selecciona una de las sesiones disponibles');
-        if (empty($cap_sesiones)) {
-            ?>
-            <div class="gw-no-sessions">
-                <div class="gw-no-sessions-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21L16.65 16.65"/></svg>
-                </div>
-                <h3>No hay sesiones disponibles</h3>
-                <p>Actualmente no existen sesiones para registrar.</p>
-            </div>
-            <?php
-        } else {
-            echo '<div class="gw-sessions-grid">';
-            foreach ($cap_sesiones as $ses) { ?>
-                <div class="gw-session-card">
-                    <div class="gw-session-header">
-                        <div class="gw-session-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        </div>
-                        <h3><?php echo 'Opción ' . (intval($ses['idx'])+1); ?></h3>
-                    </div>
-                    <div class="gw-session-detail"><strong>Modalidad:</strong> <span class="gw-modalidad <?php echo ($ses['modalidad']==='presencial'?'presencial':'virtual'); ?>"><?php echo $ses['modalidad']==='presencial' ? 'Presencial' : 'Virtual / Google Meet'; ?></span></div>
-                    <div class="gw-session-detail"><strong>Fecha:</strong> <?php echo date_i18n('d/m/Y', strtotime($ses['fecha'])); ?></div>
-                    <div class="gw-session-detail"><strong>Hora:</strong> <?php echo esc_html($ses['hora']); ?></div>
-                    <?php if ($ses['modalidad']==='presencial'): ?>
-                        <div class="gw-session-detail"><strong>Lugar:</strong> <?php echo esc_html($ses['lugar']); ?></div>
-                    <?php endif; ?>
-                    <div class="gw-training-actions">
-                        <form method="get" action="" style="margin:0;">
-                            <input type="hidden" name="capacitacion_id" value="<?php echo esc_attr($ses['cap_id']); ?>">
-                            <input type="hidden" name="cap_idx" value="<?php echo esc_attr($ses['idx']); ?>">
-                            <button type="submit" class="gw-btn-secondary">Seleccionar</button>
-                        </form>
-                    </div>
-                </div>
-            <?php }
-            echo '</div>';
-        }
-        // CTA volver
-        echo '<div class="gw-confirmation-actions"><a class="gw-btn-primary" href="'.esc_url(site_url('/index.php/portal-voluntario/?paso7_menu=1')).'">MI CUENTA</a></div>';
-
-        echo $close_shell();
-        return ob_get_clean();
-    }
-
-    // ========== 1) MENÚ PRINCIPAL DE CAPACITACIONES ==========
-    if (!$capacitacion_agendada || $forzar_menu || (isset($_GET['capacitacion_menu']) && $_GET['capacitacion_menu'] == 1)) {
-        ob_start();
-        echo $open_shell('Capacitaciones', 'Elige la capacitación a la que te gustaría asistir');
-        if (empty($capacitaciones_filtradas)) {
-            ?>
-            <div class="gw-no-trainings">
-                <div class="gw-no-trainings-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21L16.65 16.65"/></svg>
-                </div>
-                <h3>No hay capacitaciones disponibles</h3>
-                <p>Actualmente no hay capacitaciones para tu proyecto o país.</p>
-            </div>
-            <?php
-        } else {
-            echo '<div class="gw-trainings-grid">';
-            foreach ($capacitaciones_filtradas as $cap) {
-                $descripcion = get_post_meta($cap->ID, '_gw_descripcion', true);
-                ?>
-                <div class="gw-training-card">
-                    <div class="gw-training-header">
-                        <div class="gw-training-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7V17L12 22L22 17V7L12 2Z"/><circle cx="12" cy="12" r="4"/></svg>
-                        </div>
-                        <h3><?php echo esc_html($cap->post_title); ?></h3>
-                    </div>
-                    <div class="gw-training-description">
-                        <p><?php echo $descripcion ? esc_html(wp_trim_words($descripcion, 24)) : 'Participa en esta capacitación para continuar con tu proceso.'; ?></p>
-                    </div>
-                    
-                    <!-- INDICADOR DE CAPACITACIÓN AGENDADA -->
-                    <?php if ($capacitacion_agendada && intval($capacitacion_agendada['cap_id']) === intval($cap->ID)): ?>
-                        <div class="gw-training-status gw-training-registered">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                            Ya estás inscrito en esta capacitación
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="gw-training-actions">
-                        <?php if ($capacitacion_agendada && intval($capacitacion_agendada['cap_id']) !== intval($cap->ID)) : ?>
-                            <button class="gw-btn-disabled" disabled title="Debes finalizar tu capacitación actual para seleccionar otra">Seleccionar</button>
-                        <?php elseif ($capacitacion_agendada && intval($capacitacion_agendada['cap_id']) === intval($cap->ID)): ?>
-                            <!-- Si es la capacitación agendada, mostrar botón para ver detalles -->
-                            <form method="get" action="" style="margin:0;">
-                                <button type="submit" class="gw-btn-primary">Ver mi capacitación</button>
-                            </form>
-                        <?php else: ?>
-                            <form method="get" action="" style="margin:0;">
-                                <input type="hidden" name="capacitacion_id" value="<?php echo esc_attr($cap->ID); ?>">
-                                <button type="submit" class="gw-btn-secondary">Ver sesiones</button>
-                            </form>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php
-            }
-            echo '</div>';
-        }
-        echo $close_shell();
-        return ob_get_clean();
-    }
-
-    // ========== ESTADO: YA TIENE CAPACITACIÓN AGENDADA ==========
-    if ($capacitacion_agendada) {
-        $ts = gw_get_session_timestamp($capacitacion_agendada);
-        $ts_vencimiento = $ts ? $ts + (30 * 60) : false;
-        $ya_ocurrio = $ts && ($ts <= time());
-        $ya_vencio = $ts_vencimiento && ($ts_vencimiento <= time());
-
-        // Si ya venció (más de 30 minutos después), eliminar automáticamente la capacitación agendada
-        if ($ya_vencio) {
+        if (
+            $_SERVER['REQUEST_METHOD'] === 'POST' &&
+            isset($_POST['gw_capacitacion_asistencia_nonce']) &&
+            wp_verify_nonce($_POST['gw_capacitacion_asistencia_nonce'], 'gw_capacitacion_asistencia')
+        ) {
+            $capacitaciones_completadas[] = (int)$capacitacion_agendada['cap_id'];
+            update_user_meta($user_id, 'gw_capacitaciones_completadas', array_values(array_unique(array_map('intval', $capacitaciones_completadas))));
             delete_user_meta($user_id, 'gw_capacitacion_agendada');
-            wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
+
+            $quedan = false; $done = array_map('intval', get_user_meta($user_id, 'gw_capacitaciones_completadas', true) ?: []);
+            foreach ($capacitaciones_asignadas as $cid) { if (!in_array((int)$cid, $done, true)) { $quedan = true; break; } }
+            if (!$quedan) update_user_meta($user_id, 'gw_step7_completo', 1);
+
+            if ($has_more) { wp_safe_redirect(site_url('/index.php/portal-voluntario/')); } else { wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso8_menu=1')); }
             exit;
         }
 
-        // ¿ya marcada como completada?
-        $completada = false;
-        foreach ($capacitaciones_completadas as $comp) {
-            if (intval($comp['cap_id']) === intval($capacitacion_agendada['cap_id']) && intval($comp['idx']) === intval($capacitacion_agendada['idx'])) {
-                $completada = true; break;
-            }
-        }
+        $enlace = !empty($capacitacion_agendada['enlace'])
+            ? '<a href="' . esc_url($capacitacion_agendada['enlace']) . '" target="_blank" rel="noopener">Unirse a la capacitación</a>'
+            : '<span class="gw-text-muted">No hay enlace configurado</span>';
 
-        // POST handlers (después de render)
-        $post_handlers = function() use ($user_id, $ya_ocurrio, &$capacitaciones_completadas, $capacitacion_agendada, &$mostrar_exito, &$capacitacion_completada_nombre) {
-            // Marcar asistencia completada
-            if (
-                $_SERVER['REQUEST_METHOD'] === 'POST'
-                && isset($_POST['gw_capacitacion_asistencia_nonce'])
-                && wp_verify_nonce($_POST['gw_capacitacion_asistencia_nonce'], 'gw_capacitacion_asistencia')
-                && $ya_ocurrio
-            ) {
-                $capacitaciones_completadas[] = $capacitacion_agendada;
-                update_user_meta($user_id, 'gw_capacitaciones_completadas', $capacitaciones_completadas);
-                delete_user_meta($user_id, 'gw_capacitacion_agendada');
-                update_user_meta($user_id, 'gw_step7_completo', 1);
-                
-                // En lugar de redirigir, mostrar pantalla de éxito
-                $mostrar_exito = true;
-                $capacitacion_completada_nombre = $capacitacion_agendada['cap_title'];
-                return;
-            }
-        
-            // CORREGIDO: Volver al menú (NO elimina la capacitación agendada)
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_volver_menu'])) {
-                // Solo redirige al menú, mantiene la capacitación agendada
-                wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
-                exit;
-            }
-        
-            // Cancelar capacitación (SÍ elimina la capacitación agendada)
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_cancelar'])) {
-                delete_user_meta($user_id, 'gw_capacitacion_agendada');
-                wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
-                exit;
-            }
-        
-            // Forzar completar (admin/testing)
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_capacitacion_forzar_completar'])) {
-                $curr = wp_get_current_user();
-                $is_admin_local = in_array('administrator', (array) $curr->roles) || defined('GW_TESTING_MODE');
-                if ($is_admin_local) {
-                    $capacitaciones_completadas[] = $capacitacion_agendada;
-                    update_user_meta($user_id, 'gw_capacitaciones_completadas', $capacitaciones_completadas);
-                    delete_user_meta($user_id, 'gw_capacitacion_agendada');
-                    update_user_meta($user_id, 'gw_step7_completo', 1);
-                    
-                    // En lugar de redirigir, mostrar pantalla de éxito
-                    $mostrar_exito = true;
-                    $capacitacion_completada_nombre = $capacitacion_agendada['cap_title'];
-                    return;
-                }
-            }
-        };
+        $content = '<div class="gw-charla-info"><div class="gw-charla-title">' . esc_html($capacitacion_agendada['cap_title']) . ' <span class="gw-charla-modalidad">(' . ucfirst($capacitacion_agendada['modalidad']) . ')</span></div><div class="gw-charla-details"><div class="gw-detail-item"><strong>Fecha:</strong> ' . date('d/m/Y', strtotime($capacitacion_agendada['fecha'])) . '</div><div class="gw-detail-item"><strong>Hora:</strong> ' . esc_html($capacitacion_agendada['hora']) . '</div>' . ($capacitacion_agendada['modalidad'] === 'presencial' ? '<div class="gw-detail-item"><strong>Lugar:</strong> ' . esc_html($capacitacion_agendada['lugar']) . '</div>' : '<div class="gw-detail-item"><strong>Enlace:</strong> ' . $enlace . '</div>') . '</div></div><form method="post" class="gw-form">' . wp_nonce_field('gw_capacitacion_asistencia', 'gw_capacitacion_asistencia_nonce', true, false) . '<div class="gw-form-actions"><button type="submit" class="gw-btn-primary">' . esc_html($button_text) . '</button></div></form><div class="gw-charla-note"><p>Recuerda ir al enlace y marcar tu asistencia.</p></div>';
 
-        // Si hay que mostrar la pantalla de éxito después del POST
-        if ($mostrar_exito) {
-            ob_start();
-            echo $open_shell('¡Capacitación completada!');
-            ?>
-            <div class="gw-success-registration">
-                <div class="gw-success-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 12l2 2 4-4"/>
-                        <circle cx="12" cy="12" r="10"/>
-                    </svg>
-                </div>
-                <h2 class="gw-success-title">¡Gracias por completar la capacitación!</h2>
-                <p class="gw-success-description">
-                    Has finalizado exitosamente <strong><?php echo esc_html($capacitacion_completada_nombre); ?></strong>.
-                    <br>Ahora puedes continuar con el último paso: subir tus documentos y seleccionar tu escuela.
-                </p>
-                <div class="gw-loading-spinner"></div>
-            </div>
-            
-            <!-- Redirección automática después de 3 segundos -->
-            <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
-            <?php
-            echo $close_shell();
-            return ob_get_clean();
-        }
-
-        // Render
-        ob_start();
-        echo $open_shell($capacitacion_agendada['cap_title'], 'Revisa los detalles y gestiona tu asistencia');
-        
-        // Mostrar contador de vencimiento si ya empezó la reunión pero aún no ha vencido
-        if ($ya_ocurrio && !$ya_vencio) {
-            $tiempo_restante_vencimiento = $ts_vencimiento - time();
-            ?>
-            <div class="gw-expiration-warning" id="gwExpirationWarning">
-                <div class="gw-expiration-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 6v6l4 2"/>
-                    </svg>
-                </div>
-                <div class="gw-expiration-content">
-                    <strong>⚠️ Esta sesión se vencerá en: <span id="gwExpirationCountdown"><?php echo gw_format_time_remaining($tiempo_restante_vencimiento); ?></span></strong>
-                    <p>Después de este tiempo, deberás seleccionar otra capacitación.</p>
-                </div>
-            </div>
-            
-            <script>
-            (function(){
-                const expirationTime = <?php echo $ts_vencimiento * 1000; ?>; // Convertir a milliseconds
-                const countdown = document.getElementById('gwExpirationCountdown');
-                const warningContainer = document.getElementById('gwExpirationWarning');
-                
-                function updateExpirationCountdown() {
-                    const now = new Date().getTime();
-                    const timeLeft = expirationTime - now;
-                    
-                    if (timeLeft <= 0) {
-                        // Tiempo vencido - recargar página para eliminar la capacitación
-                        location.reload();
-                    } else if (countdown) {
-                        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-                        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                        
-                        let timeStr = '';
-                        if (hours > 0) timeStr += hours + 'h ';
-                        if (minutes > 0) timeStr += minutes + 'm ';
-                        timeStr += seconds + 's';
-                        
-                        countdown.textContent = timeStr;
-                        
-                        // Cambiar color a rojo cuando quedan menos de 5 minutos
-                        if (timeLeft < 5 * 60 * 1000) {
-                            warningContainer.classList.add('gw-expiration-critical');
-                        }
-                    }
-                }
-                
-                // Actualizar cada segundo
-                const expirationTimer = setInterval(updateExpirationCountdown, 1000);
-                updateExpirationCountdown(); // Ejecutar inmediatamente
-            })();
-            </script>
-            
-            <style>
-            .gw-expiration-warning {
-                background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-                border: 2px solid #ffc107;
-                border-radius: 12px;
-                padding: 16px;
-                margin-bottom: 24px;
-                display: flex;
-                align-items: flex-start;
-                gap: 12px;
-                box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
-                transition: all 0.3s ease;
-            }
-            
-            .gw-expiration-warning.gw-expiration-critical {
-                background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-                border-color: #dc3545;
-                animation: pulse 2s infinite;
-            }
-            
-            @keyframes pulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.02); }
-                100% { transform: scale(1); }
-            }
-            
-            .gw-expiration-icon {
-                flex-shrink: 0;
-                color: #856404;
-                margin-top: 2px;
-            }
-            
-            .gw-expiration-critical .gw-expiration-icon {
-                color: #721c24;
-            }
-            
-            .gw-expiration-content {
-                flex: 1;
-            }
-            
-            .gw-expiration-content strong {
-                display: block;
-                color: #856404;
-                font-size: 16px;
-                margin-bottom: 4px;
-            }
-            
-            .gw-expiration-critical .gw-expiration-content strong {
-                color: #721c24;
-            }
-            
-            .gw-expiration-content p {
-                margin: 0;
-                color: #6c757d;
-                font-size: 14px;
-            }
-            
-            #gwExpirationCountdown {
-                font-weight: 900;
-                font-size: 18px;
-                color: #d32f2f;
-            }
-            </style>
-            <?php
-        }
-        
-        if ($completada) {
-            ?>
-            <div class="gw-completion-message">
-                <div class="gw-completion-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
-                </div>
-                <h3>¡Has completado esta capacitación!</h3>
-                <p>Puedes volver al menú para elegir otra capacitación si corresponde.</p>
-            </div>
-            <div class="gw-completion-actions">
-                <form method="post" style="display:inline;"><button type="submit" name="gw_capacitacion_volver_menu" class="gw-btn-secondary">Volver al menú</button></form>
-                <form method="post" style="display:inline;"><button type="submit" name="gw_capacitacion_cancelar" class="gw-btn-danger">Cancelar capacitación</button></form>
-            </div>
-            <?php
-        } else {
-            ?>
-            <div class="gw-reminder-card">
-                <div class="gw-reminder-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                </div>
-                <div class="gw-reminder-content">
-                    <h3>Recordatorio de capacitación</h3>
-                    <div class="gw-reminder-details">
-                        <div class="gw-reminder-detail"><strong>Capacitación:</strong> <?php echo esc_html($capacitacion_agendada['cap_title']); ?> / Opción <?php echo isset($capacitacion_agendada['idx']) ? intval($capacitacion_agendada['idx'])+1 : ''; ?></div>
-                        <div class="gw-reminder-detail"><strong>Fecha:</strong> <?php echo date_i18n('d/m/Y', strtotime($capacitacion_agendada['fecha'])); ?></div>
-                        <div class="gw-reminder-detail"><strong>Hora:</strong> <?php echo esc_html($capacitacion_agendada['hora']); ?></div>
-                        <?php if ($capacitacion_agendada['modalidad']==='presencial'): ?>
-                            <div class="gw-reminder-detail"><strong>Lugar:</strong> <?php echo esc_html($capacitacion_agendada['lugar']); ?></div>
-                        <?php else: ?>
-                            <div class="gw-reminder-detail"><strong>Enlace:</strong>
-                                <?php if (!empty($capacitacion_agendada['enlace'])): ?>
-                                    <?php
-                                    // Calcular si ya es hora o no
-                                    $ts_capacitacion = gw_get_session_timestamp($capacitacion_agendada);
-                                    $ya_es_hora = $ts_capacitacion && ($ts_capacitacion <= time());
-                                    $tiempo_restante = $ts_capacitacion ? $ts_capacitacion - time() : 0;
-                                    ?>
-                                    <div class="gw-meet-link-container" id="gwMeetLinkContainer">
-                                        <?php if ($ya_es_hora): ?>
-                                            <!-- ENLACE HABILITADO -->
-                                            <a class="gw-meet-link gw-meet-enabled" href="<?php echo esc_url($capacitacion_agendada['enlace']); ?>" target="_blank" rel="noopener">
-                                                <svg class="gw-meet-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
-                                                    <circle cx="12" cy="16" r="1"/>
-                                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                                </svg>
-                                                Unirse a la capacitación
-                                            </a>
-                                            <span class="gw-meet-status gw-meet-available">Disponible ahora</span>
-                                        <?php else: ?>
-                                            <!-- ENLACE BLOQUEADO -->
-                                            <span class="gw-meet-link gw-meet-disabled">
-                                                <svg class="gw-meet-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
-                                                    <circle cx="12" cy="16" r="1"/>
-                                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                                    <path d="M7 11H17M7 11V7a5 5 0 0 1 10 0v4"/>
-                                                </svg>
-                                                Unirse a la capacitación
-                                            </span>
-                                            <span class="gw-meet-status gw-meet-waiting" id="gwMeetCountdown">
-                                                Se habilitará en: <span id="gwTimeRemaining"><?php echo gw_format_time_remaining($tiempo_restante); ?></span>
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-                                    
-                                    <!-- JavaScript para actualizar en tiempo real -->
-                                    <script>
-                                    (function(){
-                                        const targetTime = <?php echo $ts_capacitacion ? $ts_capacitacion * 1000 : 0; ?>; // Convertir a milliseconds
-                                        const container = document.getElementById('gwMeetLinkContainer');
-                                        const countdown = document.getElementById('gwTimeRemaining');
-                                        
-                                        if (!targetTime) return; // No hacer nada si no hay timestamp válido
-                                        
-                                        function updateMeetLink() {
-                                            const now = new Date().getTime();
-                                            const timeLeft = targetTime - now;
-                                            
-                                            if (timeLeft <= 0) {
-                                                // Tiempo cumplido - habilitar enlace
-                                                container.innerHTML = `
-                                                    <a class="gw-meet-link gw-meet-enabled" href="<?php echo esc_url($capacitacion_agendada['enlace']); ?>" target="_blank" rel="noopener">
-                                                        <svg class="gw-meet-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
-                                                            <circle cx="12" cy="16" r="1"/>
-                                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                                        </svg>
-                                                        Unirse a la capacitación
-                                                    </a>
-                                                    <span class="gw-meet-status gw-meet-available">¡Disponible ahora!</span>
-                                                `;
-                                                clearInterval(timer);
-                                            } else {
-                                                // Actualizar countdown
-                                                if (countdown) {
-                                                    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-                                                    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                                                    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                                                    
-                                                    let timeStr = '';
-                                                    if (hours > 0) timeStr += hours + 'h ';
-                                                    if (minutes > 0) timeStr += minutes + 'm ';
-                                                    timeStr += seconds + 's';
-                                                    
-                                                    countdown.textContent = timeStr;
-                                                }
-                                            }
-                                        }
-                                        
-                                        // Actualizar cada segundo
-                                        const timer = setInterval(updateMeetLink, 1000);
-                                        updateMeetLink(); // Ejecutar inmediatamente
-                                    })();
-                                    </script>
-                                    
-                                    <style>
-                                    .gw-meet-link-container {
-                                        display: flex;
-                                        flex-direction: column;
-                                        gap: 8px;
-                                        margin-top: 8px;
-                                    }
-                                    
-                                    .gw-meet-link {
-                                        display: inline-flex;
-                                        align-items: center;
-                                        gap: 8px;
-                                        padding: 12px 16px;
-                                        border-radius: 8px;
-                                        text-decoration: none;
-                                        font-weight: 600;
-                                        transition: all 0.3s ease;
-                                        border: 2px solid;
-                                    }
-                                    
-                                    .gw-meet-enabled {
-                                        background: #34a853;
-                                        color: white;
-                                        border-color: #34a853;
-                                        cursor: pointer;
-                                    }
-                                    
-                                    .gw-meet-enabled:hover {
-                                        background: #2d8e47;
-                                        border-color: #2d8e47;
-                                        transform: translateY(-1px);
-                                        box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
-                                    }
-                                    
-                                    .gw-meet-disabled {
-                                        background: #f5f5f5;
-                                        color: #999;
-                                        border-color: #ddd;
-                                        cursor: not-allowed;
-                                        opacity: 0.7;
-                                    }
-                                    
-                                    .gw-meet-icon {
-                                        flex-shrink: 0;
-                                    }
-                                    
-                                    .gw-meet-status {
-                                        font-size: 14px;
-                                        font-weight: 500;
-                                        padding: 4px 8px;
-                                        border-radius: 4px;
-                                        display: inline-block;
-                                    }
-                                    
-                                    .gw-meet-available {
-                                        background: #e8f5e8;
-                                        color: #34a853;
-                                        border: 1px solid #34a853;
-                                    }
-                                    
-                                    .gw-meet-waiting {
-                                        background: #fff3e0;
-                                        color: #f57c00;
-                                        border: 1px solid #f57c00;
-                                    }
-                                    
-                                    #gwTimeRemaining {
-                                        font-weight: 700;
-                                        color: #d32f2f;
-                                    }
-                                    </style>
-                                <?php else: ?>
-                                    <span class="gw-text-muted">No hay enlace configurado</span>
-                                <?php endif; ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
-            <div class="gw-attendance-section">
-                <?php if ($ya_ocurrio): ?>
-                    <form method="post" style="display:inline;">
-                        <?php wp_nonce_field('gw_capacitacion_asistencia', 'gw_capacitacion_asistencia_nonce'); ?>
-                        <?php if ($capacitacion_agendada['modalidad']==='virtual' && !empty($capacitacion_agendada['enlace'])): ?>
-                            <a class="gw-btn-secondary" href="<?php echo esc_url($capacitacion_agendada['enlace']); ?>" target="_blank" rel="noopener">Ir a capacitación</a>
-                        <?php endif; ?>
-                        <button type="submit" class="gw-btn-primary">Marcar como completada</button>
-                    </form>
-                <?php else: ?>
-                    <div class="gw-waiting-message">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        La capacitación estará disponible cuando llegue la hora.
-                    </div>
-                <?php endif; ?>
-
-                <form method="post" style="display:inline;">
-                    <button type="submit" name="gw_capacitacion_volver_menu" class="gw-btn-secondary">Volver al menú</button>
-                </form>
-                <form method="post" style="display:inline;">
-                    <button type="submit" name="gw_capacitacion_cancelar" class="gw-btn-danger">Cancelar capacitación</button>
-                </form>
-            </div>
-                <!-- ================== ELIMINAR EN PRODUCCIÓN ================== -->
-            <?php if ($is_admin || $testing_mode): ?>
-                <form method="post" class="gw-admin-controls">
-                    <button type="submit" name="gw_capacitacion_forzar_completar" class="gw-btn-admin">Forzar completar capacitación</button>
-                </form>
-            <?php endif; ?>
-
-            <!-- Botón de avance manual - solo habilitado cuando procede -->
-            <?php 
-            // Determinar si el botón debe estar habilitado
-            $habilitar_continuar = false;
-            $mensaje_tooltip = '';
-            
-            if ($completada) {
-                // Si ya completó esta capacitación, puede continuar
-                $habilitar_continuar = true;
-                $mensaje_tooltip = 'Continuar al siguiente paso';
-            } elseif ($ya_ocurrio) {
-                // Si la capacitación ya comenzó, puede continuar
-                $habilitar_continuar = true;
-                $mensaje_tooltip = 'La capacitación ya comenzó - Continuar';
-            } else {
-                // Si la capacitación no ha comenzado, no puede continuar
-                $habilitar_continuar = false;
-                $tiempo_restante = $ts ? $ts - time() : 0;
-                if ($tiempo_restante > 0) {
-                    $horas = floor($tiempo_restante / 3600);
-                    $minutos = floor(($tiempo_restante % 3600) / 60);
-                    if ($horas > 0) {
-                        $tiempo_texto = $horas . 'h ' . $minutos . 'm';
-                    } else {
-                        $tiempo_texto = $minutos . 'm';
-                    }
-                    $mensaje_tooltip = 'Debes esperar ' . $tiempo_texto . ' hasta que comience la capacitación';
-                } else {
-                    $mensaje_tooltip = 'Debes esperar hasta que comience la capacitación';
-                }
-            }
-            ?>
-            
-            <div class="gw-force-step8-form" style="justify-self: center; right:16px; bottom:16px; z-index:9999;">
-                <?php if ($habilitar_continuar): ?>
-                    <form method="post" style="display:inline;">
-                        <?php wp_nonce_field('gw_force_step8', 'gw_force_step8_nonce'); ?>
-                        <button type="submit" name="gw_force_step8" class="gw-btn-primary" title="<?php echo esc_attr($mensaje_tooltip); ?>">
-                            Continuar
-                        </button>
-                    </form>
-                <?php else: ?>
-                    <button class="gw-btn-disabled" disabled title="<?php echo esc_attr($mensaje_tooltip); ?>">
-                        Continuar
-                    </button>
-                <?php endif; ?>
-                
-                <!-- Indicador visual del estado -->
-                <div class="gw-continue-status">
-                    <?php if ($completada): ?>
-                        <span class="gw-status-completed">✓ Capacitación completada</span>
-                    <?php elseif ($ya_ocurrio): ?>
-                        <span class="gw-status-active">🔴 En vivo ahora</span>
-                    <?php else: ?>
-                        <span class="gw-status-waiting" id="gwContinueCountdown">
-                            ⏳ Inicia en: <span class="gw-time-remaining"><?php echo gw_format_time_remaining($tiempo_restante); ?></span>
-                        </span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
-            <?php if (!$habilitar_continuar && !$completada): ?>
-            <!-- JavaScript para actualizar el countdown del botón continuar -->
-            <script>
-            (function(){
-                const targetTime = <?php echo $ts ? $ts * 1000 : 0; ?>;
-                const countdownElement = document.getElementById('gwContinueCountdown');
-                const timeElement = countdownElement?.querySelector('.gw-time-remaining');
-                const buttonContainer = document.querySelector('.gw-force-step8-form');
-                
-                if (!targetTime || !countdownElement) return;
-                
-                function updateContinueButton() {
-                    const now = new Date().getTime();
-                    const timeLeft = targetTime - now;
-                    
-                    if (timeLeft <= 0) {
-                        // Tiempo cumplido - habilitar botón y actualizar estado
-                        buttonContainer.innerHTML = `
-                            <form method="post" style="display:inline;">
-                                <?php echo wp_nonce_field('gw_force_step8', 'gw_force_step8_nonce', true, false); ?>
-                                <button type="submit" name="gw_force_step8" class="gw-btn-primary" title="La capacitación ya comenzó - Continuar">
-                                    Continuar
-                                </button>
-                            </form>
-                            <div class="gw-continue-status">
-                                <span class="gw-status-active">🔴 En vivo ahora</span>
-                            </div>
-                        `;
-                        clearInterval(timer);
-                    } else {
-                        // Actualizar countdown
-                        if (timeElement) {
-                            const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-                            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                            
-                            let timeStr = '';
-                            if (hours > 0) timeStr += hours + 'h ';
-                            if (minutes > 0) timeStr += minutes + 'm ';
-                            timeStr += seconds + 's';
-                            
-                            timeElement.textContent = timeStr;
-                        }
-                    }
-                }
-                
-                const timer = setInterval(updateContinueButton, 1000);
-                updateContinueButton();
-            })();
-            </script>
-            <?php endif; ?>
-            
-            <style>
-            .gw-force-step8-form {
-                padding: 12px;
-    border-radius: 12px;
-    min-width: 140px;
-    justify-items: center;
-            }
-            
-            .gw-continue-status {
-                margin-top: 8px;
-                text-align: center;
-            }
-            
-            .gw-continue-status span {
-                font-size: 11px;
-                font-weight: 600;
-                padding: 4px 8px;
-                border-radius: 6px;
-                display: inline-block;
-            }
-            
-            .gw-status-completed {
-                background: #e8f5e8;
-                color: #2e7d32;
-                border: 1px solid #4caf50;
-            }
-            
-            .gw-status-active {
-                background: #ffebee;
-                color: #c62828;
-                border: 1px solid #f44336;
-                animation: pulse-red 2s infinite;
-            }
-            
-            .gw-status-waiting {
-                background: #fff3e0;
-                color: #ef6c00;
-                border: 1px solid #ff9800;
-            }
-            
-            @keyframes pulse-red {
-                0% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(1.05); opacity: 0.8; }
-                100% { transform: scale(1); opacity: 1; }
-            }
-            
-            .gw-time-remaining {
-                font-weight: 900;
-                color: #d32f2f;
-            }
-            
-            /* Mejorar el tooltip del botón deshabilitado */
-            .gw-btn-disabled {
-                position: relative;
-            }
-            
-            .gw-btn-disabled:hover::after {
-                content: attr(title);
-                position: absolute;
-                bottom: 115%;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #333;
-                color: #fff;
-                padding: 8px 12px;
-                border-radius: 8px;
-                font-size: 12px;
-                white-space: nowrap;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                z-index: 1000;
-                max-width: 200px;
-                white-space: normal;
-                text-align: center;
-            }
-            
-            /* Responsivo */
-            @media (max-width: 640px) {
-                .gw-force-step8-form {
-                    position: static !important;
-                    margin: 20px auto;
-                    text-align: center;
-                    width: fit-content;
-                }
-            }
-            </style>
-            <?php
-        }
-
-        echo $close_shell();
-
-        // Ejecutar handlers de POST (después del render para mantener consistencia visual)
-        $post_handlers();
-        return ob_get_clean();
+        return $render_layout('Capacitación registrada', 'Te recordamos que te registraste en la siguiente capacitación.', $content);
     }
 
-    // Fallback: ir al menú
-    wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso7_menu=1'));
-    exit;
+    // ===== 1) Lista de sesiones =====
+    if (!$cap_pendiente_id || empty($capacitaciones_asignadas)) {
+        $content = '<div class="gw-success-message"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg><span>¡Excelente trabajo! Has completado tus capacitaciones.</span></div><div class="gw-form-actions"><a href="' . esc_url(site_url('/index.php/portal-voluntario/?paso8_menu=1')) . '" class="gw-btn-primary">Ir a documentos y escuela</a></div>';
+        return $render_layout('¡Capacitaciones completadas!', 'Has completado todas tus capacitaciones asignadas exitosamente.', $content);
+    }
+
+    $cap_actual = get_post($cap_pendiente_id);
+    if (!$cap_actual) { $content = '<div class="gw-error-message"><span>La capacitación asignada no existe. Contacta a soporte.</span></div>'; return $render_layout('Error','Ha ocurrido un problema',$content); }
+
+    $sesiones = get_post_meta($cap_actual->ID, '_gw_sesiones_cap', true);
+    if (!is_array($sesiones) || empty($sesiones)) $sesiones = get_post_meta($cap_actual->ID, '_gw_sesiones', true);
+    if (!is_array($sesiones) || empty($sesiones)) $sesiones = get_post_meta($cap_actual->ID, '_gw_fechas_horas', true);
+
+    $cap_sesiones = [];
+    if (is_array($sesiones)) {
+        foreach ($sesiones as $idx => $ses) {
+            $fecha = isset($ses['fecha']) ? $ses['fecha'] : '';
+            $hora  = isset($ses['hora']) ? $ses['hora'] : '';
+            if (!$fecha || !$hora) continue;
+            $ts = strtotime($fecha.' '.$hora);
+            if ($ts && $ts > time()) {
+                $cap_sesiones[] = [
+                    'cap_id'    => $cap_actual->ID,
+                    'cap_title' => $cap_actual->post_title,
+                    'modalidad' => isset($ses['modalidad']) ? $ses['modalidad'] : '',
+                    'fecha'     => $fecha,
+                    'hora'      => $hora,
+                    'lugar'     => isset($ses['lugar']) ? $ses['lugar'] : '',
+                    'enlace'    => isset($ses['enlace']) ? $ses['enlace'] : (isset($ses['link']) ? $ses['link'] : ''),
+                    'idx'       => $idx,
+                ];
+            }
+        }
+    }
+
+    if (empty($cap_sesiones)) {
+        $content = '<div class="gw-error-message"><span>Actualmente no hay sesiones disponibles para registro.</span></div><div class="gw-confirmation-actions"><a class="gw-btn-primary" href="' . esc_url(site_url('/index.php/portal-voluntario/')) . '">MI CUENTA</a></div>';
+        return $render_layout('Capacitaciones', 'Selecciona una opción de horario para registrarte en la capacitación.', $content);
+    }
+
+    $content = '<div class="gw-charla-sessions">';
+    foreach ($cap_sesiones as $i => $ses) {
+        $titulo_lugar = ($ses['modalidad'] === 'virtual') ? 'Google Meet' : strtoupper($ses['lugar'] ?: $ses['cap_title']);
+        $content .= '<div class="gw-session-card"><div class="gw-session-info"><div class="gw-session-title"><strong>OPCIÓN ' . ($i+1) . ':</strong> ' . esc_html($titulo_lugar) . '</div><div class="gw-session-details">' . date('d/m/Y', strtotime($ses['fecha'])) . ' a las ' . substr($ses['hora'], 0, 5) . '</div></div><a href="' . esc_url(add_query_arg(['capacitacion_id' => $ses['cap_id'], 'cap_idx' => $ses['idx']], site_url('/index.php/portal-voluntario/'))) . '" class="gw-btn-secondary">Seleccionar</a></div>';
+    }
+    $content .= '</div><div class="gw-confirmation-actions"><a class="gw-btn-primary" href="' . esc_url(site_url('/index.php/portal-voluntario/?paso7_menu=1')) . '">MI CUENTA</a></div>';
+
+    return $render_layout($cap_actual->post_title, 'Selecciona una de las sesiones disponibles', $content);
+}
 }
 
 // Función helper para formatear tiempo restante
