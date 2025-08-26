@@ -767,7 +767,7 @@ add_filter('nsl_login_redirect_url', function($url, $provider, $user) {
     }
     return $url;
 }, 10, 3);
-// Mostrar botón "Mi progreso" en la página de detalles de capacitación para voluntarios
+
 // Mostrar botón "Mi progreso" en la página de detalles de capacitación para voluntarios
 add_filter('the_content', function($content) {
     if (!is_singular('capacitacion')) return $content;
@@ -1764,7 +1764,9 @@ add_shortcode('gw_panel_admin', function() {
         <?php
         return ob_get_clean();
     }
-    
+
+    // Asegura jQuery en el panel (tabs, AJAX, exportaciones) Paso 8 
+    wp_enqueue_script('jquery');
     ob_start();
     ?>
 
@@ -4088,10 +4090,234 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     <div class="gw-form-header">
                         <h1>Reportes y listados</h1>
                         <p>Genera reportes del sistema.</p>
-                    </div>
+                        <div id="gw-reports-root">
 
-                    <p>Aquí va la gestión de reportes y listados.</p>
-                </div>
+                        <div id="gw-reports" class="gw-reports-wrap" style="padding:14px 10px;">
+  <div class="gw-report-filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+    <label for="gwRepTipo"><strong>Tipo:</strong></label>
+    <select id="gwRepTipo">
+      <option value="capacitacion" selected>Capacitaciones</option>
+      <option value="charla">Charlas</option>
+    </select>
+
+    <!-- Estos filtros son opcionales: si no existen en tu panel no pasa nada -->
+    <!--
+      <select id="gwRepPais"></select>
+      <select id="gwRepEstado"></select>
+    -->
+
+    <button id="gwRepGenerar" class="button button-primary">Generar</button>
+    <button id="gwRepExportCSV" class="button">Exportar CSV</button>
+  </div>
+
+  <div id="gwRepResultados"></div>
+</div>
+
+<script>
+// Asegura ajaxurl
+if (typeof window.ajaxurl === 'undefined') {
+  window.ajaxurl = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>';
+}
+(function($){
+  function fetchReport(page){
+    var data = {
+      action : 'gw_reports_fetch',
+      nonce  : '<?php echo wp_create_nonce('gw_reports'); ?>',
+      tipo   : $('#gwRepTipo').val(),
+      pais_id: $('#gwRepPais').length ? ($('#gwRepPais').val() || '') : '',
+      estado : $('#gwRepEstado').length ? ($('#gwRepEstado').val() || '') : '',
+      page   : page || 1
+    };
+    $.post(ajaxurl, data, function(html){
+      $('#gwRepResultados').html(html);
+    });
+  }
+
+  $('#gwRepGenerar').off('click.gwRep').on('click.gwRep', function(e){
+    e.preventDefault();
+    fetchReport(1);
+  });
+
+  $('#gwRepExportCSV').off('click.gwRep').on('click.gwRep', function(e){
+    e.preventDefault();
+    var params = $.param({
+      action : 'gw_reports_export',
+      nonce  : '<?php echo wp_create_nonce('gw_reports'); ?>',
+      tipo   : $('#gwRepTipo').val(),
+      pais_id: $('#gwRepPais').length ? ($('#gwRepPais').val() || '') : '',
+      estado : $('#gwRepEstado').length ? ($('#gwRepEstado').val() || '') : ''
+    });
+    window.location = ajaxurl + '?' + params;
+  });
+
+  // Paginación delegada
+  $(document).off('click.gwRep', '.gwRepPag').on('click.gwRep', '.gwRepPag', function(e){
+    e.preventDefault();
+    var p = parseInt($(this).data('p'), 10) || 1;
+    fetchReport(p);
+  });
+})(jQuery);
+</script>
+
+  <?php
+    // Fuentes para selects
+    $gw_reports_paises    = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+    $gw_reports_proyectos = get_posts(['post_type' => 'proyecto', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+    $gw_reports_caps      = get_posts(['post_type' => 'capacitacion', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+  ?>
+  <div class="gw-reports-filters" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+    <label>País
+      <select id="gw-r-pais">
+        <option value="0">Todos</option>
+        <?php foreach ($gw_reports_paises as $p): ?>
+          <option value="<?php echo (int)$p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label>Proyecto
+      <select id="gw-r-proy">
+        <option value="0">Todos</option>
+        <?php foreach ($gw_reports_proyectos as $p): ?>
+          <option value="<?php echo (int)$p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label>Capacitación
+      <select id="gw-r-cap">
+        <option value="0">Todas</option>
+        <?php foreach ($gw_reports_caps as $c): ?>
+          <option value="<?php echo (int)$c->ID; ?>"><?php echo esc_html($c->post_title); ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label>Estado usuario
+      <select id="gw-r-estado">
+        <option value="todos">Todos</option>
+        <option value="activos">Activos</option>
+        <option value="inactivos">Inactivos</option>
+      </select>
+    </label>
+    <label>Asistencia
+      <select id="gw-r-asistencia">
+        <option value="todos">Todas</option>
+        <option value="asistio">Asistió</option>
+        <option value="pendiente">Pendiente</option>
+      </select>
+    </label>
+    <label>Desde
+      <input type="date" id="gw-r-desde">
+    </label>
+    <label>Hasta
+      <input type="date" id="gw-r-hasta">
+    </label>
+    <button type="button" id="gw-r-generar" class="button button-primary">Generar</button>
+    <button type="button" id="gw-r-exportar" class="button">Exportar CSV</button>
+    <button type="button" id="gw-r-pdf" class="button">Exportar PDF</button>
+  </div>
+
+  <div id="gw-reports-result">
+    <table id="gw-reports-table" class="widefat striped">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>País</th>
+          <th>Proyecto</th>
+          <th>Capacitación</th>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Estado</th>
+          <th>Asistencia</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+jQuery(function($){
+  if (typeof window.ajaxurl === 'undefined') {
+    window.ajaxurl = "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>";
+  }
+
+  function renderRows(rows){
+    var $tb = $('#gw-reports-table tbody').empty();
+    if (!rows || !rows.length) {
+      $tb.append('<tr><td colspan="9">Sin resultados con los filtros seleccionados.</td></tr>');
+      return;
+    }
+    rows.forEach(function(r){
+      var tr = '<tr>'
+        + '<td>'+(r.nombre||'')+'</td>'
+        + '<td>'+(r.email||'')+'</td>'
+        + '<td>'+(r.pais||'')+'</td>'
+        + '<td>'+(r.proyecto||'')+'</td>'
+        + '<td>'+(r.capacitacion||'')+'</td>'
+        + '<td>'+(r.fecha||'')+'</td>'
+        + '<td>'+(r.hora||'')+'</td>'
+        + '<td>'+(r.estado||'')+'</td>'
+        + '<td>'+(r.asistencia||'')+'</td>'
+        + '</tr>';
+      $tb.append(tr);
+    });
+  }
+
+  $('#gw-r-generar').on('click', function(){
+    var data = {
+      action: 'gw_reports_generate',
+      pais: $('#gw-r-pais').val(),
+      proyecto: $('#gw-r-proy').val(),
+      cap: $('#gw-r-cap').val(),
+      estado: $('#gw-r-estado').val(),
+      asistencia: $('#gw-r-asistencia').val(),
+      desde: $('#gw-r-desde').val(),
+      hasta: $('#gw-r-hasta').val()
+    };
+    $(this).prop('disabled', true).text('Generando…');
+    $.post(ajaxurl, data)
+      .done(function(resp){
+        if (resp && resp.success) renderRows(resp.data.rows || []);
+        else renderRows([]);
+      })
+      .fail(function(){ renderRows([]); })
+      .always(() => $('#gw-r-generar').prop('disabled', false).text('Generar'));
+  });
+
+  function exportCSV(){
+    var rows = [];
+    $('#gw-reports-table tr').each(function(){
+      var cols = [];
+      $(this).find('th,td').each(function(){
+        var t = $(this).text().replace(/\n/g,' ').replace(/"/g,'""');
+        cols.push('"' + t + '"');
+      });
+      rows.push(cols.join(','));
+    });
+    var csv = rows.join('\n');
+    var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    var url  = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'reporte-voluntariado.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  $('#gw-r-exportar').on('click', exportCSV);
+
+  $('#gw-r-pdf').on('click', function(){
+    var w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write('<html><head><title>Reporte</title></head><body>' + document.getElementById('gw-reports-result').innerHTML + '</body></html>');
+    w.document.close();
+    w.focus();
+    w.print(); // el usuario puede "Guardar como PDF"
+  });
+});
+</script>
 
             </div>
         </div>
@@ -5570,6 +5796,695 @@ add_action('wp_enqueue_scripts', function () {
 });
 
 // =================== FIN BLOQUE REVISIÓN/ACEPTACIÓN DE DOCUMENTOS ===================
+<<<<<<< HEAD
 
 
 
+=======
+// ================================
+// MÓDULO: Reportes y Listados
+// Visible para Administrador y Coordinador de país
+// ================================
+
+// Menú propio en el Panel Administrativo
+add_action('admin_menu', function(){
+    // Usamos la capability personalizada 'coordinador_pais' que ya está añadida al rol administrador
+    add_menu_page(
+        'Reportes y Listados',
+        'Reportes',
+        'coordinador_pais',
+        'gw_reportes',
+        'gw_reportes_render',
+        'dashicons-chart-bar',
+        58
+    );
+});
+
+// ---------- Helpers de datos ----------
+if (!function_exists('gw_rep_get_paises')) {
+    function gw_rep_get_paises(){
+        return get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+    }
+}
+if (!function_exists('gw_rep_get_proyectos')) {
+    function gw_rep_get_proyectos(){
+        return get_posts(['post_type'=>'proyecto','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+    }
+}
+if (!function_exists('gw_rep_get_caps')) {
+    function gw_rep_get_caps(){
+        return get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+    }
+}
+if (!function_exists('gw_rep_get_coaches')) {
+    function gw_rep_get_coaches(){
+        return get_users(['role'=>'coach','fields'=>['ID','display_name','user_email']]);
+    }
+}
+
+// Cargar sesiones de una capacitación (AJAX para el select dinámico)
+add_action('wp_ajax_gw_reportes_get_sesiones', function(){
+    if (!current_user_can('coordinador_pais')) wp_send_json_error(['msg'=>'No autorizado']);
+    $cap_id = isset($_POST['cap_id']) ? intval($_POST['cap_id']) : 0;
+    if (!$cap_id) wp_send_json_success(['options' => '<option value="">Todas</option>']);
+
+    $sesiones = get_post_meta($cap_id, '_gw_sesiones', true);
+    if (!is_array($sesiones)) $sesiones = [];
+    $html = '<option value="">Todas</option>';
+    foreach ($sesiones as $idx => $s) {
+        $mod = isset($s['modalidad']) ? $s['modalidad'] : '';
+        $f   = isset($s['fecha']) ? $s['fecha'] : '';
+        $h   = isset($s['hora']) ? $s['hora'] : '';
+        $label = 'Opción '.($idx+1).' — '.esc_html($f.' '.$h).' ('.esc_html($mod).')';
+        $html .= '<option value="'.esc_attr($idx).'">'.$label.'</option>';
+    }
+    wp_send_json_success(['options'=>$html]);
+});
+
+// Función central: generar filas según filtros
+if (!function_exists('gw_reportes_query_rows')) {
+function gw_reportes_query_rows($filtros){
+    $rows = [];
+
+    // Usuarios objetivo: voluntarios del país (si se selecciona)
+    $user_args = [
+        'role'   => 'voluntario',
+        'number' => -1,
+        'fields' => ['ID','display_name','user_email']
+    ];
+    if (!empty($filtros['pais_id'])) {
+        $user_args['meta_key']   = 'gw_pais_id';
+        $user_args['meta_value'] = intval($filtros['pais_id']);
+    }
+    $users = get_users($user_args);
+
+    $now_ts = current_time('timestamp');
+
+    foreach ($users as $u) {
+        $uid = $u->ID;
+        $activo = get_user_meta($uid, 'gw_active', true);
+        if ($activo === '') $activo = '1';
+
+        // Obtener capacitación agendada (nueva clave preferida)
+        $ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+        $cap_id = 0; $fecha = ''; $hora = ''; $sesion_idx = null;
+
+        if (is_array($ag) && !empty($ag['cap_id'])) {
+            $cap_id = intval($ag['cap_id']);
+            $sesion_idx = isset($ag['idx']) ? intval($ag['idx']) : null;
+            if (!empty($ag['fecha'])) $fecha = sanitize_text_field($ag['fecha']);
+            if (!empty($ag['hora']))  $hora  = sanitize_text_field($ag['hora']);
+        } else {
+            // Compatibilidad con metadatos antiguos
+            $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
+            $fecha  = sanitize_text_field(get_user_meta($uid, 'gw_fecha', true));
+            $hora   = sanitize_text_field(get_user_meta($uid, 'gw_hora', true));
+            // Intentar derivar idx comparando con sesiones guardadas
+            if ($cap_id && $fecha && $hora) {
+                $sesiones_tmp = get_post_meta($cap_id, '_gw_sesiones', true);
+                if (is_array($sesiones_tmp)) {
+                    foreach ($sesiones_tmp as $i => $s) {
+                        if ((isset($s['fecha']) && $s['fecha'] === $fecha) && (isset($s['hora']) && $s['hora'] === $hora)) {
+                            $sesion_idx = $i; break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Filtros por proyecto/capacitacion/sesion/coach
+        if (!empty($filtros['cap_id']) && intval($filtros['cap_id']) !== $cap_id) continue;
+
+        // Si hay proyecto, la capacitación del usuario debe pertenecer a ese proyecto
+        if (!empty($filtros['proyecto_id']) && $cap_id) {
+            $proy_cap = intval(get_post_meta($cap_id, '_gw_proyecto_relacionado', true));
+            if ($proy_cap !== intval($filtros['proyecto_id'])) continue;
+        }
+
+        // Filtro coach (responsable)
+        if (!empty($filtros['coach_id']) && $cap_id) {
+            $coach_cap = intval(get_post_meta($cap_id, '_gw_coach_asignado', true));
+            if ($coach_cap !== intval($filtros['coach_id'])) continue;
+        }
+
+        // Filtro sesión
+        if ($filtros['sesion_idx'] !== '' && $filtros['sesion_idx'] !== null) {
+            if ($sesion_idx === null || intval($filtros['sesion_idx']) !== intval($sesion_idx)) continue;
+        }
+
+        $pais_id = get_user_meta($uid, 'gw_pais_id', true);
+        $pais_titulo = $pais_id ? get_the_title($pais_id) : '—';
+
+        $cap_title = $cap_id ? get_the_title($cap_id) : '—';
+        $proy_title = $cap_id ? (get_the_title(intval(get_post_meta($cap_id, '_gw_proyecto_relacionado', true))) ?: '—') : '—';
+        $coach_id = $cap_id ? intval(get_post_meta($cap_id, '_gw_coach_asignado', true)) : 0;
+        $coach_name = $coach_id ? (get_user_by('id',$coach_id)->display_name ?: '—') : '—';
+
+        // Estado calculado
+        $estado = '—';
+        if ($activo === '0') {
+            $estado = 'Inactivo';
+        } else if ($cap_id && $fecha && $hora) {
+            $ts = strtotime($fecha.' '.$hora);
+            $step7_done = get_user_meta($uid, 'gw_step7_completo', true);
+            if ($ts && $ts <= $now_ts) {
+                $estado = $step7_done ? 'Asistió' : 'Ausente';
+            } else {
+                $estado = 'Inscrito';
+            }
+        }
+
+        // Filtro por estado
+        if (!empty($filtros['estado'])) {
+            if (strtolower($filtros['estado']) !== strtolower($estado)) continue;
+        }
+
+        // Sesión label
+        $ses_label = '—';
+        if ($cap_id) {
+            $ses = get_post_meta($cap_id, '_gw_sesiones', true);
+            if (is_array($ses) && $sesion_idx !== null && isset($ses[$sesion_idx])) {
+                $sx = $ses[$sesion_idx];
+                $mod = isset($sx['modalidad']) ? $sx['modalidad'] : '';
+                $ff  = isset($sx['fecha']) ? $sx['fecha'] : $fecha;
+                $hh  = isset($sx['hora']) ? $sx['hora'] : $hora;
+                $extra = (strtolower($mod)==='virtual') ? 'Virtual/Google Meet' : 'Presencial';
+                $ses_label = 'Opción '.($sesion_idx+1).' — '.$ff.' '.$hh.' ('.$extra.')';
+            } elseif ($fecha || $hora) {
+                $ses_label = trim($fecha.' '.$hora);
+            }
+        }
+
+        $rows[] = [
+            'user_id'   => $uid,
+            'nombre'    => $u->display_name ?: $u->user_login,
+            'email'     => $u->user_email,
+            'pais'      => $pais_titulo,
+            'proyecto'  => $proy_title,
+            'cap'       => $cap_title,
+            'sesion'    => $ses_label,
+            'estado'    => $estado,
+            'fecha'     => $fecha ?: '—',
+            'hora'      => $hora ?: '—',
+            'coach'     => $coach_name,
+        ];
+    }
+
+    return $rows;
+}
+}
+
+// ---------- Render de página ----------
+if (!function_exists('gw_reportes_render')) {
+function gw_reportes_render(){
+    if (!current_user_can('coordinador_pais')) {
+        wp_die('No autorizado.');
+    }
+
+    $paises    = gw_rep_get_paises();
+    $proyectos = gw_rep_get_proyectos();
+    $caps      = gw_rep_get_caps();
+    $coaches   = gw_rep_get_coaches();
+
+    $f = [
+        'pais_id'     => isset($_GET['pais_id']) ? intval($_GET['pais_id']) : 0,
+        'proyecto_id' => isset($_GET['proyecto_id']) ? intval($_GET['proyecto_id']) : 0,
+        'cap_id'      => isset($_GET['cap_id']) ? intval($_GET['cap_id']) : 0,
+        'sesion_idx'  => isset($_GET['sesion_idx']) ? (($_GET['sesion_idx'] === '' ? '' : intval($_GET['sesion_idx']))) : '',
+        'coach_id'    => isset($_GET['coach_id']) ? intval($_GET['coach_id']) : 0,
+        'estado'      => isset($_GET['estado']) ? sanitize_text_field($_GET['estado']) : '',
+    ];
+
+    $rows = [];
+    $generated = isset($_GET['generar']) ? 1 : 0;
+    if ($generated) {
+        $rows = gw_reportes_query_rows($f);
+    }
+
+    $nonce = wp_create_nonce('gw_reportes_export');
+    ?>
+    <div class="wrap">
+      <h1 class="wp-heading-inline">Reportes y Listados</h1>
+      <hr class="wp-header-end">
+
+      <form method="get" action="">
+        <input type="hidden" name="page" value="gw_reportes">
+        <table class="form-table">
+          <tbody>
+            <tr>
+              <th scope="row"><label for="pais_id">País</label></th>
+              <td>
+                <select id="pais_id" name="pais_id">
+                  <option value="">Todos</option>
+                  <?php foreach ($paises as $p): ?>
+                    <option value="<?php echo (int)$p->ID; ?>" <?php selected($f['pais_id'],$p->ID); ?> ><?php echo esc_html($p->post_title); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><label for="proyecto_id">Programa/Proyecto</label></th>
+              <td>
+                <select id="proyecto_id" name="proyecto_id">
+                  <option value="">Todos</option>
+                  <?php foreach ($proyectos as $pr): ?>
+                    <option value="<?php echo (int)$pr->ID; ?>" <?php selected($f['proyecto_id'],$pr->ID); ?> ><?php echo esc_html($pr->post_title); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><label for="cap_id">Capacitación</label></th>
+              <td>
+                <select id="cap_id" name="cap_id">
+                  <option value="">Todas</option>
+                  <?php foreach ($caps as $c): ?>
+                    <option value="<?php echo (int)$c->ID; ?>" <?php selected($f['cap_id'],$c->ID); ?> ><?php echo esc_html($c->post_title); ?></option>
+                  <?php endforeach; ?>
+                </select>
+                &nbsp;&nbsp;
+                <label for="sesion_idx"><strong>Sesión</strong></label>
+                <select id="sesion_idx" name="sesion_idx">
+                  <option value="">Todas</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><label for="coach_id">Responsable (Coach)</label></th>
+              <td>
+                <select id="coach_id" name="coach_id">
+                  <option value="">Todos</option>
+                  <?php foreach ($coaches as $ch): ?>
+                    <option value="<?php echo (int)$ch->ID; ?>" <?php selected($f['coach_id'],$ch->ID); ?> ><?php echo esc_html($ch->display_name); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><label for="estado">Estado</label></th>
+              <td>
+                <select id="estado" name="estado">
+                  <option value="">Todos</option>
+                  <option value="Inscrito" <?php selected($f['estado'],'Inscrito'); ?>>Inscrito</option>
+                  <option value="Asistió" <?php selected($f['estado'],'Asistió'); ?>>Asistió</option>
+                  <option value="Ausente" <?php selected($f['estado'],'Ausente'); ?>>Ausente</option>
+                  <option value="Inactivo" <?php selected($f['estado'],'Inactivo'); ?>>Inactivo</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="submit">
+          <button type="submit" name="generar" value="1" class="button button-primary">Generar</button>
+        </p>
+      </form>
+
+      <?php if ($generated): ?>
+        <hr>
+        <h2>Resultados</h2>
+
+        <div style="overflow-x:auto; max-width:100%;">
+        <table class="widefat striped">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>País</th>
+              <th>Proyecto</th>
+              <th>Capacitación</th>
+              <th>Sesión</th>
+              <th>Estado</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Coach</th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php if (empty($rows)): ?>
+            <tr><td colspan="10">No se encontraron registros con los filtros seleccionados.</td></tr>
+          <?php else: ?>
+            <?php foreach ($rows as $r): ?>
+            <tr>
+              <td><?php echo esc_html($r['nombre']); ?></td>
+              <td><?php echo esc_html($r['email']); ?></td>
+              <td><?php echo esc_html($r['pais']); ?></td>
+              <td><?php echo esc_html($r['proyecto']); ?></td>
+              <td><?php echo esc_html($r['cap']); ?></td>
+              <td><?php echo esc_html($r['sesion']); ?></td>
+              <td><?php echo esc_html($r['estado']); ?></td>
+              <td><?php echo esc_html($r['fecha']); ?></td>
+              <td><?php echo esc_html($r['hora']); ?></td>
+              <td><?php echo esc_html($r['coach']); ?></td>
+            </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+          </tbody>
+        </table>
+        </div>
+
+        <?php if (!empty($rows)): ?>
+        <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>" style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          <?php foreach ($f as $k => $v): ?>
+            <input type="hidden" name="<?php echo esc_attr($k); ?>" value="<?php echo esc_attr($v); ?>" />
+          <?php endforeach; ?>
+          <input type="hidden" name="action" value="gw_reportes_export" />
+          <input type="hidden" name="nonce" value="<?php echo esc_attr($nonce); ?>" />
+          <button type="submit" name="format" value="csv" class="button">Exportar CSV</button>
+          <button type="submit" name="format" value="xls" class="button">Exportar Excel</button>
+          <button type="submit" name="format" value="pdf" class="button">Exportar PDF</button>
+        </form>
+        <?php endif; ?>
+
+      <?php endif; ?>
+    </div>
+
+    <script>
+    (function(){
+      // Cargar sesiones cuando cambia la capacitación
+      var capSel = document.getElementById('cap_id');
+      var sesSel = document.getElementById('sesion_idx');
+      function cargarSesiones(){
+        sesSel.innerHTML = '<option value="">Cargando…</option>';
+        var data = new FormData();
+        data.append('action','gw_reportes_get_sesiones');
+        data.append('cap_id', capSel.value || '');
+        fetch(ajaxurl, { method:'POST', credentials:'same-origin', body:data })
+        .then(r => r.json())
+        .then(j => {
+          if (j && j.success) {
+            sesSel.innerHTML = j.data.options;
+            // Reseleccionar si venía valor en la URL
+            var preset = '<?php echo isset($_GET['sesion_idx']) ? esc_js($_GET['sesion_idx']) : ''; ?>';
+            if (preset !== '') { sesSel.value = preset; }
+          } else {
+            sesSel.innerHTML = '<option value="">Todas</option>';
+          }
+        })
+        .catch(() => { sesSel.innerHTML = '<option value="">Todas</option>'; });
+      }
+      if (capSel) {
+        capSel.addEventListener('change', cargarSesiones);
+        // Inicial
+        cargarSesiones();
+      }
+    })();
+    </script>
+    <?php
+}
+}
+
+// === REPORTES Y LISTADOS PASO 8: handler AJAX ===
+add_action('wp_ajax_gw_reports_generate', 'gw_reports_generate_handler');
+function gw_reports_generate_handler(){
+  if ( !is_user_logged_in() || !( current_user_can('manage_options') || current_user_can('coordinador_pais') ) ) {
+    wp_send_json_error(['msg' => 'No autorizado']);
+  }
+
+  $pais       = isset($_POST['pais']) ? intval($_POST['pais']) : 0;
+  $proyecto   = isset($_POST['proyecto']) ? intval($_POST['proyecto']) : 0;
+  $cap        = isset($_POST['cap']) ? intval($_POST['cap']) : 0;
+  $estado     = isset($_POST['estado']) ? sanitize_text_field($_POST['estado']) : 'todos';        // todos | activos | inactivos
+  $asistencia = isset($_POST['asistencia']) ? sanitize_text_field($_POST['asistencia']) : 'todos'; // todos | asistio | pendiente
+  $desde      = isset($_POST['desde']) ? sanitize_text_field($_POST['desde']) : '';
+  $hasta      = isset($_POST['hasta']) ? sanitize_text_field($_POST['hasta']) : '';
+
+  $args = [
+    'role__in' => ['voluntario','coach','coordinador_pais'],
+    'fields'   => ['ID','display_name','user_email'],
+    'number'   => 9999,
+  ];
+  $meta_query = [];
+
+  if ($pais) {
+    $meta_query[] = ['key' => 'gw_pais_id', 'value' => $pais, 'compare' => '='];
+  }
+  if ($estado !== 'todos') {
+    $meta_query[] = ['key' => 'gw_active', 'value' => ($estado === 'activos' ? '1' : '0'), 'compare' => '='];
+  }
+  if (!empty($meta_query)) $args['meta_query'] = $meta_query;
+
+  $users = get_users($args);
+  $rows = [];
+
+  foreach ($users as $u) {
+    $uid    = $u->ID;
+    $pais_u = get_user_meta($uid, 'gw_pais_id', true);
+    $cap_id = get_user_meta($uid, 'gw_capacitacion_id', true);
+    $fecha  = get_user_meta($uid, 'gw_fecha', true);
+    $hora   = get_user_meta($uid, 'gw_hora', true);
+    $active = get_user_meta($uid, 'gw_active', true);
+    if ($active === '') $active = '1';
+
+    // Filtros por capacitación/proyecto
+    if ($cap && intval($cap_id) !== $cap) { continue; }
+    $proy_of_cap = $cap_id ? intval(get_post_meta($cap_id, '_gw_proyecto_relacionado', true)) : 0;
+    if ($proyecto && $proy_of_cap !== $proyecto) { continue; }
+
+    // Asistencia: usamos gw_step7_completo como referencia (completó capacitación)
+    $attended = get_user_meta($uid, 'gw_step7_completo', true) ? 'asistio' : 'pendiente';
+    if ($asistencia !== 'todos' && $attended !== $asistencia) { continue; }
+
+    // Rango de fechas (compara con la fecha guardada en usermeta)
+    if ($desde && $fecha && strcmp($fecha, $desde) < 0) { continue; }
+    if ($hasta && $fecha && strcmp($fecha, $hasta) > 0) { continue; }
+
+    $rows[] = [
+      'nombre'       => $u->display_name ? $u->display_name : $u->user_login,
+      'email'        => $u->user_email,
+      'pais'         => $pais_u ? get_the_title($pais_u) : '—',
+      'proyecto'     => $proy_of_cap ? (get_the_title($proy_of_cap) ?: '—') : '—',
+      'capacitacion' => $cap_id ? (get_the_title($cap_id) ?: '—') : '—',
+      'fecha'        => $fecha ?: '—',
+      'hora'         => $hora ?: '—',
+      'estado'       => ($active === '1') ? 'Activo' : 'Inactivo',
+      'asistencia'   => ($attended === 'asistio') ? 'Asistió' : 'Pendiente',
+    ];
+  }
+
+  wp_send_json_success(['rows' => $rows]);
+}
+
+// ====== MÓDULO REPORTES Y LISTADOS: AJAX PASO 8 (Capacitaciones + Charlas) ======
+if (!function_exists('gw_reports_fetch')) {
+    add_action('wp_ajax_gw_reports_fetch', 'gw_reports_fetch');
+    function gw_reports_fetch(){
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'gw_reports')) { wp_die('Nonce inválido'); }
+        if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) { wp_die('No autorizado'); }
+    
+        $tipo   = sanitize_text_field($_POST['tipo'] ?? 'capacitacion');
+        $paisId = intval($_POST['pais_id'] ?? 0);
+        $estado = sanitize_text_field($_POST['estado'] ?? ''); // activo|inactivo|''
+        $page   = max(1, intval($_POST['page'] ?? 1));
+        $per    = 50; $offset = ($page-1)*$per;
+    
+        $mq = [];
+        if ($paisId) { $mq[] = ['key' => 'gw_pais_id', 'value' => $paisId, 'compare' => '=']; }
+        if ($estado === 'activo' || $estado === 'inactivo') {
+            $mq[] = ['key' => 'gw_active', 'value' => ($estado==='activo' ? '1' : '0'), 'compare' => '='];
+        }
+    
+        $args = [
+          'role'       => 'voluntario',
+          'number'     => $per,
+          'offset'     => $offset,
+          'fields'     => ['ID','user_email','display_name'],
+          'meta_query' => $mq
+        ];
+        $users = get_users($args);
+        $total = count_users()['avail_roles']['voluntario'] ?? 0; // aprox para paginación
+    
+        ob_start();
+        echo '<table class="widefat striped"><thead><tr>';
+        echo '<th>Nombre</th><th>Email</th><th>País</th><th>Estado</th>';
+        if ($tipo === 'charla' || $tipo === 'charlas') {
+            echo '<th>Charlas asignadas</th>';
+        } else {
+            echo '<th>Capacitación</th><th>Fecha</th><th>Hora</th>';
+        }
+        echo '</tr></thead><tbody>';
+    
+        foreach ($users as $u) {
+            $pais_id = get_user_meta($u->ID, 'gw_pais_id', true);
+            $pais_t  = $pais_id ? get_the_title($pais_id) : '—';
+            $act     = get_user_meta($u->ID, 'gw_active', true); if ($act==='') $act='1';
+            $badge   = $act==='1' ? 'Activo' : 'Inactivo';
+    
+            echo '<tr>';
+            echo '<td>'.esc_html($u->display_name ?: $u->user_email).'</td>';
+            echo '<td>'.esc_html($u->user_email).'</td>';
+            echo '<td>'.esc_html($pais_t).'</td>';
+            echo '<td>'.esc_html($badge).'</td>';
+    
+            if ($tipo === 'charla' || $tipo === 'charlas') {
+                $asig = get_user_meta($u->ID, 'gw_charlas_asignadas', true);
+                if (!is_array($asig)) { $asig = []; }
+                $out = [];
+                foreach ($asig as $key) {
+                    $done = get_user_meta($u->ID, 'gw_'.$key, true) ? '✅' : '❌';
+                    $out[] = esc_html(ucfirst($key)).' '.$done;
+                }
+                echo '<td>'.($out ? implode('<br>', $out) : '—').'</td>';
+            } else {
+                $cap_id = get_user_meta($u->ID, 'gw_capacitacion_id', true);
+                $cap_t  = $cap_id ? get_the_title($cap_id) : '—';
+                $fecha  = get_user_meta($u->ID, 'gw_fecha', true) ?: '—';
+                $hora   = get_user_meta($u->ID, 'gw_hora', true) ?: '—';
+                echo '<td>'.esc_html($cap_t).'</td><td>'.esc_html($fecha).'</td><td>'.esc_html($hora).'</td>';
+            }
+            echo '</tr>';
+        }
+        echo '</tbody></table>';
+    
+        // Paginación simple
+        $prev = max(1, $page-1); $next = $page+1;
+        echo '<p style="margin-top:12px">';
+        if ($page>1) echo '<a href="#" class="gwRepPag button" data-p="'.$prev.'">Anterior</a> ';
+        if ($offset + $per < $total) echo '<a href="#" class="gwRepPag button" data-p="'.$next.'">Siguiente</a>';
+        echo '</p>';
+    
+        echo ob_get_clean();
+        wp_die();
+    }
+    }
+    
+    if (!function_exists('gw_reports_export')) {
+    add_action('wp_ajax_gw_reports_export', 'gw_reports_export');
+    function gw_reports_export(){
+        if (!isset($_GET['nonce']) || !wp_verify_nonce($_GET['nonce'], 'gw_reports')) { wp_die('Nonce inválido'); }
+        if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) { wp_die('No autorizado'); }
+    
+        $tipo   = sanitize_text_field($_GET['tipo'] ?? 'capacitacion');
+        $paisId = intval($_GET['pais_id'] ?? 0);
+        $estado = sanitize_text_field($_GET['estado'] ?? '');
+    
+        $mq = [];
+        if ($paisId) { $mq[] = ['key' => 'gw_pais_id', 'value' => $paisId, 'compare' => '=']; }
+        if ($estado === 'activo' || $estado === 'inactivo') {
+            $mq[] = ['key' => 'gw_active', 'value' => ($estado==='activo' ? '1' : '0'), 'compare' => '='];
+        }
+    
+        $users = get_users([
+          'role'       => 'voluntario',
+          'number'     => -1,
+          'fields'     => ['ID','user_email','display_name'],
+          'meta_query' => $mq
+        ]);
+    
+        // CSV
+        nocache_headers();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=reporte_'.($tipo==='charla'?'charlas':'capacitaciones').'_'.date('Ymd_His').'.csv');
+        $out = fopen('php://output', 'w');
+    
+        if ($tipo === 'charla' || $tipo === 'charlas') {
+            fputcsv($out, ['Nombre','Email','País','Estado','Charlas']);
+            foreach ($users as $u) {
+                $pais_id = get_user_meta($u->ID, 'gw_pais_id', true); $pais_t = $pais_id ? get_the_title($pais_id) : '—';
+                $act = get_user_meta($u->ID, 'gw_active', true); if ($act==='') $act='1'; $badge = $act==='1' ? 'Activo' : 'Inactivo';
+                $asig = get_user_meta($u->ID, 'gw_charlas_asignadas', true); if (!is_array($asig)) $asig = [];
+                $lista = [];
+                foreach ($asig as $key) { $done = get_user_meta($u->ID, 'gw_'.$key, true) ? 'SI' : 'NO'; $lista[] = $key.':'.$done; }
+                fputcsv($out, [ $u->display_name ?: $u->user_email, $u->user_email, $pais_t, $badge, implode(' | ', $lista) ]);
+            }
+        } else {
+            fputcsv($out, ['Nombre','Email','País','Estado','Capacitación','Fecha','Hora']);
+            foreach ($users as $u) {
+                $pais_id = get_user_meta($u->ID, 'gw_pais_id', true); $pais_t = $pais_id ? get_the_title($pais_id) : '—';
+                $act = get_user_meta($u->ID, 'gw_active', true); if ($act==='') $act='1'; $badge = $act==='1' ? 'Activo' : 'Inactivo';
+                $cap_id = get_user_meta($u->ID, 'gw_capacitacion_id', true); $cap_t = $cap_id ? get_the_title($cap_id) : '—';
+                $fecha  = get_user_meta($u->ID, 'gw_fecha', true) ?: '—';
+                $hora   = get_user_meta($u->ID, 'gw_hora', true) ?: '—';
+                fputcsv($out, [ $u->display_name ?: $u->user_email, $u->user_email, $pais_t, $badge, $cap_t, $fecha, $hora ]);
+            }
+        }
+        fclose($out);
+        exit;
+    }
+    }
+    // ====== FIN MÓDULO REPORTES Y LISTADOS: AJAX ======
+
+// ---------- Exportadores ----------
+add_action('admin_post_gw_reportes_export', function(){
+    if (!current_user_can('coordinador_pais')) wp_die('No autorizado.');
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'gw_reportes_export')) wp_die('Nonce inválido');
+
+    $f = [
+        'pais_id'     => isset($_POST['pais_id']) ? intval($_POST['pais_id']) : 0,
+        'proyecto_id' => isset($_POST['proyecto_id']) ? intval($_POST['proyecto_id']) : 0,
+        'cap_id'      => isset($_POST['cap_id']) ? intval($_POST['cap_id']) : 0,
+        'sesion_idx'  => (isset($_POST['sesion_idx']) && $_POST['sesion_idx'] !== '') ? intval($_POST['sesion_idx']) : '',
+        'coach_id'    => isset($_POST['coach_id']) ? intval($_POST['coach_id']) : 0,
+        'estado'      => isset($_POST['estado']) ? sanitize_text_field($_POST['estado']) : '',
+    ];
+    $rows = gw_reportes_query_rows($f);
+    $fmt = isset($_POST['format']) ? sanitize_text_field($_POST['format']) : 'csv';
+    $filename = 'reporte_'.date('Ymd_His');
+
+    if ($fmt === 'csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename='.$filename.'.csv');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Nombre','Correo','País','Proyecto','Capacitación','Sesión','Estado','Fecha','Hora','Coach']);
+        foreach ($rows as $r) {
+            fputcsv($out, [$r['nombre'],$r['email'],$r['pais'],$r['proyecto'],$r['cap'],$r['sesion'],$r['estado'],$r['fecha'],$r['hora'],$r['coach']]);
+        }
+        fclose($out);
+        exit;
+    }
+    if ($fmt === 'xls') {
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename='.$filename.'.xls');
+        echo "<table border='1'><tr><th>Nombre</th><th>Correo</th><th>País</th><th>Proyecto</th><th>Capacitación</th><th>Sesión</th><th>Estado</th><th>Fecha</th><th>Hora</th><th>Coach</th></tr>";
+        foreach ($rows as $r) {
+            echo '<tr>'
+               .'<td>'.esc_html($r['nombre']).'</td>'
+               .'<td>'.esc_html($r['email']).'</td>'
+               .'<td>'.esc_html($r['pais']).'</td>'
+               .'<td>'.esc_html($r['proyecto']).'</td>'
+               .'<td>'.esc_html($r['cap']).'</td>'
+               .'<td>'.esc_html($r['sesion']).'</td>'
+               .'<td>'.esc_html($r['estado']).'</td>'
+               .'<td>'.esc_html($r['fecha']).'</td>'
+               .'<td>'.esc_html($r['hora']).'</td>'
+               .'<td>'.esc_html($r['coach']).'</td>'
+               .'</tr>';
+        }
+        echo '</table>';
+        exit;
+    }
+    if ($fmt === 'pdf') {
+        // Requiere Dompdf. Si no está disponible, mostramos mensaje
+        if (!class_exists('\Dompdf\Dompdf')) {
+            wp_die('Exportar a PDF requiere Dompdf. Instálalo vía Composer o plugin y vuelve a intentar.');
+        }
+        $html  = '<h3 style="text-align:center">Reporte de Voluntariado</h3>';
+        $html .= '<table width="100%" border="1" cellspacing="0" cellpadding="4"><thead><tr>'
+               . '<th>Nombre</th><th>Correo</th><th>País</th><th>Proyecto</th><th>Capacitación</th><th>Sesión</th><th>Estado</th><th>Fecha</th><th>Hora</th><th>Coach</th>'
+               . '</tr></thead><tbody>';
+        foreach ($rows as $r) {
+            $html .= '<tr>'
+                  .  '<td>'.esc_html($r['nombre']).'</td>'
+                  .  '<td>'.esc_html($r['email']).'</td>'
+                  .  '<td>'.esc_html($r['pais']).'</td>'
+                  .  '<td>'.esc_html($r['proyecto']).'</td>'
+                  .  '<td>'.esc_html($r['cap']).'</td>'
+                  .  '<td>'.esc_html($r['sesion']).'</td>'
+                  .  '<td>'.esc_html($r['estado']).'</td>'
+                  .  '<td>'.esc_html($r['fecha']).'</td>'
+                  .  '<td>'.esc_html($r['hora']).'</td>'
+                  .  '<td>'.esc_html($r['coach']).'</td>'
+                  .  '</tr>';
+        }
+        $html .= '</tbody></table>';
+
+        $dompdf = new \Dompdf\Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+        $dompdf->stream($filename.'.pdf', ['Attachment' => true]);
+        exit;
+    }
+
+    wp_die('Formato no soportado.');
+});
+>>>>>>> e5aabb5 (gw-manager: Proyectos y listados)
