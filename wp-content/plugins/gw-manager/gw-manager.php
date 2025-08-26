@@ -2235,828 +2235,1727 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 </div>
 
 
-                <!-- TAB CHARLAS -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-charlas" style="display:none;">
-                    <div class="gw-form-header">
-                        <h1>Charlas</h1>
-                        <p>Gestiona charlas y programa sus sesiones.</p>
-                    </div>
+<!-- TAB CHARLAS -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-charlas" style="display:none;">
+    <div class="gw-form-header">
+        <h1>Charlas</h1>
+        <p>Gestiona charlas y programa sus sesiones.</p>
+    </div>
 
-                    <div style="max-width:700px;">
-                    <!-- Formulario para agregar charla -->
-                    <div style="margin-bottom:16px;">
-                      <form id="gw-form-nueva-charla" style="display:flex;gap:10px;align-items:center;">
-                        <input type="text" id="gw-nueva-charla-title" placeholder="Nombre de la charla" required style="padding:7px;width:230px;">
-                        <button type="submit" class="button button-primary">Agregar charla</button>
-                        <span id="gw-charla-guardado" style="color:#388e3c;display:none;">Guardado</span>
-                      </form>
-                    </div>
-                    <script>
-                    (function(){
-                      var form = document.getElementById('gw-form-nueva-charla');
-                      if(form){
-                        form.addEventListener('submit', function(e){
-                          e.preventDefault();
-                          var titulo = document.getElementById('gw-nueva-charla-title').value;
-                          if(!titulo) return;
-                          var data = new FormData();
-                          data.append('action', 'gw_agregar_charla');
-                          data.append('titulo', titulo);
-                          fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                            method:'POST',
-                            credentials:'same-origin',
-                            body: data
-                          }).then(r=>r.json()).then(res=>{
-                            if(res.success){
-                              document.getElementById('gw-nueva-charla-title').value = '';
-                              document.getElementById('gw-charla-guardado').style.display = '';
-                              setTimeout(()=>{document.getElementById('gw-charla-guardado').style.display='none';}, 1600);
-                              // Actualizar listado de charlas
-                              document.getElementById('gw-listado-charlas').innerHTML = res.html;
-                              // Re-inicializar formularios de sesiones
-                              if(typeof gwInitSesionesCharlasPanel === 'function') gwInitSesionesCharlasPanel();
-                            }
-                          });
-                        });
-                      }
-                    })();
-                    </script>
-                    <!-- Listado de charlas -->
-                    <div id="gw-listado-charlas">
-                    <?php
-                    // Listado de charlas
-                    function gw_render_listado_charlas_panel() {
-                        $charlas = get_posts([
-                            'post_type' => 'charla',
-                            'numberposts' => -1,
-                            'orderby' => 'title',
-                            'order' => 'ASC'
-                        ]);
-                        if (empty($charlas)) {
-                            echo '<p>No hay charlas registradas aún.</p>';
-                        } else {
-                            foreach ($charlas as $charla) {
-                                // Obtener sesiones
-                                $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
-                                if (!is_array($sesiones)) $sesiones = [];
-                                if (empty($sesiones)) $sesiones = [[]];
-                                echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
-                                echo '<h3 style="margin:0 0 12px 0;">' . esc_html($charla->post_title) . '</h3>';
-                                echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
-                                wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
-                                echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
-                                foreach ($sesiones as $idx => $sesion) {
-                                    ?>
-                                    <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                                        <label>Modalidad:
-                                            <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                                                <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
-                                                <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
-                                            </select>
-                                        </label>
-                                        <label style="margin-left:18px;">Fecha:
-                                            <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
-                                        </label>
-                                        <label style="margin-left:18px;">Hora:
-                                            <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
-                                        </label>
-                                        <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
-                                            Lugar físico:
-                                            <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
-                                        </label>
-                                        <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
-                                            Link:
-                                            <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
-                                        </label>
-                                        <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-                                    </div>
-                                    <?php
-                                }
-                                echo '</div>';
-                                echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
-                                echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
-                                echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
-                                echo '</form>';
-                                echo '</div>';
-                            }
-                        }
-                    }
-                    gw_render_listado_charlas_panel();
-                    ?>
-                    </div>
-                    <script>
-                    function gwInitSesionesCharlasPanel() {
-                        // Elimina listeners previos para evitar duplicados
-                        document.querySelectorAll('.gw-form-sesiones-charla').forEach(function(form){
-                            if(form._gwInit) return; // solo inicializar una vez
-                            form._gwInit = true;
-                            var charlaId = form.getAttribute('data-charla');
-                            var container = form.querySelector('#gw-sesiones-list-'+charlaId);
-                            // Función para actualizar labels según modalidad
-                            function updateLabelsPanel(block) {
-                                var modalidad = block.querySelector('.gw-sesion-modalidad-panel').value;
-                                var lugarLabel = block.querySelector('.gw-lugar-label-panel');
-                                var lugarInput = lugarLabel.querySelector('input');
-                                var linkLabel = block.querySelector('.gw-link-label-panel');
-                                var linkInput = linkLabel.querySelector('input');
-                                if (modalidad.toLowerCase() === 'virtual') {
-                                    lugarLabel.style.display = 'none';
-                                    lugarInput.disabled = true;
-                                    linkLabel.style.display = '';
-                                    linkInput.disabled = false;
-                                } else {
-                                    lugarLabel.style.display = '';
-                                    lugarInput.disabled = false;
-                                    linkLabel.style.display = 'none';
-                                    linkInput.disabled = true;
-                                }
-                            }
-                            // Inicializar bloques existentes
-                            form.querySelectorAll('.gw-sesion-block-panel').forEach(function(block){
-                                block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
-                                    updateLabelsPanel(block);
-                                });
-                                block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
-                                    if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
-                                        block.parentNode.removeChild(block);
-                                    }
-                                });
-                                updateLabelsPanel(block);
-                            });
-                            // Agregar sesión nueva
-                            form.querySelector('.gw-add-sesion-panel').addEventListener('click', function(){
-                                var html = `
-                                <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                                    <label>Modalidad:
-                                        <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                                            <option value="Presencial">Presencial</option>
-                                            <option value="Virtual">Virtual</option>
-                                        </select>
-                                    </label>
-                                    <label style="margin-left:18px;">Fecha:
-                                        <input type="date" name="sesion_fecha[]" required>
-                                    </label>
-                                    <label style="margin-left:18px;">Hora:
-                                        <input type="time" name="sesion_hora[]" required>
-                                    </label>
-                                    <label class="gw-lugar-label-panel" style="margin-left:18px;">
-                                        Lugar físico:
-                                        <input type="text" name="sesion_lugar[]">
-                                    </label>
-                                    <label class="gw-link-label-panel" style="margin-left:18px;display:none;">
-                                        Link:
-                                        <input type="url" name="sesion_link[]" disabled>
-                                    </label>
-                                    <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-                                </div>
-                                `;
-                                var temp = document.createElement('div');
-                                temp.innerHTML = html;
-                                var block = temp.firstElementChild;
-                                block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
-                                    updateLabelsPanel(block);
-                                });
-                                block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
-                                    if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
-                                        block.parentNode.removeChild(block);
-                                    }
-                                });
-                                updateLabelsPanel(block);
-                                container.appendChild(block);
-                            });
-                            // Guardar AJAX
-                            form.addEventListener('submit', function(e){
-                                e.preventDefault();
-                                var data = new FormData(form);
-                                data.append('action','gw_guardar_sesiones_charla');
-                                data.append('charla_id', charlaId);
-                                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                                    method: 'POST',
-                                    credentials: 'same-origin',
-                                    body: data
-                                }).then(r=>r.json()).then(res=>{
-                                    if(res && res.success){
-                                        // Recargar listado de charlas (para reflejar cambios, sesiones, etc)
-                                        if(res.html){
-                                            document.getElementById('gw-listado-charlas').innerHTML = res.html;
-                                            if(typeof gwInitSesionesCharlasPanel === 'function') gwInitSesionesCharlasPanel();
-                                        } else {
-                                            form.querySelector('.gw-sesiones-guardado').style.display = '';
-                                            setTimeout(function(){form.querySelector('.gw-sesiones-guardado').style.display='none';}, 1800);
-                                        }
-                                    }
-                                });
-                            });
-                        });
-                    }
-                    // Inicializar al cargar
-                    gwInitSesionesCharlasPanel();
-                    </script>
-                    <style>
-                    .gw-sesion-block-panel label {font-weight:normal;}
-                    </style>
-                    </div>
+    <div style="max-width:900px;">
+        <!-- Formulario para agregar charla y filtros -->
+        <div style="margin-bottom:20px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
+            <!-- Formulario agregar charla -->
+            <div style="margin-bottom:16px;">
+                <form id="gw-form-nueva-charla" style="display:flex;gap:10px;align-items:center;">
+                    <input type="text" id="gw-nueva-charla-title" placeholder="Nombre de la charla" required style="padding:7px;width:230px;">
+                    <button type="submit" class="button button-primary">Agregar charla</button>
+                    <span id="gw-charla-guardado" style="color:#388e3c;display:none;">Guardado</span>
+                </form>
+            </div>
+            
+            <!-- Filtros de búsqueda -->
+            <div style="border-top:1px solid #ddd; padding-top:16px;">
+                <h4 style="margin:0 0 12px 0;">Filtrar charlas:</h4>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" id="gw-filtro-nombre" placeholder="Buscar por nombre..." style="padding:6px;width:200px;">
+                    <select id="gw-filtro-modalidad" style="padding:6px;">
+                        <option value="">Todas las modalidades</option>
+                        <option value="Presencial">Presencial</option>
+                        <option value="Virtual">Virtual</option>
+                        <option value="Mixta">Mixta</option>
+                    </select>
+                    <input type="text" id="gw-filtro-lugar" placeholder="Filtrar por lugar..." style="padding:6px;width:160px;">
+                    <button type="button" id="gw-limpiar-filtros" class="button button-secondary">Limpiar filtros</button>
+                    <button type="button" id="gw-ver-eliminadas" class="button button-secondary" style="background:#dc3545;border-color:#dc3545;color:white;">
+                        🗑️ Ver eliminadas (<span id="gw-count-eliminadas">0</span>)
+                    </button>
                 </div>
+            </div>
+        </div>
 
-                <!-- TAB PROYECTOS -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-proyectos" style="display:none;">
-                    <div class="gw-form-header">
-                        <h1>Proyectos</h1>
-                        <p>Administra los proyectos disponibles.</p>
-                    </div>
+        <!-- Área de charlas eliminadas (oculta por defecto) -->
+        <div id="gw-charlas-eliminadas-panel" style="display:none;margin-bottom:20px;padding:16px;border:1px solid #dc3545;border-radius:8px;background:#fff5f5;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="margin:0;color:#dc3545;">🗑️ Charlas Eliminadas</h3>
+                <button type="button" id="gw-cerrar-eliminadas" class="button button-small">Cerrar</button>
+            </div>
+            <div id="gw-listado-eliminadas"></div>
+        </div>
 
-                    <?php if (current_user_can('manage_options') || current_user_can('coordinador_pais')): ?>
-                    <div style="max-width:500px;margin-bottom:28px;">
-                      <form id="gw-form-nuevo-proyecto">
-                        <label for="gw-nuevo-proyecto-title"><b>Nuevo proyecto:</b></label><br>
-                        <input type="text" id="gw-nuevo-proyecto-title" name="titulo" required style="width:82%;max-width:340px;padding:7px;margin:8px 0;">
-                        <button type="submit" class="button button-primary">Agregar</button>
-                        <span id="gw-proyecto-guardado" style="margin-left:12px;color:#388e3c;display:none;">Guardado</span>
-                      </form>
-                    </div>
-                    <script>
-                    (function(){
-                      var form = document.getElementById('gw-form-nuevo-proyecto');
-                      if(form){
-                        form.addEventListener('submit', function(e){
-                          e.preventDefault();
-                          var titulo = document.getElementById('gw-nuevo-proyecto-title').value;
-                          if(!titulo) return;
-                          var data = new FormData();
-                          data.append('action', 'gw_nuevo_proyecto');
-                          data.append('titulo', titulo);
-                          fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                            method:'POST',
-                            credentials:'same-origin',
-                            body: data
-                          }).then(r=>r.json()).then(res=>{
-                            if(res.success){
-                              document.getElementById('gw-nuevo-proyecto-title').value = '';
-                              document.getElementById('gw-proyecto-guardado').style.display = '';
-                              setTimeout(()=>{document.getElementById('gw-proyecto-guardado').style.display='none';}, 1600);
-                              // Actualizar listado
-                              document.getElementById('gw-listado-proyectos').innerHTML = res.html;
-                            }
-                          });
-                        });
-                      }
-                    })();
-                    </script>
-                    <?php endif; ?>
-                    <div id="gw-listado-proyectos">
-                    <?php
-                    // Mostrar lista de proyectos actuales:
-                    $proyectos = get_posts([
-                        'post_type' => 'proyecto',
-                        'numberposts' => -1,
-                        'orderby' => 'title',
-                        'order' => 'ASC'
-                    ]);
-                    if(empty($proyectos)) {
-                        echo '<p>No hay proyectos registrados aún.</p>';
-                    } else {
-                        echo '<ul style="padding-left:12px;">';
-                        foreach($proyectos as $proy){
-                            $edit_url = admin_url('post.php?post='.$proy->ID.'&action=edit');
-                            echo '<li style="margin-bottom:8px;"><b>'.esc_html($proy->post_title).'</b> <a href="'.$edit_url.'" target="_blank" style="margin-left:8px;font-size:0.94em;">Editar en WordPress</a></li>';
-                        }
-                        echo '</ul>';
+        <!-- Listado de charlas activas -->
+        <div id="gw-listado-charlas">
+            <?php
+            // Función para renderizar una charla individual
+            function gw_render_charla_individual($charla) {
+                $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
+                if (!is_array($sesiones)) $sesiones = [];
+                if (empty($sesiones)) $sesiones = [[]];
+                
+                // Determinar modalidades presentes
+                $modalidades = [];
+                $lugares = [];
+                foreach ($sesiones as $sesion) {
+                    if (isset($sesion['modalidad'])) {
+                        $modalidades[] = $sesion['modalidad'];
                     }
+                    if (isset($sesion['lugar']) && !empty($sesion['lugar'])) {
+                        $lugares[] = $sesion['lugar'];
+                    }
+                }
+                $modalidades = array_unique($modalidades);
+                $lugares = array_unique($lugares);
+                
+                echo '<div class="gw-charla-item" data-modalidades="'.implode(',', $modalidades).'" data-lugares="'.implode(',', $lugares).'" data-nombre="'.esc_attr(strtolower($charla->post_title)).'" style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;position:relative;">';
+                
+                // Botón eliminar mejorado
+                echo '<button type="button" class="gw-eliminar-charla" data-charla-id="'.$charla->ID.'" style="position:absolute;top:18px;right:18px;background:linear-gradient(135deg, #dc3545, #c82333);color:white;border:none;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(220,53,69,0.3);transition:all 0.2s ease;" title="Eliminar charla">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/>
+                    </svg>
+                </button>';
+                
+                echo '<h3 style="margin:0 0 12px 0;padding-right:40px;">' . esc_html($charla->post_title) . '</h3>';
+                
+                // Mostrar tags de modalidades y lugares
+                if (!empty($modalidades)) {
+                    echo '<div style="margin-bottom:8px;">';
+                    foreach ($modalidades as $mod) {
+                        $color = $mod === 'Virtual' ? '#007cba' : '#46b450';
+                        echo '<span style="background:'.$color.';color:white;padding:2px 8px;border-radius:12px;font-size:11px;margin-right:6px;">'.$mod.'</span>';
+                    }
+                    echo '</div>';
+                }
+                
+                echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
+                wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
+                echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
+                
+                foreach ($sesiones as $idx => $sesion) {
                     ?>
+                    <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
+                        <label>Modalidad:
+                            <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
+                                <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
+                                <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
+                            </select>
+                        </label>
+                        <label style="margin-left:18px;">Fecha:
+                            <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
+                        </label>
+                        <label style="margin-left:18px;">Hora:
+                            <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
+                        </label>
+                        <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
+                            Lugar físico:
+                            <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
+                        </label>
+                        <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
+                            Link:
+                            <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
+                        </label>
+                        <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
                     </div>
-                </div>
+                    <?php
+                }
+                
+                echo '</div>';
+                echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
+                echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
+                echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
+                echo '</form>';
+                echo '</div>';
+            }
 
-                <!-- TAB CAPACITACIONES -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-capacitaciones" style="display:none;">
-                    <div class="gw-form-header">
-                        <h1>Capacitaciones</h1>
-                        <p>Gestiona capacitaciones y sus sesiones.</p>
-                    </div>
+            // Listado de charlas
+            function gw_render_listado_charlas_panel() {
+                $charlas = get_posts([
+                    'post_type' => 'charla',
+                    'numberposts' => -1,
+                    'orderby' => 'title',
+                    'order' => 'ASC',
+                    'meta_query' => [
+                        [
+                            'key' => '_gw_eliminada',
+                            'compare' => 'NOT EXISTS'
+                        ]
+                    ]
+                ]);
+                
+                if (empty($charlas)) {
+                    echo '<p>No hay charlas registradas aún.</p>';
+                } else {
+                    foreach ($charlas as $index => $charla) {
+                        $display_style = $index >= 5 ? 'style="display:none;"' : '';
+                        echo '<div class="gw-charla-wrapper" '.$display_style.'>';
+                        gw_render_charla_individual($charla);
+                        echo '</div>';
+                    }
+                    
+                    // Botón ver más si hay más de 5 charlas
+                    if (count($charlas) > 5) {
+                        echo '<div id="gw-ver-mas-container" style="text-align:center;margin-top:20px;">';
+                        echo '<button type="button" id="gw-ver-mas-charlas" class="button button-secondary">Ver más charlas (' . (count($charlas) - 5) . ' restantes)</button>';
+                        echo '</div>';
+                    }
+                }
+            }
+            
+            gw_render_listado_charlas_panel();
+            ?>
+        </div>
+    </div>
 
-                    <div id="gw-capacitacion-wizard">
-                        <style>
-                            .gw-wizard-steps {
-                                display: flex;
-                                justify-content: space-between;
-                                margin-bottom: 30px;
-                                margin-top: 10px;
-                            }
-                            .gw-wizard-step {
-                                flex: 1;
-                                text-align: center;
-                                padding: 12px 0;
-                                position: relative;
-                                background: #f7fafd;
-                                border-radius: 8px;
-                                font-weight: 600;
-                                color: #1d3557;
-                                cursor: pointer;
-                                border: 2px solid #31568d;
-                                transition: .2s;
-                                margin: 0 4px;
-                            }
-                            .gw-wizard-step.active,
-                            .gw-wizard-step:hover {
-                                background: #31568d;
-                                color: #fff;
-                            }
-                            .gw-wizard-form {
-                                background: #fff;
-                                padding: 24px 30px;
-                                border-radius: 14px;
-                                box-shadow: 0 2px 10px #dde7f2;
-                                max-width: 560px;
-                                margin: 0 auto 28px;
-                            }
-                            .gw-wizard-form label {
-                                display: block;
-                                margin-top: 14px;
-                                font-weight: 500;
-                            }
-                            .gw-wizard-form input,
-                            .gw-wizard-form select {
-                                width: 100%;
-                                padding: 9px;
-                                margin-top: 5px;
-                                border-radius: 6px;
-                                border: 1px solid #bcd;
-                            }
-                            .gw-wizard-sesiones {
-                                margin-top: 18px;
-                            }
-                            .gw-wizard-sesion {
-                                border: 1px solid #bfd9f7;
-                                border-radius: 8px;
-                                padding: 14px;
-                                margin-bottom: 12px;
-                                display: flex;
-                                flex-wrap: wrap;
-                                align-items: center;
-                                gap: 12px;
-                            }
-                            .gw-wizard-sesion input,
-                            .gw-wizard-sesion select {
-                                width: auto;
-                                min-width: 130px;
-                            }
-                            .gw-wizard-sesion input[name="sesion_link[]"] {
-                                min-width: 250px;
-                            }
-                            .gw-wizard-sesion .remove-sesion {
-                                background: #d50000;
-                                color: #fff;
-                                border: none;
-                                padding: 7px 16px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                            }
-                            .gw-wizard-sesion .crear-meet {
-                                background: #34a853;
-                                color: #fff;
-                                border: none;
-                                padding: 7px 16px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                            }
-                            .gw-wizard-form .add-sesion {
-                                margin-top: 8px;
-                                background: #31568d;
-                                color: #fff;
-                                padding: 7px 20px;
-                                border: none;
-                                border-radius: 6px;
-                            }
-                            .gw-capacitacion-list {
-                                max-width: 700px;
-                                margin: 0 auto;
-                            }
-                            .gw-cap-edit {
-                                color: #1e88e5;
-                                margin-left: 14px;
-                                text-decoration: underline;
-                                cursor: pointer;
-                            }
-                            .gw-cap-delete {
-                                color: #e53935;
-                                margin-left: 8px;
-                                text-decoration: underline;
-                                cursor: pointer;
-                            }
-                        </style>
+    <script>
+    (function(){
+        // Variables globales
+        var charlasVisible = 5;
+        var totalCharlas = 0;
+        
+        // Función para contar charlas eliminadas
+        function actualizarContadorEliminadas() {
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                credentials: 'same-origin',
+                body: 'action=gw_contar_eliminadas'
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    document.getElementById('gw-count-eliminadas').textContent = res.data.count;
+                }
+            });
+        }
 
-                        <div class="gw-wizard-steps">
-                            <div class="gw-wizard-step active" data-step="1">Proyecto</div>
-                            <div class="gw-wizard-step" data-step="2">Coach</div>
-                            <div class="gw-wizard-step" data-step="3">País</div>
-                            <div class="gw-wizard-step" data-step="4">Sesiones</div>
-                        </div>
+        // Inicializar contador al cargar
+        actualizarContadorEliminadas();
 
-                        <form class="gw-wizard-form" id="gw-capacitacion-form">
-                            <div class="gw-wizard-step-content step-1">
-                                <label>Nombre de la capacitación:</label>
-                                <input type="text" name="titulo" required placeholder="Nombre de la capacitación">
-                                <label>Proyecto relacionado:</label>
-                                <select name="proyecto" required>
-                                    <option value="">Selecciona un proyecto</option>
-                                    <?php
-                                    $proyectos = get_posts(['post_type'=>'proyecto','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-                                    foreach($proyectos as $proy){
-                                        echo '<option value="'.$proy->ID.'">'.esc_html($proy->post_title).'</option>';
-                                    }
-                                    ?>
-                                </select>
-                                <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
-                            </div>
+        // Formulario nueva charla (mantener funcionalidad original)
+        var form = document.getElementById('gw-form-nueva-charla');
+        if(form && !form._gwInit){
+            form._gwInit = true;
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var titulo = document.getElementById('gw-nueva-charla-title').value;
+                if(!titulo) return;
+                var data = new FormData();
+                data.append('action', 'gw_agregar_charla');
+                data.append('titulo', titulo);
+                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    method:'POST',
+                    credentials:'same-origin',
+                    body: data
+                }).then(r=>r.json()).then(res=>{
+                    if(res.success){
+                        document.getElementById('gw-nueva-charla-title').value = '';
+                        document.getElementById('gw-charla-guardado').style.display = '';
+                        setTimeout(()=>{document.getElementById('gw-charla-guardado').style.display='none';}, 1600);
+                        // Actualizar listado de charlas
+                        document.getElementById('gw-listado-charlas').innerHTML = res.html;
+                        // Re-inicializar
+                        gwInitSesionesCharlasPanel();
+                        initFiltrosYEliminacion();
+                    }
+                });
+            });
+        }
 
-                            <div class="gw-wizard-step-content step-2" style="display:none;">
-                                <label>Coach responsable:</label>
-                                <select name="coach" required>
-                                    <option value="">Selecciona un coach</option>
-                                    <?php
-                                    $coaches = get_users(['role'=>'coach']);
-                                    foreach($coaches as $coach){
-                                        echo '<option value="'.$coach->ID.'">'.esc_html($coach->display_name).'</option>';
-                                    }
-                                    ?>
-                                </select>
-                                <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
-                                <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
-                            </div>
+        // Función para aplicar filtros
+        function aplicarFiltros() {
+            var filtroNombre = document.getElementById('gw-filtro-nombre').value.toLowerCase();
+            var filtroModalidad = document.getElementById('gw-filtro-modalidad').value;
+            var filtroLugar = document.getElementById('gw-filtro-lugar').value.toLowerCase();
+            
+            var charlas = document.querySelectorAll('.gw-charla-item');
+            var charlasVisibles = 0;
+            
+            charlas.forEach(function(charla) {
+                var nombre = charla.dataset.nombre || '';
+                var modalidades = charla.dataset.modalidades || '';
+                var lugares = charla.dataset.lugares || '';
+                
+                var nombreMatch = !filtroNombre || nombre.includes(filtroNombre);
+                var modalidadMatch = !filtroModalidad || modalidades.includes(filtroModalidad);
+                var lugarMatch = !filtroLugar || lugares.toLowerCase().includes(filtroLugar);
+                
+                if (nombreMatch && modalidadMatch && lugarMatch) {
+                    charla.parentElement.style.display = '';
+                    charlasVisibles++;
+                } else {
+                    charla.parentElement.style.display = 'none';
+                }
+            });
+            
+            // Actualizar botón "Ver más"
+            var verMasContainer = document.getElementById('gw-ver-mas-container');
+            if (verMasContainer) {
+                verMasContainer.style.display = charlasVisibles > 5 ? '' : 'none';
+            }
+        }
 
-                            <div class="gw-wizard-step-content step-3" style="display:none;">
-                                <label>País relacionado:</label>
-                                <select name="pais" required>
-                                    <option value="">Selecciona un país</option>
-                                    <?php
-                                    $paises = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-                                    foreach($paises as $pais){
-                                        echo '<option value="'.$pais->ID.'">'.esc_html($pais->post_title).'</option>';
-                                    }
-                                    ?>
-                                </select>
-                                <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
-                                <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
-                            </div>
+        // Función para eliminar charla
+        function eliminarCharla(charlaId, boton) {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta charla?')) return;
+            
+            var data = new FormData();
+            data.append('action', 'gw_eliminar_charla');
+            data.append('charla_id', charlaId);
+            
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: data
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    // Remover de la vista
+                    var charlaElement = boton.closest('.gw-charla-wrapper');
+                    charlaElement.remove();
+                    
+                    // Actualizar contador
+                    actualizarContadorEliminadas();
+                    
+                    // Mostrar mensaje
+                    var mensaje = document.createElement('div');
+                    mensaje.style.cssText = 'background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:12px;border-radius:4px;margin-bottom:20px;';
+                    mensaje.innerHTML = '✅ Charla eliminada por el administrador';
+                    document.getElementById('gw-listado-charlas').insertBefore(mensaje, document.getElementById('gw-listado-charlas').firstChild);
+                    
+                    setTimeout(() => mensaje.remove(), 3000);
+                }
+            });
+        }
 
-                            <div class="gw-wizard-step-content step-4" style="display:none;">
-                                <div class="gw-wizard-sesiones"></div>
-                                <button type="button" class="add-sesion">Agregar sesión</button>
-                                <div style="margin-top:16px;">
-                                    <button type="button" class="prev-step">← Anterior</button>
-                                    <button type="submit" class="button button-primary" style="float:right;">Guardar capacitación</button>
-                                </div>
-                            </div>
+        // Función para cargar charlas eliminadas
+        function cargarCharlasEliminadas() {
+            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                credentials: 'same-origin',
+                body: 'action=gw_obtener_eliminadas'
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    document.getElementById('gw-listado-eliminadas').innerHTML = res.data.html;
+                    document.getElementById('gw-charlas-eliminadas-panel').style.display = '';
+                    
+                    // Inicializar botones después de cargar el contenido
+                    setTimeout(() => {
+                        initBotonesEliminadas();
+                    }, 100);
+                }
+            });
+        }
 
-                            <input type="hidden" name="edit_id" value="">
-                        </form>
-                    </div>
-
-                    <div class="gw-capacitacion-list">
-                        <h3 style="margin-top:36px;">Capacitaciones registradas</h3>
-                        <div id="gw-capacitaciones-listado">
-                            <?php
-                            $caps = get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-                            if(empty($caps)){
-                                echo '<p>No hay capacitaciones registradas.</p>';
-                            } else {
-                                echo '<ul>';
-                                foreach($caps as $cap){
-                                    $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
-                                    $proy_title = $proy ? get_the_title($proy) : '-';
-                                    echo '<li><b>'.esc_html($cap->post_title).'</b> <span style="color:#aaa;">(Proyecto: '.$proy_title.')</span> <span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span> <span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span></li>';
-                                }
-                                echo '</ul>';
-                            }
-                            ?>
-                        </div>
-                    </div>
-
-                    <script>
-                    // Wizard steps JS
-                    (function(){
-                        let currentStep = 1;
-
-                        function showStep(n){
-                            document.querySelectorAll('.gw-wizard-step-content').forEach(div=>{
-                                div.style.display='none';
-                            });
-                            document.querySelector('.step-'+n).style.display = '';
-                            document.querySelectorAll('.gw-wizard-step').forEach(btn=>btn.classList.remove('active'));
-                            document.querySelector('.gw-wizard-step[data-step="'+n+'"]').classList.add('active');
-                        }
-
-                        document.querySelectorAll('.next-step').forEach(btn=>{
-                            btn.onclick = function(){
-                                if(currentStep<4){
-                                    showStep(++currentStep);
-                                }
-                            };
-                        });
-
-                        document.querySelectorAll('.prev-step').forEach(btn=>{
-                            btn.onclick = function(){
-                                if(currentStep>1){
-                                    showStep(--currentStep);
-                                }
-                            };
-                        });
-
-                        // Add sesiones
-                        const sesionesWrap = document.querySelector('.gw-wizard-sesiones');
-
-                        function addSesion(data){
-                            data = data||{};
-                            let sesion = document.createElement('div');
-                            sesion.className = 'gw-wizard-sesion';
-                            sesion.innerHTML = `
-                                <select name="sesion_modalidad[]">
-                                    <option value="Presencial"${data.modalidad=="Presencial"?" selected":""}>Presencial</option>
-                                    <option value="Virtual"${data.modalidad=="Virtual"?" selected":""}>Virtual</option>
-                                </select>
-                                <input type="date" name="sesion_fecha[]" value="${data.fecha||""}" required>
-                                <input type="time" name="sesion_hora[]" value="${data.hora||""}" required>
-                                <input type="text" name="sesion_lugar[]" placeholder="Lugar físico" value="${data.lugar||""}" ${data.modalidad=="Virtual"?"style='display:none;'":""}>
-                                <input type="url" name="sesion_link[]" placeholder="Pega aquí el link de Google Meet" value="${data.link||""}" ${data.modalidad!="Virtual"?"style='display:none;'":""}>
-                                <button type="button" class="remove-sesion">Eliminar</button>
-                                <button type="button" class="crear-meet" ${data.modalidad!="Virtual"?"style='display:none;'":""}>Crear Meet</button>
-                            `;
-
-                            // Toggle fields (mostrar/ocultar y limpiar según modalidad)
-                            let modalidad = sesion.querySelector('select');
-                            let lugarInput = sesion.querySelector('input[name="sesion_lugar[]"]');
-                            let linkInput = sesion.querySelector('input[name="sesion_link[]"]');
-                            let crearMeetBtn = sesion.querySelector('.crear-meet');
-
-                            function updateFields(){
-                                let isVirtual = modalidad.value=="Virtual";
-                                if(isVirtual){
-                                    lugarInput.style.display = "none";
-                                    lugarInput.value = "";
-                                    linkInput.style.display = "";
-                                    crearMeetBtn.style.display = "";
-                                } else {
-                                    lugarInput.style.display = "";
-                                    linkInput.style.display = "none";
-                                    linkInput.value = "";
-                                    crearMeetBtn.style.display = "none";
-                                }
-                            }
-
-                            modalidad.onchange = updateFields;
-
-                            // Botón crear meet con fecha/hora automática
-                            crearMeetBtn.onclick = function(){
-                                const fechaInput = sesion.querySelector('input[name="sesion_fecha[]"]');
-                                const horaInput = sesion.querySelector('input[name="sesion_hora[]"]');
-                                const tituloCapacitacion = document.querySelector('input[name="titulo"]').value || 'Capacitación Virtual';
-                                const fecha = fechaInput.value;
-                                const hora = horaInput.value;
-
-                                if(fecha && hora) {
-                                    // Crear objeto Date para manejar correctamente la fecha
-                                    const fechaCompleta = new Date(fecha + 'T' + hora);
-
-                                    // Formatear para Google Calendar (UTC)
-                                    const año = fechaCompleta.getFullYear();
-                                    const mes = String(fechaCompleta.getMonth() + 1).padStart(2, '0');
-                                    const dia = String(fechaCompleta.getDate()).padStart(2, '0');
-                                    const horas = String(fechaCompleta.getHours()).padStart(2, '0');
-                                    const minutos = String(fechaCompleta.getMinutes()).padStart(2, '0');
-                                    const fechaInicio = año + mes + dia + 'T' + horas + minutos + '00';
-
-                                    // Agregar 1 hora para el final
-                                    const fechaFin = new Date(fechaCompleta.getTime() + 60 * 60 * 1000);
-                                    const añoFin = fechaFin.getFullYear();
-                                    const mesFin = String(fechaFin.getMonth() + 1).padStart(2, '0');
-                                    const diaFin = String(fechaFin.getDate()).padStart(2, '0');
-                                    const horasFin = String(fechaFin.getHours()).padStart(2, '0');
-                                    const minutosFin = String(fechaFin.getMinutes()).padStart(2, '0');
-                                    const fechaFinal = añoFin + mesFin + diaFin + 'T' + horasFin + minutosFin + '00';
-
-                                    // Preparar título y descripción
-                                    const titulo = encodeURIComponent(tituloCapacitacion);
-                                    const descripcion = encodeURIComponent('Sesión de capacitación virtual');
-
-                                    // Crear URL con zona horaria
-                                    const url = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${titulo}&dates=${fechaInicio}/${fechaFinal}&details=${descripcion}&vcon=meet&hl=es-419&ctz=America/Tegucigalpa`;
-
-                                    window.open(url, '_blank');
-                                } else {
-                                    alert('Por favor completa la fecha y hora antes de crear el Meet');
-                                }
-                            };
-
-                            sesion.querySelector('.remove-sesion').onclick = function(){
-                                sesionesWrap.removeChild(sesion);
-                            };
-
-                            updateFields();
-                            sesionesWrap.appendChild(sesion);
-                        }
-
-                        document.querySelector('.add-sesion').onclick = function(){
-                            addSesion();
-                        };
-
-                        // AJAX submit
-                        document.getElementById('gw-capacitacion-form').onsubmit = function(e){
-                            e.preventDefault();
-                            const form = e.target;
-                            
-                            // FORZAR LIMPIEZA DEL EDIT_ID SI ESTAMOS CREANDO NUEVO
-                            const editIdField = document.querySelector('input[name="edit_id"]');
-                            const currentEditId = editIdField ? editIdField.value : '';
-                            
-                            // Si no hay título, es probable que sea una creación nueva, limpiar edit_id
-                            const tituloValue = document.querySelector('input[name="titulo"]').value;
-                            if (!tituloValue || tituloValue.trim() === '') {
-                                if(editIdField) editIdField.value = '';
-                                console.log('Limpiando edit_id porque no hay título o es nuevo');
-                            }
-                            
-                            var data = new FormData(form);
-                            data.append('action','gw_guardar_capacitacion_wizard');
-
-                            // Debug: mostrar datos que se están enviando
-                            console.log('Datos del formulario:');
-                            for (let pair of data.entries()) {
-                                console.log(pair[0] + ': ' + pair[1]);
-                            }
-
-                            fetch('<?php echo admin_url('admin-ajax.php'); ?>',{
-                                method:'POST',
-                                credentials:'same-origin',
-                                body:data
-                            })
-                            .then(r=>r.json())
-                            .then(res=>{
-                                console.log('Respuesta del servidor:', res);
-                                if(res.success){
-                                    // LIMPIAR COMPLETAMENTE EL FORMULARIO
-                                    form.reset();
-                                    sesionesWrap.innerHTML="";
-                                    
-                                    // FORZAR LIMPIEZA DEL EDIT_ID
-                                    const editInput = document.querySelector('input[name="edit_id"]');
-                                    if(editInput) {
-                                        editInput.value = "";
-                                        editInput.setAttribute('value', '');
-                                    }
-                                    
-                                    currentStep=1;
-                                    showStep(1);
-                                    
-                                    // Actualizar listado y reasignar eventos
-                                    updateListado(res);
-                                    
-                                    alert('Capacitación guardada exitosamente');
-                                } else {
-                                    alert('Error: '+(res.data && res.data.msg ? res.data.msg : (res.msg || 'No se pudo guardar')));
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                alert('Error de conexión: ' + error.message);
-                            });
-                        };
-
-                        // Función para manejar clicks en editar/eliminar (delegación de eventos)
-                        function handleListClick(e) {
-                            if(e.target.classList.contains('gw-cap-edit')){
-                                let id = e.target.getAttribute('data-id');
-                                console.log('Editando capacitación ID:', id);
-                                
-                                fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=gw_obtener_capacitacion&id='+id)
-                                .then(r=>r.json())
-                                .then(res=>{
-                                    console.log('Respuesta de edición:', res);
-                                    if(res.success && res.data){
-                                        const d = res.data;
-                                        console.log('Datos recibidos:', d);
-                                        
-                                        // Limpiar formulario primero
-                                        document.getElementById('gw-capacitacion-form').reset();
-                                        sesionesWrap.innerHTML = '';
-                                        
-                                        // Esperar un poco para que el reset termine
-                                        setTimeout(() => {
-                                            // Llenar datos básicos
-                                            const tituloInput = document.querySelector('input[name="titulo"]');
-                                            const proyectoSelect = document.querySelector('select[name="proyecto"]');
-                                            const coachSelect = document.querySelector('select[name="coach"]');
-                                            const paisSelect = document.querySelector('select[name="pais"]');
-                                            const editIdInput = document.querySelector('input[name="edit_id"]');
-                                            
-                                            if(tituloInput) tituloInput.value = d.titulo || '';
-                                            if(proyectoSelect) proyectoSelect.value = d.proyecto || '';
-                                            if(coachSelect) coachSelect.value = d.coach || '';
-                                            if(paisSelect) paisSelect.value = d.pais || '';
-                                            if(editIdInput) editIdInput.value = id;
-                                            
-                                            console.log('Valores asignados:', {
-                                                titulo: tituloInput ? tituloInput.value : 'No encontrado',
-                                                proyecto: proyectoSelect ? proyectoSelect.value : 'No encontrado',
-                                                coach: coachSelect ? coachSelect.value : 'No encontrado',
-                                                pais: paisSelect ? paisSelect.value : 'No encontrado',
-                                                edit_id: editIdInput ? editIdInput.value : 'No encontrado'
-                                            });
-                                            
-                                            // Agregar sesiones si existen
-                                            if(d.sesiones && Array.isArray(d.sesiones) && d.sesiones.length > 0){
-                                                d.sesiones.forEach(s => {
-                                                    console.log('Agregando sesión:', s);
-                                                    addSesion(s);
-                                                });
-                                            } else {
-                                                // Si no hay sesiones, agregar una vacía
-                                                addSesion();
-                                            }
-                                            
-                                            // Ir al primer paso
-                                            currentStep = 1;
-                                            showStep(1);
-                                            
-                                            // Scroll al formulario
-                                            window.scrollTo(0, document.getElementById('gw-capacitacion-wizard').offsetTop - 40);
-                                            
-                                            alert('Datos cargados para edición');
-                                        }, 100);
-                                        
-                                    } else {
-                                        alert('Error al cargar los datos para editar: ' + (res.data ? res.data.msg : 'Datos no encontrados'));
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    alert('Error al cargar los datos para editar: ' + error.message);
-                                });
-                            }
-
-                            if(e.target.classList.contains('gw-cap-delete')){
-                                if(!confirm("¿Eliminar esta capacitación?")) return;
-                                
-                                let id = e.target.getAttribute('data-id');
-                                var data = new FormData();
-                                data.append('action','gw_eliminar_capacitacion');
-                                data.append('id',id);
-
-                                fetch('<?php echo admin_url('admin-ajax.php'); ?>',{
-                                    method:'POST',
-                                    credentials:'same-origin',
-                                    body:data
-                                })
-                                .then(r=>r.json())
-                                .then(res=>{
-                                    console.log('Respuesta de eliminación:', res);
-                                    if(res.success){
-                                        updateListado(res);
-                                    } else {
-                                        alert('Error al eliminar: ' + (res.data ? res.data.msg : 'Error desconocido'));
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    alert('Error al eliminar: ' + error.message);
-                                });
-                            }
-                        }
-
-                        // Función para actualizar el listado y reasignar eventos
-                        function updateListado(res) {
-                            const listadoElement = document.getElementById('gw-capacitaciones-listado');
-                            if (res.data && res.data.html) {
-                                listadoElement.innerHTML = res.data.html;
-                            } else if (res.html) {
-                                listadoElement.innerHTML = res.html;
-                            } else {
-                                listadoElement.innerHTML = '<p>No hay capacitaciones registradas.</p>';
-                            }
-                            
-                            // Reasignar eventos después de actualizar el HTML
-                            assignListEvents();
-                        }
-
-                        // Función para asignar eventos a la lista
-                        function assignListEvents() {
-                            // Remover eventos previos para evitar duplicados
-                            const listado = document.getElementById('gw-capacitaciones-listado');
-                            if(listado) {
-                                listado.removeEventListener('click', handleListClick);
-                                listado.addEventListener('click', handleListClick);
-                            }
-                        }
-
-                        // Asignar eventos iniciales
-                        assignListEvents();
+        // Función para manejar botones en charlas eliminadas
+        function initBotonesEliminadas() {
+            // Restaurar charla
+            document.querySelectorAll('.gw-restaurar-charla').forEach(function(boton) {
+                if (!boton._gwInit) {
+                    boton._gwInit = true;
+                    boton.addEventListener('click', function() {
+                        if (!confirm('¿Restaurar esta charla?')) return;
                         
-                        // Auto-limpiar formulario al cargar la página
-                        limpiarFormulario();
+                        var data = new FormData();
+                        data.append('action', 'gw_restaurar_charla');
+                        data.append('charla_id', this.dataset.charlaId);
+                        
+                        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            body: data
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.success) {
+                                // Remover de la vista de eliminadas
+                                this.closest('div[style*="border:1px solid #dc3545"]').remove();
+                                
+                                // Actualizar contador
+                                actualizarContadorEliminadas();
+                                
+                                // Mostrar mensaje
+                                var mensaje = document.createElement('div');
+                                mensaje.style.cssText = 'background:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:12px;border-radius:4px;margin-bottom:20px;';
+                                mensaje.innerHTML = '✅ Charla restaurada correctamente';
+                                
+                                var listado = document.getElementById('gw-listado-eliminadas');
+                                listado.insertBefore(mensaje, listado.firstChild);
+                                
+                                setTimeout(() => mensaje.remove(), 3000);
+                                
+                                // Si no quedan más charlas eliminadas
+                                if (listado.children.length === 1) { // Solo queda el mensaje
+                                    setTimeout(() => {
+                                        listado.innerHTML = '<p style="color:#666;">No hay charlas eliminadas.</p>';
+                                    }, 3000);
+                                }
+                                
+                                // Recargar el listado principal para mostrar la charla restaurada
+                                location.reload();
+                            }
+                        });
+                    });
+                }
+            });
+            
+            // Eliminar definitivamente
+            document.querySelectorAll('.gw-eliminar-definitivo').forEach(function(boton) {
+                if (!boton._gwInit) {
+                    boton._gwInit = true;
+                    boton.addEventListener('click', function() {
+                        if (!confirm('¿ELIMINAR DEFINITIVAMENTE esta charla? Esta acción no se puede deshacer.')) return;
+                        
+                        var data = new FormData();
+                        data.append('action', 'gw_eliminar_definitivo');
+                        data.append('charla_id', this.dataset.charlaId);
+                        
+                        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            body: data
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.success) {
+                                // Remover de la vista
+                                this.closest('div[style*="border:1px solid #dc3545"]').remove();
+                                
+                                // Actualizar contador
+                                actualizarContadorEliminadas();
+                                
+                                // Mostrar mensaje
+                                var mensaje = document.createElement('div');
+                                mensaje.style.cssText = 'background:#f8d7da;border:1px solid #f5c6cb;color:#721c24;padding:12px;border-radius:4px;margin-bottom:20px;';
+                                mensaje.innerHTML = '⚠️ Charla eliminada definitivamente';
+                                
+                                var listado = document.getElementById('gw-listado-eliminadas');
+                                listado.insertBefore(mensaje, listado.firstChild);
+                                
+                                setTimeout(() => mensaje.remove(), 3000);
+                                
+                                // Si no quedan más charlas eliminadas
+                                if (listado.children.length === 1) { // Solo queda el mensaje
+                                    setTimeout(() => {
+                                        listado.innerHTML = '<p style="color:#666;">No hay charlas eliminadas.</p>';
+                                    }, 3000);
+                                }
+                            }
+                        });
+                    });
+                }
+            });
+        }
 
-                        // Paso inicial
-                        showStep(currentStep);
-                    })();
-                    </script>
+        // Inicializar filtros y eliminación
+        function initFiltrosYEliminacion() {
+            // Event listeners para filtros
+            document.getElementById('gw-filtro-nombre').addEventListener('input', aplicarFiltros);
+            document.getElementById('gw-filtro-modalidad').addEventListener('change', aplicarFiltros);
+            document.getElementById('gw-filtro-lugar').addEventListener('input', aplicarFiltros);
+            
+            // Limpiar filtros
+            document.getElementById('gw-limpiar-filtros').addEventListener('click', function() {
+                document.getElementById('gw-filtro-nombre').value = '';
+                document.getElementById('gw-filtro-modalidad').value = '';
+                document.getElementById('gw-filtro-lugar').value = '';
+                aplicarFiltros();
+            });
+            
+            // Ver eliminadas
+            document.getElementById('gw-ver-eliminadas').addEventListener('click', cargarCharlasEliminadas);
+            document.getElementById('gw-cerrar-eliminadas').addEventListener('click', function() {
+                document.getElementById('gw-charlas-eliminadas-panel').style.display = 'none';
+            });
+            
+            // Botones eliminar charla
+            document.querySelectorAll('.gw-eliminar-charla').forEach(function(boton) {
+                if (!boton._gwInit) {
+                    boton._gwInit = true;
+                    boton.addEventListener('click', function() {
+                        eliminarCharla(this.dataset.charlaId, this);
+                    });
+                }
+            });
+            
+            // Botón ver más
+            var verMasBtn = document.getElementById('gw-ver-mas-charlas');
+            if (verMasBtn && !verMasBtn._gwInit) {
+                verMasBtn._gwInit = true;
+                verMasBtn.addEventListener('click', function() {
+                    var charlasOcultas = document.querySelectorAll('.gw-charla-wrapper[style*="display:none"], .gw-charla-wrapper[style*="display: none"]');
+                    var mostradas = 0;
+                    
+                    charlasOcultas.forEach(function(charla) {
+                        if (mostradas < 5) {
+                            charla.style.display = '';
+                            mostradas++;
+                        }
+                    });
+                    
+                    charlasVisible += mostradas;
+                    var restantes = charlasOcultas.length - mostradas;
+                    
+                    if (restantes <= 0) {
+                        this.parentElement.style.display = 'none';
+                    } else {
+                        this.innerHTML = 'Ver más charlas (' + restantes + ' restantes)';
+                    }
+                });
+            }
+        }
+
+        // Inicializar todo
+        initFiltrosYEliminacion();
+        
+        // Hacer función global para que se pueda llamar desde otros lugares
+        window.gwInitSesionesCharlasPanel = gwInitSesionesCharlasPanel;
+        window.initFiltrosYEliminacion = initFiltrosYEliminacion;
+    })();
+
+    // Función original para sesiones (mantener intacta)
+    function gwInitSesionesCharlasPanel() {
+        document.querySelectorAll('.gw-form-sesiones-charla').forEach(function(form){
+            if(form._gwInit) return;
+            form._gwInit = true;
+            var charlaId = form.getAttribute('data-charla');
+            var container = form.querySelector('#gw-sesiones-list-'+charlaId);
+            
+            function updateLabelsPanel(block) {
+                var modalidad = block.querySelector('.gw-sesion-modalidad-panel').value;
+                var lugarLabel = block.querySelector('.gw-lugar-label-panel');
+                var lugarInput = lugarLabel.querySelector('input');
+                var linkLabel = block.querySelector('.gw-link-label-panel');
+                var linkInput = linkLabel.querySelector('input');
+                if (modalidad.toLowerCase() === 'virtual') {
+                    lugarLabel.style.display = 'none';
+                    lugarInput.disabled = true;
+                    linkLabel.style.display = '';
+                    linkInput.disabled = false;
+                } else {
+                    lugarLabel.style.display = '';
+                    lugarInput.disabled = false;
+                    linkLabel.style.display = 'none';
+                    linkInput.disabled = true;
+                }
+            }
+            
+            form.querySelectorAll('.gw-sesion-block-panel').forEach(function(block){
+                block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
+                    updateLabelsPanel(block);
+                });
+                block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
+                    if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
+                        block.parentNode.removeChild(block);
+                    }
+                });
+                updateLabelsPanel(block);
+            });
+            
+            form.querySelector('.gw-add-sesion-panel').addEventListener('click', function(){
+                var html = `
+                <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
+                    <label>Modalidad:
+                        <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
+                            <option value="Presencial">Presencial</option>
+                            <option value="Virtual">Virtual</option>
+                        </select>
+                    </label>
+                    <label style="margin-left:18px;">Fecha:
+                        <input type="date" name="sesion_fecha[]" required>
+                    </label>
+                    <label style="margin-left:18px;">Hora:
+                        <input type="time" name="sesion_hora[]" required>
+                    </label>
+                    <label class="gw-lugar-label-panel" style="margin-left:18px;">
+                        Lugar físico:
+                        <input type="text" name="sesion_lugar[]">
+                    </label>
+                    <label class="gw-link-label-panel" style="margin-left:18px;display:none;">
+                        Link:
+                        <input type="url" name="sesion_link[]" disabled>
+                    </label>
+                    <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
                 </div>
+                `;
+                var temp = document.createElement('div');
+                temp.innerHTML = html;
+                var block = temp.firstElementChild;
+                block.querySelector('.gw-sesion-modalidad-panel').addEventListener('change', function(){
+                    updateLabelsPanel(block);
+                });
+                block.querySelector('.gw-remove-sesion-panel').addEventListener('click', function(){
+                    if(form.querySelectorAll('.gw-sesion-block-panel').length > 1){
+                        block.parentNode.removeChild(block);
+                    }
+                });
+                updateLabelsPanel(block);
+                container.appendChild(block);
+            });
+            
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var data = new FormData(form);
+                data.append('action','gw_guardar_sesiones_charla');
+                data.append('charla_id', charlaId);
+                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: data
+                }).then(r=>r.json()).then(res=>{
+                    if(res && res.success){
+                        if(res.html){
+                            document.getElementById('gw-listado-charlas').innerHTML = res.html;
+                            gwInitSesionesCharlasPanel();
+                            if(typeof initFiltrosYEliminacion === 'function') initFiltrosYEliminacion();
+                        } else {
+                            form.querySelector('.gw-sesiones-guardado').style.display = '';
+                            setTimeout(function(){form.querySelector('.gw-sesiones-guardado').style.display='none';}, 1800);
+                        }
+                    }
+                });
+            });
+        });
+    }
+    
+    // Inicializar al cargar
+    gwInitSesionesCharlasPanel();
+    </script>
+    
+    <style>
+    .gw-sesion-block-panel label {font-weight:normal;}
+    .gw-charla-item {
+        transition: all 0.3s ease;
+    }
+    .gw-charla-item:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-1px);
+    }
+    .gw-eliminar-charla:hover {
+        background: linear-gradient(135deg, #c82333, #a71e2a) !important;
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(220,53,69,0.4) !important;
+    }
+    .gw-eliminar-charla:active {
+        transform: scale(0.95);
+    }
+    .gw-eliminar-charla svg {
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    #gw-filtro-nombre, #gw-filtro-lugar {
+        transition: all 0.2s ease;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    #gw-filtro-nombre:focus, #gw-filtro-lugar:focus {
+        border-color: #007cba;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0,124,186,0.1);
+    }
+    #gw-filtro-modalidad {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+    #gw-filtro-modalidad:focus {
+        border-color: #007cba;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(0,124,186,0.1);
+    }
+    .gw-charla-wrapper {
+        transition: opacity 0.3s ease;
+    }
+    </style>
+</div>
+
+
+
+
+
+<!-- TAB PROYECTOS -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-proyectos" style="display:none;">
+  <div class="gw-form-header">
+    <h1>Proyectos</h1>
+    <p>Administra los proyectos disponibles.</p>
+  </div>
+
+  <!-- FILTROS DE BÚSQUEDA -->
+  <div style="background:#f9f9f9;padding:15px;border-radius:5px;margin-bottom:20px;">
+    <div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <label><strong>Filtrar por país:</strong></label>
+        <select id="gw-filtro-pais" style="margin-left:8px;padding:5px;">
+          <option value="">Todos los países</option>
+          <!-- Los países se llenan dinámicamente -->
+        </select>
+      </div>
+      <div>
+        <label><strong>Buscar:</strong></label>
+        <input type="text" id="gw-buscar-proyecto" placeholder="Nombre del proyecto..." style="margin-left:8px;padding:5px;width:200px;">
+      </div>
+      <div>
+        <label><strong>Estado:</strong></label>
+        <select id="gw-filtro-estado" style="margin-left:8px;padding:5px;">
+          <option value="activo">Activos</option>
+          <option value="">Todos</option>
+          <option value="eliminado">Eliminados</option>
+        </select>
+      </div>
+      <button type="button" id="gw-limpiar-filtros" class="button">Limpiar filtros</button>
+    </div>
+  </div>
+
+  <?php if (current_user_can('manage_options') || current_user_can('coordinador_pais')): ?>
+  <!-- FORMULARIO NUEVO PROYECTO -->
+  <div style="background:#fff;border:1px solid #ddd;padding:20px;border-radius:5px;margin-bottom:28px;">
+    <form id="gw-form-nuevo-proyecto">
+      <h3 style="margin-top:0;">Agregar nuevo proyecto</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;max-width:600px;">
+        <div>
+          <label for="gw-nuevo-proyecto-title"><strong>Nombre del proyecto:</strong></label>
+          <input type="text" id="gw-nuevo-proyecto-title" name="titulo" required style="width:100%;padding:8px;margin-top:5px;">
+        </div>
+        <div>
+          <label for="gw-nuevo-proyecto-pais"><strong>País:</strong></label>
+          <select id="gw-nuevo-proyecto-pais" name="pais_id_visual" required style="width:100%;padding:8px;margin-top:5px;">
+            <option value="">Seleccionar país</option>
+            <!-- Se llenará dinámicamente con ID como value -->
+          </select>
+        </div>
+        <div>
+          <label for="gw-nuevo-proyecto-coach"><strong>Coach responsable:</strong></label>
+          <select id="gw-nuevo-proyecto-coach" name="coach" required style="width:100%;padding:8px;margin-top:5px;">
+            <option value="">Seleccionar coach</option>
+          </select>
+        </div>
+        <div>
+          <label for="gw-nuevo-proyecto-descripcion"><strong>Descripción breve:</strong></label>
+          <textarea id="gw-nuevo-proyecto-descripcion" name="descripcion" style="width:100%;padding:8px;margin-top:5px;height:60px;" placeholder="Descripción opcional..."></textarea>
+        </div>
+      </div>
+      <div style="margin-top:15px;">
+        <button type="submit" class="button button-primary">Agregar Proyecto</button>
+        <span id="gw-proyecto-guardado" style="margin-left:12px;color:#388e3c;display:none;">✓ Proyecto guardado exitosamente</span>
+        <span id="gw-proyecto-error" style="margin-left:12px;color:#d32f2f;display:none;">Error al guardar proyecto</span>
+      </div>
+    </form>
+  </div>
+
+  <script>
+  (function(){
+    const ajaxBase = '<?php echo admin_url('admin-ajax.php'); ?>';
+
+    // Estado global de países (id <-> nombre)
+    const GW_COUNTRIES = {
+      list: [],                 // [{id, nombre}]
+      byId: new Map(),          // id -> nombre
+      byNameNorm: new Map(),    // nombre_normalizado -> id
+    };
+
+    const normalize = (s) => {
+      s = (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      s = s.replace(/\s+/g,' ').trim().toLowerCase();
+      return s;
+    };
+
+    // ----- CARGAR PAISES (ID + nombre) y poblar selects -----
+    function cargarPaisesCodigos() {
+      return fetch(`${ajaxBase}?action=gw_listar_paises_codigos`, { credentials:'same-origin' })
+        .then(r=>r.json())
+        .then(res=>{
+          if (!res.success) return;
+
+          GW_COUNTRIES.list = res.data || [];
+          GW_COUNTRIES.byId.clear();
+          GW_COUNTRIES.byNameNorm.clear();
+
+          const selNuevoPais = document.getElementById('gw-nuevo-proyecto-pais');
+          if (selNuevoPais) {
+            selNuevoPais.innerHTML = '<option value="">Seleccionar país</option>';
+          }
+
+          GW_COUNTRIES.list.forEach(p=>{
+            GW_COUNTRIES.byId.set(p.id, p.nombre);
+            GW_COUNTRIES.byNameNorm.set(normalize(p.nombre), p.id);
+
+            if (selNuevoPais) {
+              selNuevoPais.add(new Option(p.nombre, p.id)); // value = ID
+            }
+          });
+        });
+    }
+
+    // ----- CARGAR COACHES (todos) -----
+    function cargarCoaches() {
+      fetch(`${ajaxBase}?action=gw_obtener_coaches`, {
+        credentials:'same-origin'
+      })
+      .then(r=>r.json()).then(res=>{
+        if(res.success) {
+          const select = document.getElementById('gw-nuevo-proyecto-coach');
+          if (!select) return;
+          select.innerHTML = '<option value="">Seleccionar coach</option>';
+          res.data.forEach(coach => {
+            select.add(new Option(coach.name, coach.id));
+          });
+        }
+      });
+    }
+
+    // ----- CARGAR COACHES POR pais_id -----
+    function cargarCoachesPorPaisId(paisId) {
+      const select = document.getElementById('gw-nuevo-proyecto-coach');
+      if (!select) return;
+
+      select.innerHTML = '<option value="">Cargando coaches...</option>';
+      select.disabled = true;
+
+      if (!paisId) {
+        select.innerHTML = '<option value="">Selecciona un país</option>';
+        select.disabled = true;
+        return;
+      }
+
+      fetch(`${ajaxBase}?action=gw_obtener_coaches_por_pais&pais_id=${encodeURIComponent(paisId)}`, {
+        credentials: 'same-origin'
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && Array.isArray(res.data) && res.data.length) {
+          select.innerHTML = '<option value="">Seleccionar coach</option>';
+          res.data.forEach(c => {
+            // Si no quieres incluir admin aquí, ya lo excluimos en el backend
+            select.add(new Option(`${c.name}${c.tipo ? ' ('+c.tipo+')':''}`, c.id));
+          });
+          select.disabled = false;
+        } else {
+          select.innerHTML = '<option value="">No hay coaches para este país</option>';
+          select.disabled = true;
+        }
+      })
+      .catch(() => {
+        select.innerHTML = '<option value="">Error al cargar coaches</option>';
+        select.disabled = true;
+      });
+    }
+
+    // ----- SUBMIT NUEVO PROYECTO -----
+    const form = document.getElementById('gw-form-nuevo-proyecto');
+    if (form) {
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        const titulo = document.getElementById('gw-nuevo-proyecto-title').value;
+        const selPais = document.getElementById('gw-nuevo-proyecto-pais');
+        const paisId  = parseInt(selPais.value || '0', 10);
+        const paisNombre = selPais.options[selPais.selectedIndex]?.text || '';
+        const coach = document.getElementById('gw-nuevo-proyecto-coach').value;
+        const descripcion = document.getElementById('gw-nuevo-proyecto-descripcion').value;
+
+        if(!titulo || !paisId || !coach) {
+          mostrarError('Por favor completa todos los campos obligatorios');
+          return;
+        }
+
+        // Guardamos NOMBRE de país (como ya lo hace tu listado)
+        const data = new FormData();
+        data.append('action', 'gw_nuevo_proyecto');
+        data.append('titulo', titulo);
+        data.append('pais', paisNombre);   // <- nombre
+        data.append('coach', coach);
+        data.append('descripcion', descripcion);
+
+        fetch(ajaxBase, {
+          method:'POST',
+          credentials:'same-origin',
+          body: data
+        }).then(r=>r.json()).then(res=>{
+          if(res.success){
+            form.reset();
+            cargarCoaches();
+            mostrarExito('Proyecto guardado exitosamente');
+            actualizarListado();
+            actualizarFiltros();
+          } else {
+            mostrarError(res.data?.msg || 'Error al guardar proyecto');
+          }
+        }).catch(()=> mostrarError('Error de conexión'));
+      });
+    }
+
+    // ----- Eventos -----
+    document.getElementById('gw-nuevo-proyecto-pais').addEventListener('change', function () {
+      const paisId = parseInt(this.value || '0', 10);
+      cargarCoachesPorPaisId(paisId);
+    });
+
+    function mostrarExito(msg) {
+      const elem = document.getElementById('gw-proyecto-guardado');
+      elem.textContent = '✓ ' + msg;
+      elem.style.display = '';
+      document.getElementById('gw-proyecto-error').style.display = 'none';
+      setTimeout(()=>{elem.style.display='none';}, 3000);
+    }
+    function mostrarError(msg) {
+      const elem = document.getElementById('gw-proyecto-error');
+      elem.textContent = '✗ ' + msg;
+      elem.style.display = '';
+      document.getElementById('gw-proyecto-guardado').style.display = 'none';
+      setTimeout(()=>{elem.style.display='none';}, 4000);
+    }
+
+    // ----- EDITAR PROYECTO -----
+    window.gwEditarProyecto = function(id, titulo, paisNombre, coach, descripcion) {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+      modal.innerHTML = `
+        <div style="background:white;padding:30px;border-radius:8px;max-width:500px;width:90%;">
+          <h3>Editar Proyecto</h3>
+          <form id="gw-form-editar-proyecto">
+            <p><label><strong>Título:</strong><br>
+              <input type="text" id="edit-titulo" value="${titulo}" style="width:100%;padding:8px;">
+            </label></p>
+            <p><label><strong>País:</strong><br>
+              <select id="edit-pais" style="width:100%;padding:8px;">
+                <option value="">Cargando países...</option>
+              </select>
+            </label></p>
+            <p><label><strong>Coach:</strong><br>
+              <select id="edit-coach" style="width:100%;padding:8px;">
+                <option value="">Cargando coaches...</option>
+              </select>
+            </label></p>
+            <p><label><strong>Descripción:</strong><br>
+              <textarea id="edit-descripcion" style="width:100%;padding:8px;height:60px;">${descripcion || ''}</textarea>
+            </label></p>
+            <div style="text-align:right;margin-top:20px;">
+              <button type="button" class="button" onclick="this.closest('[style*=position]').remove()">Cancelar</button>
+              <button type="submit" class="button button-primary" style="margin-left:10px;">Guardar</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      // Poblar select de países con IDs reales
+      const selEditPais = modal.querySelector('#edit-pais');
+      selEditPais.innerHTML = '<option value="">Seleccionar país</option>';
+      GW_COUNTRIES.list.forEach(p => selEditPais.add(new Option(p.nombre, p.id)));
+
+      // Preseleccionar por nombre (buscamos su id con normalize)
+      const preId = GW_COUNTRIES.byNameNorm.get(normalize(paisNombre)) || '';
+      if (preId) selEditPais.value = preId;
+
+      // Cargar coaches del país preseleccionado
+      cargarCoachesParaEdicion(preId, coach);
+
+      selEditPais.addEventListener('change', function(){
+        const nuevoId = parseInt(this.value || '0', 10);
+        cargarCoachesParaEdicion(nuevoId, null);
+      });
+
+      modal.querySelector('#gw-form-editar-proyecto').addEventListener('submit', function(e){
+        e.preventDefault();
+
+        const newTitulo = modal.querySelector('#edit-titulo').value;
+        const paisIdSel = parseInt(selEditPais.value || '0', 10);
+        const paisNombreSel = selEditPais.options[selEditPais.selectedIndex]?.text || '';
+        const coachSel = modal.querySelector('#edit-coach').value;
+        const descSel  = modal.querySelector('#edit-descripcion').value;
+
+        const data = new FormData();
+        data.append('action', 'gw_editar_proyecto');
+        data.append('proyecto_id', id);
+        data.append('titulo', newTitulo);
+        data.append('pais', paisNombreSel);  // seguimos guardando NOMBRE (tu listado usa texto)
+        data.append('coach', coachSel);
+        data.append('descripcion', descSel);
+
+        fetch(ajaxBase, {
+          method: 'POST',
+          credentials:'same-origin',
+          body: data
+        }).then(r=>r.json()).then(res=>{
+          if (res.success) {
+            modal.remove();
+            actualizarListado();
+          } else {
+            alert('Error: ' + (res.data?.msg || 'Error desconocido'));
+          }
+        });
+      });
+
+      function cargarCoachesParaEdicion(paisId, coachSeleccionado) {
+        const selectCoach = modal.querySelector('#edit-coach');
+        selectCoach.innerHTML = '<option value="">Cargando...</option>';
+
+        if (!paisId) {
+          // sin país => listar todos
+          fetch(`${ajaxBase}?action=gw_obtener_coaches`, { credentials:'same-origin' })
+          .then(r=>r.json()).then(res=>{
+            if(res.success) {
+              selectCoach.innerHTML = '<option value="">Seleccionar coach</option>';
+              res.data.forEach(coach => {
+                const selected = (coach.id == coachSeleccionado) ? 'selected' : '';
+                const opt = new Option(coach.name, coach.id);
+                if (selected) opt.selected = true;
+                selectCoach.add(opt);
+              });
+            }
+          });
+        } else {
+          // con país => filtrar por pais_id
+          fetch(`${ajaxBase}?action=gw_obtener_coaches_por_pais&pais_id=${encodeURIComponent(paisId)}`, {
+            credentials:'same-origin'
+          }).then(r=>r.json()).then(res=>{
+            if(res.success && res.data.length > 0) {
+              selectCoach.innerHTML = '<option value="">Seleccionar coach</option>';
+              res.data.forEach(c => {
+                const opt = new Option(`${c.name}${c.tipo ? ' ('+c.tipo+')':''}`, c.id);
+                if (coachSeleccionado && String(c.id) === String(coachSeleccionado)) opt.selected = true;
+                selectCoach.add(opt);
+              });
+            } else {
+              selectCoach.innerHTML = '<option value="">No hay coaches para este país</option>';
+            }
+          });
+        }
+      }
+    };
+
+    // ----- LISTADO / FILTROS -----
+    document.addEventListener('DOMContentLoaded', function() {
+      cargarPaisesCodigos().then(()=>{
+        // Cargar coaches inicial (sin filtro)
+        cargarCoaches();
+      });
+      actualizarListado();
+      actualizarFiltros();
+    });
+
+    document.getElementById('gw-filtro-pais')?.addEventListener('change', actualizarListado);
+    document.getElementById('gw-filtro-estado')?.addEventListener('change', actualizarListado);
+    document.getElementById('gw-buscar-proyecto')?.addEventListener('input', debounce(actualizarListado, 500));
+    document.getElementById('gw-limpiar-filtros')?.addEventListener('click', limpiarFiltros);
+
+    function actualizarListado() {
+      var filtros = {
+        pais: document.getElementById('gw-filtro-pais')?.value || '',
+        busqueda: document.getElementById('gw-buscar-proyecto')?.value || '',
+        estado: document.getElementById('gw-filtro-estado')?.value || ''
+      };
+
+      var params = new URLSearchParams();
+      params.append('action', 'gw_listar_proyectos');
+      Object.keys(filtros).forEach(key => {
+        if(filtros[key]) params.append(key, filtros[key]);
+      });
+
+      fetch(`${ajaxBase}?${params.toString()}`, { credentials:'same-origin' })
+      .then(r=>r.json()).then(res=>{
+        if(res.success) {
+          document.getElementById('gw-listado-proyectos').innerHTML = res.data.html;
+        }
+      });
+    }
+
+    function actualizarFiltros() {
+      // Este endpoint saca países desde los proyectos existentes (como ya tenías)
+      fetch(`${ajaxBase}?action=gw_obtener_paises_proyectos`, { credentials:'same-origin' })
+      .then(r=>r.json()).then(res=>{
+        if(res.success) {
+          var select = document.getElementById('gw-filtro-pais');
+          var valorActual = select.value;
+          select.innerHTML = '<option value="">Todos los países</option>';
+          res.data.forEach(pais => {
+            var selected = pais === valorActual ? 'selected' : '';
+            select.innerHTML += `<option value="${pais}" ${selected}>${pais}</option>`;
+          });
+        }
+      });
+    }
+
+    function limpiarFiltros() {
+      document.getElementById('gw-filtro-pais').value = '';
+      document.getElementById('gw-buscar-proyecto').value = '';
+      document.getElementById('gw-filtro-estado').value = 'activo';
+      actualizarListado();
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // Acciones globales (eliminar, restaurar, etc.) – sin cambios
+    window.gwEliminarProyecto = function(id) {
+      if(!confirm('¿Estás seguro de que quieres eliminar este proyecto?')) return;
+      var data = new FormData();
+      data.append('action', 'gw_eliminar_proyecto');
+      data.append('proyecto_id', id);
+      fetch(ajaxBase, { method:'POST', credentials:'same-origin', body: data })
+      .then(r=>r.json()).then(res=>{ if(res.success) actualizarListado(); else alert('Error al eliminar'); });
+    };
+
+    window.gwRestaurarProyecto = function(id) {
+      var data = new FormData();
+      data.append('action', 'gw_restaurar_proyecto');
+      data.append('proyecto_id', id);
+      fetch(ajaxBase, { method:'POST', credentials:'same-origin', body: data })
+      .then(r=>r.json()).then(res=>{ if(res.success) actualizarListado(); else alert('Error al restaurar'); });
+    };
+
+    window.gwVerHistorial = function(id) {
+      alert('Funcionalidad de historial en desarrollo para proyecto ID: ' + id);
+    };
+
+  })();
+  </script>
+  <?php endif; ?>
+
+  <!-- LISTADO DE PROYECTOS -->
+  <div id="gw-listado-proyectos"></div>
+</div>
+<style>
+.gw-proyecto-item {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: box-shadow 0.2s;
+}
+.gw-proyecto-item:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.gw-proyecto-eliminado {
+    background: #ffebee;
+    border-color: #f44336;
+}
+.gw-proyecto-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.gw-proyecto-acciones {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.gw-proyecto-acciones button {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.gw-btn-eliminar { background: #f44336; color: white; }
+.gw-btn-restaurar { background: #4caf50; color: white; }
+.gw-btn-historial { background: #2196f3; color: white; }
+.gw-btn-editar { background: #ff9800; color: white; }
+.gw-btn-wp { background: #0073aa; color: white; }
+</style>
+
+
+<!-- TAB CAPACITACIONES (COMPLETO CON NONCE) -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-capacitaciones" style="display:none;">
+  <div class="gw-form-header">
+    <h1>Capacitaciones</h1>
+    <p>Gestiona capacitaciones y sus sesiones.</p>
+  </div>
+
+  <div id="gw-capacitacion-wizard">
+    <style>
+      .gw-wizard-steps{display:flex;justify-content:space-between;margin-bottom:30px;margin-top:10px}
+      .gw-wizard-step{flex:1;text-align:center;padding:12px 0;position:relative;background:#f7fafd;border-radius:8px;font-weight:600;color:#1d3557;cursor:pointer;border:2px solid #31568d;transition:.2s;margin:0 4px}
+      .gw-wizard-step.active,.gw-wizard-step:hover{background:#31568d;color:#fff}
+      .gw-wizard-form{background:#fff;padding:24px 30px;border-radius:14px;box-shadow:0 2px 10px #dde7f2;max-width:560px;margin:0 auto 28px}
+      .gw-wizard-form label{display:block;margin-top:14px;font-weight:500;color:#2c3e50}
+      .gw-wizard-form input,.gw-wizard-form select{width:100%;padding:10px;margin-top:5px;border-radius:6px;border:1px solid #bcd;font-size:14px;transition:border-color .3s}
+      .gw-wizard-form input:focus,.gw-wizard-form select:focus{outline:none;border-color:#31568d;box-shadow:0 0 0 2px rgba(49,86,141,.1)}
+      .gw-wizard-form select:disabled{background:#f8f9fa;color:#6c757d;cursor:not-allowed}
+      .gw-wizard-sesiones{margin-top:18px}
+      .gw-wizard-sesion{border:1px solid #bfd9f7;border-radius:8px;padding:16px;margin-bottom:12px;grid-template-columns:120px 140px 100px 1fr auto auto;gap:12px;align-items:center;background:#f8f9fa}
+      .gw-wizard-sesion input,.gw-wizard-sesion select{width:100%;margin:0}
+      .gw-wizard-sesion input[name="sesion_link[]"]{grid-column:span 3}
+      .gw-wizard-sesion input[name="sesion_lugar[]"]{grid-column:span 3}
+      .gw-wizard-sesion .remove-sesion,.gw-wizard-sesion .crear-meet{padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;transition:background-color .3s}
+      .gw-wizard-sesion .remove-sesion{background:#dc3545;color:#fff}
+      .gw-wizard-sesion .remove-sesion:hover{background:#c82333}
+      .gw-wizard-sesion .crear-meet{background:#28a745;color:#fff}
+      .gw-wizard-sesion .crear-meet:hover{background:#218838}
+      .gw-wizard-form .add-sesion{margin-top:12px;background:#31568d;color:#fff;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-weight:500;transition:background-color .3s}
+      .gw-wizard-form .add-sesion:hover{background:#254469}
+      .gw-capacitacion-list{max-width:900px;margin:0 auto}
+      .gw-capacitacion-card{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-left:4px solid #31568d;transition:transform .2s,box-shadow .2s}
+      .gw-capacitacion-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.12)}
+      .gw-capacitacion-title{font-size:18px;font-weight:600;color:#2c3e50;margin-bottom:8px}
+      .gw-capacitacion-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:12px}
+      .gw-capacitacion-meta span{color:#6c757d;font-size:14px}
+      .gw-capacitacion-actions{display:flex;gap:8px;margin-top:12px}
+      .gw-cap-edit,.gw-cap-restore{color:#007bff;text-decoration:none;padding:6px 12px;border:1px solid #007bff;border-radius:6px;font-size:13px;cursor:pointer;transition:all .3s}
+      .gw-cap-edit:hover,.gw-cap-restore:hover{background:#007bff;color:#fff}
+      .gw-cap-delete,.gw-cap-delete-forever{color:#dc3545;text-decoration:none;padding:6px 12px;border:1px solid #dc3545;border-radius:6px;font-size:13px;cursor:pointer;transition:all .3s}
+      .gw-cap-delete:hover,.gw-cap-delete-forever:hover{background:#dc3545;color:#fff}
+      .gw-cap-restore{color:#28a745;border-color:#28a745}
+      .gw-cap-restore:hover{background:#28a745;color:#fff}
+    </style>
+
+    <div class="gw-wizard-steps">
+      <div class="gw-wizard-step active" data-step="1">País</div>
+      <div class="gw-wizard-step" data-step="2">Proyecto</div>
+      <div class="gw-wizard-step" data-step="3">Coach</div>
+      <div class="gw-wizard-step" data-step="4">Sesiones</div>
+    </div>
+
+    <form class="gw-wizard-form" id="gw-capacitacion-form">
+      <div class="gw-wizard-step-content step-1">
+        <label>Nombre de la capacitación:</label>
+        <input type="text" name="titulo" required placeholder="Nombre de la capacitación">
+        <label>País relacionado:</label>
+        <select name="pais" required>
+          <option value="">Selecciona un país</option>
+          <?php
+            $paises = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+            foreach($paises as $pais){
+              echo '<option value="'.$pais->ID.'">'.esc_html($pais->post_title).'</option>';
+            }
+          ?>
+        </select>
+        <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+      </div>
+
+      <div class="gw-wizard-step-content step-2" style="display:none;">
+        <label>Proyecto relacionado:</label>
+        <select name="proyecto" required disabled>
+          <option value="">Primero selecciona un país</option>
+        </select>
+        <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
+        <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+      </div>
+
+      <div class="gw-wizard-step-content step-3" style="display:none;">
+        <label>Coach responsable:</label>
+        <select name="coach" required disabled>
+          <option value="">Primero selecciona un proyecto</option>
+        </select>
+        <button type="button" class="prev-step" style="margin-top:16px;">← Anterior</button>
+        <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+      </div>
+
+      <div class="gw-wizard-step-content step-4" style="display:none;">
+        <div class="gw-wizard-sesiones"></div>
+        <button type="button" class="add-sesion">Agregar sesión</button>
+        <div style="margin-top:16px;">
+          <button type="button" class="prev-step">← Anterior</button>
+          <button type="submit" class="button button-primary" style="float:right;">Guardar capacitación</button>
+        </div>
+      </div>
+
+      <input type="hidden" name="edit_id" value="">
+    </form>
+  </div>
+
+  <div class="gw-capacitacion-list">
+    <h3 style="margin-top:36px;">Capacitaciones registradas</h3>
+
+    <!-- Filtros (opcional visual) -->
+    <div class="gw-filtros-container" style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px;">
+        <select id="filtro-pais" style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+          <option value="">Todos los países</option>
+          <?php
+            $paises_filtro = get_posts(['post_type'=>'pais','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+            foreach($paises_filtro as $pais_f){
+              echo '<option value="'.$pais_f->ID.'">'.esc_html($pais_f->post_title).'</option>';
+            }
+          ?>
+        </select>
+        <select id="filtro-coach" style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+          <option value="">Todos los coaches</option>
+          <?php
+            $coaches_filtro = get_users(['role'=>'coach']);
+            foreach($coaches_filtro as $coach_f){
+              echo '<option value="'.$coach_f->ID.'">'.esc_html($coach_f->display_name).'</option>';
+            }
+          ?>
+        </select>
+        <select id="filtro-modalidad" style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+          <option value="">Todas las modalidades</option>
+          <option value="presencial">Presencial</option>
+          <option value="virtual">Virtual</option>
+          <option value="mixta">Mixta</option>
+        </select>
+        <input type="text" id="filtro-nombre" placeholder="Buscar por nombre..." style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="limpiar-filtros" style="background:#6c757d;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">Limpiar Filtros</button>
+        <button id="ver-papelera" style="background:#dc3545;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin-left:auto;">Ver Papelera</button>
+      </div>
+    </div>
+
+    <div id="gw-capacitaciones-listado">
+      <?php
+        $caps = get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
+        if(empty($caps)){
+          echo '<p>No hay capacitaciones registradas.</p>';
+        } else {
+          foreach($caps as $cap){
+            $pais_id = get_post_meta($cap->ID, '_gw_pais_relacionado', true);
+            $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
+            $coach_id = get_post_meta($cap->ID, '_gw_coach_asignado', true);
+            $sesiones = get_post_meta($cap->ID, '_gw_sesiones', true);
+
+            $pais_title = $pais_id ? get_the_title($pais_id) : '-';
+            $proy_title = $proy ? get_the_title($proy) : '-';
+            $coach_name = $coach_id ? get_userdata($coach_id)->display_name : '-';
+            $num_sesiones = is_array($sesiones) ? count($sesiones) : 0;
+
+            $modalidad = 'N/A';
+            if (is_array($sesiones) && !empty($sesiones)) {
+              $modalidades = array_unique(array_column($sesiones, 'modalidad'));
+              $modalidad = count($modalidades) > 1 ? 'Mixta' : ($modalidades[0] ?? 'N/A');
+            }
+
+            echo '<div class="gw-capacitacion-card" data-pais="'.$pais_id.'" data-coach="'.$coach_id.'" data-modalidad="'.strtolower($modalidad).'">';
+            echo '<div class="gw-capacitacion-title">'.esc_html($cap->post_title).'</div>';
+            echo '<div class="gw-capacitacion-meta">';
+            echo '<span><strong>País:</strong> '.$pais_title.'</span>';
+            echo '<span><strong>Proyecto:</strong> '.$proy_title.'</span>';
+            echo '<span><strong>Coach:</strong> '.$coach_name.'</span>';
+            echo '<span><strong>Sesiones:</strong> '.$num_sesiones.' ('.$modalidad.')</span>';
+            echo '</div>';
+            echo '<div class="gw-capacitacion-actions">';
+            echo '<span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span>';
+            echo '<span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span>';
+            echo '</div>';
+            echo '</div>';
+          }
+        }
+      ?>
+    </div>
+  </div>
+
+  <script>
+  // JAVASCRIPT COMPLETO (con NONCE y todos los fetch arreglados)
+  (function(){
+    const ajaxurl  = '<?php echo admin_url('admin-ajax.php'); ?>';
+    const GW_NONCE = '<?php echo wp_create_nonce('gw_caps'); ?>';
+
+    let currentStep = 1;
+
+    function showStep(n){
+      document.querySelectorAll('.gw-wizard-step-content').forEach(div => div.style.display = 'none');
+      const active = document.querySelector('.step-' + n);
+      if (active) active.style.display = '';
+      document.querySelectorAll('.gw-wizard-step').forEach(btn => btn.classList.remove('active'));
+      const tab = document.querySelector('.gw-wizard-step[data-step="' + n + '"]');
+      if (tab) tab.classList.add('active');
+    }
+
+    const wizardForm = document.getElementById('gw-capacitacion-form');
+    if (!wizardForm) return;
+
+    const paisSelectWizard     = wizardForm.querySelector('select[name="pais"]');
+    const proyectoSelectWizard = wizardForm.querySelector('select[name="proyecto"]');
+    const coachSelectWizard    = wizardForm.querySelector('select[name="coach"]');
+
+    // ----- Cargar proyectos por país -----
+    function cargarProyectosPorPais(paisId) {
+      const proyectoSelect = proyectoSelectWizard;
+      const coachSelect    = coachSelectWizard;
+
+      if (!proyectoSelect || !coachSelect) return;
+
+      if (!paisId) {
+        proyectoSelect.innerHTML = '<option value="">Primero selecciona un país</option>';
+        proyectoSelect.disabled  = true;
+        coachSelect.innerHTML    = '<option value="">Primero selecciona un proyecto</option>';
+        coachSelect.disabled     = true;
+        return;
+      }
+
+      proyectoSelect.innerHTML = '<option value="">Cargando proyectos...</option>';
+      proyectoSelect.disabled  = true;
+
+      fetch(`${ajaxurl}?action=gw_obtener_proyectos_por_pais&pais_id=${encodeURIComponent(paisId)}&security=${GW_NONCE}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.success && Array.isArray(res.data) && res.data.length) {
+            proyectoSelect.innerHTML = '<option value="">Selecciona un proyecto</option>';
+            res.data.forEach(p => {
+              proyectoSelect.innerHTML += `<option value="${p.id}">${p.titulo}</option>`;
+            });
+            proyectoSelect.disabled = false;
+          } else {
+            proyectoSelect.innerHTML = '<option value="">No hay proyectos disponibles</option>';
+            proyectoSelect.disabled  = true;
+          }
+          coachSelect.innerHTML = '<option value="">Primero selecciona un proyecto</option>';
+          coachSelect.disabled  = true;
+        })
+        .catch(() => {
+          proyectoSelect.innerHTML = '<option value="">Error al cargar proyectos</option>';
+          proyectoSelect.disabled  = true;
+        });
+    }
+
+    // ----- Cargar coaches por proyecto -----
+    function cargarCoachesPorProyecto(proyectoId) {
+      const coachSelect = coachSelectWizard;
+      if (!coachSelect) return;
+
+      if (!proyectoId) {
+        coachSelect.innerHTML = '<option value="">Primero selecciona un proyecto</option>';
+        coachSelect.disabled  = true;
+        return;
+      }
+
+      coachSelect.innerHTML = '<option value="">Cargando coaches...</option>';
+      coachSelect.disabled  = true;
+
+      fetch(`${ajaxurl}?action=gw_obtener_coaches_por_proyecto&proyecto_id=${encodeURIComponent(proyectoId)}&security=${GW_NONCE}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.success && Array.isArray(res.data) && res.data.length) {
+            coachSelect.innerHTML = '<option value="">Selecciona un coach</option>';
+            res.data.forEach(c => {
+              coachSelect.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+            });
+            coachSelect.disabled = false;
+          } else {
+            coachSelect.innerHTML = '<option value="">No hay coaches disponibles</option>';
+            coachSelect.disabled  = true;
+          }
+        })
+        .catch(() => {
+          coachSelect.innerHTML = '<option value="">Error al cargar coaches</option>';
+          coachSelect.disabled  = true;
+        });
+    }
+
+    // Listeners selects
+    paisSelectWizard?.addEventListener('change', function(){ cargarProyectosPorPais(this.value); });
+    proyectoSelectWizard?.addEventListener('change', function(){ cargarCoachesPorProyecto(this.value); });
+
+    // ----- Botones Siguiente/Anterior -----
+    function assignNextStepEvents(){
+      document.querySelectorAll('.next-step').forEach(btn=>{
+        btn.onclick = function(){
+          if (currentStep === 1) {
+            const tituloInput = wizardForm.querySelector('input[name="titulo"]');
+            const pais = paisSelectWizard?.value || '';
+            const titulo = tituloInput ? tituloInput.value.trim() : '';
+            if (!titulo) { alert('Por favor ingresa el nombre de la capacitación'); tituloInput?.focus(); return; }
+            if (!pais)   { alert('Por favor selecciona un país');              paisSelectWizard?.focus(); return; }
+          } else if (currentStep === 2) {
+            const proyecto = proyectoSelectWizard?.value || '';
+            if (!proyecto) { alert('Por favor selecciona un proyecto'); proyectoSelectWizard?.focus(); return; }
+          } else if (currentStep === 3) {
+            const coach = coachSelectWizard?.value || '';
+            if (!coach) { alert('Por favor selecciona un coach'); coachSelectWizard?.focus(); return; }
+          }
+          if (currentStep < 4) showStep(++currentStep);
+        };
+      });
+    }
+    assignNextStepEvents();
+
+    document.querySelectorAll('.prev-step').forEach(btn=>{
+      btn.onclick = function(){ if (currentStep > 1) showStep(--currentStep); };
+    });
+
+    // ----- Sesiones -----
+    const sesionesWrap = wizardForm.querySelector('.gw-wizard-sesiones');
+
+    function addSesion(data){
+      data = data || {};
+      const sesion = document.createElement('div');
+      sesion.className = 'gw-wizard-sesion';
+      sesion.innerHTML = `
+        <select name="sesion_modalidad[]">
+          <option value="Presencial"${data.modalidad=="Presencial"?" selected":""}>Presencial</option>
+          <option value="Virtual"${data.modalidad=="Virtual"?" selected":""}>Virtual</option>
+        </select>
+        <input type="date" name="sesion_fecha[]" value="${data.fecha||""}" required>
+        <input type="time" name="sesion_hora[]" value="${data.hora||""}" required>
+        <input type="text" name="sesion_lugar[]" placeholder="Lugar físico" value="${data.lugar||""}" ${data.modalidad=="Virtual"?"style='display:none;'":""}>
+        <input type="url"  name="sesion_link[]"  placeholder="Pega aquí el link de Google Meet" value="${data.link||""}" ${data.modalidad!="Virtual"?"style='display:none;'":""}>
+        <button type="button" class="remove-sesion">Eliminar</button>
+        <button type="button" class="crear-meet" ${data.modalidad!="Virtual"?"style='display:none;'":""}>Crear Meet</button>
+      `;
+
+      const modalidad   = sesion.querySelector('select');
+      const lugarInput  = sesion.querySelector('input[name="sesion_lugar[]"]');
+      const linkInput   = sesion.querySelector('input[name="sesion_link[]"]');
+      const crearMeetBtn= sesion.querySelector('.crear-meet');
+
+      function updateFields(){
+        const isVirtual = modalidad.value == 'Virtual';
+        if (isVirtual){
+          lugarInput.style.display = "none"; lugarInput.value = "";
+          linkInput.style.display  = "";
+          crearMeetBtn.style.display = "";
+        } else {
+          lugarInput.style.display = "";
+          linkInput.style.display  = "none"; linkInput.value = "";
+          crearMeetBtn.style.display = "none";
+        }
+      }
+      modalidad.onchange = updateFields;
+
+      crearMeetBtn.onclick = function(){
+        const fecha = sesion.querySelector('input[name="sesion_fecha[]"]').value;
+        const hora  = sesion.querySelector('input[name="sesion_hora[]"]').value;
+        const tituloCapacitacion = wizardForm.querySelector('input[name="titulo"]')?.value || 'Capacitación Virtual';
+        if (!fecha || !hora) { alert('Por favor completa la fecha y hora antes de crear el Meet'); return; }
+
+        const dt = new Date(fecha + 'T' + hora);
+        const pad = n => String(n).padStart(2,'0');
+
+        const ini = dt.getFullYear() + pad(dt.getMonth()+1) + pad(dt.getDate()) + 'T' + pad(dt.getHours()) + pad(dt.getMinutes()) + '00';
+        const dt2 = new Date(dt.getTime() + 60*60*1000);
+        const fin = dt2.getFullYear() + pad(dt2.getMonth()+1) + pad(dt2.getDate()) + 'T' + pad(dt2.getHours()) + pad(dt2.getMinutes()) + '00';
+
+        const url = `https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(tituloCapacitacion)}&dates=${ini}/${fin}&details=${encodeURIComponent('Sesión de capacitación virtual')}&vcon=meet&hl=es-419&ctz=America/Tegucigalpa`;
+        window.open(url, '_blank');
+      };
+
+      sesion.querySelector('.remove-sesion').onclick = function(){ sesionesWrap.removeChild(sesion); };
+
+      updateFields();
+      sesionesWrap.appendChild(sesion);
+    }
+
+    wizardForm.querySelector('.add-sesion')?.addEventListener('click', () => addSesion());
+
+    // ----- Envío del formulario -----
+    function handleFormSubmit(e){
+      e.preventDefault();
+
+      if (!wizardForm.querySelectorAll('.gw-wizard-sesion').length) { alert('Debe agregar al menos una sesión'); return; }
+
+      const titulo   = wizardForm.querySelector('input[name="titulo"]')?.value.trim();
+      const pais     = paisSelectWizard?.value;
+      const proyecto = proyectoSelectWizard?.value;
+      const coach    = coachSelectWizard?.value;
+
+      if (!titulo){ alert('El título es requerido'); showStep(1); return; }
+      if (!pais){   alert('El país es requerido');   showStep(1); return; }
+      if (!proyecto){ alert('El proyecto es requerido'); showStep(2); return; }
+      if (!coach){    alert('El coach es requerido');    showStep(3); return; }
+
+      const data = new FormData(wizardForm);
+      data.append('action','gw_guardar_capacitacion_wizard');
+      data.append('security', GW_NONCE);
+
+      fetch(ajaxurl, { method:'POST', credentials:'same-origin', body:data })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success){
+            wizardForm.reset();
+            sesionesWrap.innerHTML = '';
+            const editInput = wizardForm.querySelector('input[name="edit_id"]');
+            if (editInput){ editInput.value = ''; editInput.setAttribute('value',''); }
+            proyectoSelectWizard.innerHTML = '<option value="">Primero selecciona un país</option>';
+            proyectoSelectWizard.disabled  = true;
+            coachSelectWizard.innerHTML    = '<option value="">Primero selecciona un proyecto</option>';
+            coachSelectWizard.disabled     = true;
+
+            currentStep = 1; showStep(1);
+            updateListado(res);
+            alert('Capacitación guardada exitosamente');
+          } else {
+            alert('Error: ' + (res.data?.msg || res.msg || 'No se pudo guardar'));
+          }
+        })
+        .catch(err => { alert('Error de conexión: ' + err.message); });
+    }
+    wizardForm.addEventListener('submit', handleFormSubmit);
+
+    // ----- Delegación edición/eliminación/listado -----
+    function handleListClick(e){
+      // Editar
+      if (e.target.classList.contains('gw-cap-edit')){
+        const id = e.target.getAttribute('data-id');
+        fetch(`${ajaxurl}?action=gw_obtener_capacitacion&id=${encodeURIComponent(id)}&security=${GW_NONCE}`)
+          .then(r => r.json())
+          .then(res => {
+            if (res.success && res.data){
+              const d = res.data;
+              wizardForm.reset();
+              sesionesWrap.innerHTML = '';
+
+              setTimeout(() => {
+                const tituloInput = wizardForm.querySelector('input[name="titulo"]');
+                const editIdInput = wizardForm.querySelector('input[name="edit_id"]');
+
+                if (tituloInput) tituloInput.value = d.titulo || '';
+                if (editIdInput) editIdInput.value = id;
+
+                if (paisSelectWizard && d.pais){
+                  paisSelectWizard.value = d.pais;
+                  cargarProyectosPorPais(d.pais);
+
+                  setTimeout(() => {
+                    if (proyectoSelectWizard && d.proyecto){
+                      proyectoSelectWizard.value = d.proyecto;
+                      cargarCoachesPorProyecto(d.proyecto);
+
+                      setTimeout(() => {
+                        if (coachSelectWizard && d.coach){
+                          coachSelectWizard.value = d.coach;
+                        }
+                      }, 500);
+                    }
+                  }, 500);
+                }
+
+                if (Array.isArray(d.sesiones) && d.sesiones.length){
+                  d.sesiones.forEach(s => addSesion(s));
+                } else {
+                  addSesion();
+                }
+
+                currentStep = 1; showStep(1);
+                window.scrollTo(0, document.getElementById('gw-capacitacion-wizard').offsetTop - 40);
+                alert('Datos cargados para edición');
+              }, 100);
+            } else {
+              alert('Error al cargar los datos para editar');
+            }
+          })
+          .catch(err => alert('Error al cargar: ' + err.message));
+      }
+
+      // Eliminar (papelera)
+      if (e.target.classList.contains('gw-cap-delete')){
+        if (!confirm('¿Eliminar esta capacitación?')) return;
+        const id = e.target.getAttribute('data-id');
+        const data = new FormData();
+        data.append('action','gw_eliminar_capacitacion');
+        data.append('id', id);
+        data.append('security', GW_NONCE);
+
+        fetch(ajaxurl, { method:'POST', credentials:'same-origin', body:data })
+          .then(r => r.json())
+          .then(res => { if (res.success) updateListado(res); else alert('Error al eliminar'); })
+          .catch(err => alert('Error: ' + err.message));
+      }
+
+      // Restaurar papelera
+      if (e.target.classList.contains('gw-cap-restore')){
+        if (!confirm('¿Restaurar esta capacitación?')) return;
+        const id = e.target.getAttribute('data-id');
+        const data = new FormData();
+        data.append('action','gw_restaurar_capacitacion');
+        data.append('id', id);
+        data.append('security', GW_NONCE);
+
+        fetch(ajaxurl, { method:'POST', credentials:'same-origin', body:data })
+          .then(r => r.json())
+          .then(res => { if (res.success){ alert('Capacitación restaurada'); verPapelera(); } else alert('Error al restaurar'); });
+      }
+
+      // Eliminar permanentemente
+      if (e.target.classList.contains('gw-cap-delete-forever')){
+        if (!confirm('¿Eliminar PERMANENTEMENTE esta capacitación?')) return;
+        const id = e.target.getAttribute('data-id');
+        const data = new FormData();
+        data.append('action','gw_eliminar_permanente_capacitacion');
+        data.append('id', id);
+        data.append('security', GW_NONCE);
+
+        fetch(ajaxurl, { method:'POST', credentials:'same-origin', body:data })
+          .then(r => r.json())
+          .then(res => { if (res.success){ alert('Eliminada permanentemente'); verPapelera(); } else alert('Error al eliminar'); });
+      }
+    }
+
+    function updateListado(res){
+      const listadoElement = document.getElementById('gw-capacitaciones-listado');
+      if (res.data?.html) listadoElement.innerHTML = res.data.html;
+      else if (res.html)  listadoElement.innerHTML = res.html;
+      else listadoElement.innerHTML = '<p>No hay capacitaciones registradas.</p>';
+      assignListEvents();
+    }
+
+    function assignListEvents(){
+      const listado = document.getElementById('gw-capacitaciones-listado');
+      if (listado){
+        listado.removeEventListener('click', handleListClick);
+        listado.addEventListener('click', handleListClick);
+      }
+    }
+    assignListEvents();
+
+    // ----- Papelera / Activas -----
+    function verPapelera(){
+      fetch(`${ajaxurl}?action=gw_obtener_capacitaciones_eliminadas&security=${GW_NONCE}`)
+        .then(r => r.json())
+        .then(res => {
+          if (!res.success) return;
+          let html = '<h3>Papelera de Capacitaciones</h3>';
+          if (res.data?.length){
+            res.data.forEach(cap => {
+              html += `
+                <div class="gw-capacitacion-card" style="opacity:.7;border-left-color:#dc3545;">
+                  <div class="gw-capacitacion-title">${cap.titulo} (Eliminada)</div>
+                  <div class="gw-capacitacion-meta">
+                    <span><strong>País:</strong> ${cap.pais || '-'}</span>
+                    <span><strong>Proyecto:</strong> ${cap.proyecto || '-'}</span>
+                    <span><strong>Coach:</strong> ${cap.coach || '-'}</span>
+                    <span><strong>Eliminada:</strong> ${cap.fecha_eliminacion || ''}</span>
+                  </div>
+                  <div class="gw-capacitacion-actions">
+                    <span class="gw-cap-restore" data-id="${cap.id}" style="color:#28a745;cursor:pointer;padding:6px 12px;border:1px solid #28a745;border-radius:6px;">Restaurar</span>
+                    <span class="gw-cap-delete-forever" data-id="${cap.id}" style="color:#dc3545;cursor:pointer;padding:6px 12px;border:1px solid #dc3545;border-radius:6px;">Eliminar Permanentemente</span>
+                  </div>
+                </div>`;
+            });
+            html += '<button onclick="cargarCapacitacionesActivas()" style="background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin-top:16px;">Volver a Capacitaciones Activas</button>';
+          } else {
+            html += '<p>La papelera está vacía.</p>' +
+                    '<button onclick="cargarCapacitacionesActivas()" style="background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;">Volver a Capacitaciones Activas</button>';
+          }
+          document.getElementById('gw-capacitaciones-listado').innerHTML = html;
+          assignListEvents();
+        });
+    }
+    document.getElementById('ver-papelera')?.addEventListener('click', verPapelera);
+
+    window.cargarCapacitacionesActivas = function(){
+      fetch(`${ajaxurl}?action=gw_obtener_capacitaciones_activas&security=${GW_NONCE}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.success){
+            document.getElementById('gw-capacitaciones-listado').innerHTML = res.data.html;
+            assignListEvents();
+          }
+        });
+    };
+
+    // Paso inicial visible
+    showStep(1);
+  })();
+  </script>
+</div>
 
                 <!-- TAB PROGRESO -->
                 <div class="gw-admin-tab-content" id="gw-admin-tab-progreso" style="display:none;">
@@ -3199,6 +4098,8 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     </div>
 </div>
 
+
+
 <!-- Modal QR para países -->
 <div id="gw-qr-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:rgba(30,40,50,0.36);">
   <div style="background:#fff;max-width:370px;margin:8% auto;padding:34px 28px 28px 28px;border-radius:15px;box-shadow:0 4px 40px #3050884d;position:relative;">
@@ -3315,34 +4216,295 @@ add_action('wp_ajax_gw_abs_save_settings', function(){
   });
 
 
-// AJAX handler para guardar charlas de país
-add_action('wp_ajax_gw_guardar_charlas_pais', function() {
-    if (!current_user_can('manage_options')) wp_send_json_error();
-    $pais_id = intval($_POST['pais_id']);
-    // Recibe array de IDs de charla
-    $charlas = [];
-    if (isset($_POST['charlas'])) {
-        if (is_array($_POST['charlas'])) {
-            $charlas = array_map('intval', $_POST['charlas']);
-        } else {
-            // Si viene como string (por ejemplo, un solo checkbox), conviértelo a array
-            $charlas = [intval($_POST['charlas'])];
+
+
+// HANDLER ÚNICO - NO DUPLICAR
+add_action('wp_ajax_gw_obtener_coaches_por_pais', function() {
+    $pais = sanitize_text_field($_GET['pais'] ?? '');
+    if (empty($pais)) {
+        wp_send_json_error(['msg' => 'País no especificado']);
+    }
+    
+    $usuarios = get_users([
+        'role__in' => ['administrator', 'editor', 'coordinador_pais', 'coach'],
+        'orderby' => 'display_name',
+        'order' => 'ASC'
+    ]);
+    
+    $resultado = [];
+    foreach($usuarios as $usuario) {
+        $pais_usuario = get_user_meta($usuario->ID, 'pais', true);
+        $es_admin = user_can($usuario->ID, 'manage_options');
+        $es_coach = array_intersect(['coach', 'coordinador_pais', 'editor'], $usuario->roles);
+        
+        if ($es_admin || ($es_coach && $pais_usuario === $pais)) {
+            $resultado[] = [
+                'id' => $usuario->ID,
+                'name' => $usuario->display_name ?: $usuario->user_login,
+                'tipo' => $es_admin ? 'Administrador' : 'Coach'
+            ];
         }
     }
-    update_post_meta($pais_id, '_gw_charlas', $charlas);
-    wp_send_json_success();
+    
+    wp_send_json_success($resultado);
 });
-// AJAX para guardar sesiones de charla desde el panel admin
+
+// AJAX handler para eliminar charla
+add_action('wp_ajax_gw_eliminar_charla', function() {
+    if (!current_user_can('manage_options')) wp_send_json_error();
+    
+    $charla_id = intval($_POST['charla_id'] ?? 0);
+    if (!$charla_id) wp_send_json_error(['msg' => 'ID inválido']);
+    
+    // Marcar como eliminada en lugar de borrar completamente
+    update_post_meta($charla_id, '_gw_eliminada', true);
+    update_post_meta($charla_id, '_gw_eliminada_fecha', current_time('mysql'));
+    update_post_meta($charla_id, '_gw_eliminada_por', get_current_user_id());
+    
+    wp_send_json_success(['msg' => 'Charla eliminada correctamente']);
+});
+
+// AJAX handler para contar charlas eliminadas
+add_action('wp_ajax_gw_contar_eliminadas', function() {
+    if (!current_user_can('manage_options')) wp_send_json_error();
+    
+    $eliminadas = get_posts([
+        'post_type' => 'charla',
+        'numberposts' => -1,
+        'meta_query' => [
+            [
+                'key' => '_gw_eliminada',
+                'value' => true,
+                'compare' => '='
+            ]
+        ]
+    ]);
+    
+    wp_send_json_success(['count' => count($eliminadas)]);
+});
+
+// AJAX handler para obtener charlas eliminadas
+add_action('wp_ajax_gw_obtener_eliminadas', function() {
+    if (!current_user_can('manage_options')) wp_send_json_error();
+    
+    $eliminadas = get_posts([
+        'post_type' => 'charla',
+        'numberposts' => -1,
+        'meta_query' => [
+            [
+                'key' => '_gw_eliminada',
+                'value' => true,
+                'compare' => '='
+            ]
+        ],
+        'orderby' => 'meta_value',
+        'meta_key' => '_gw_eliminada_fecha',
+        'order' => 'DESC'
+    ]);
+    
+    ob_start();
+    if (empty($eliminadas)) {
+        echo '<p style="color:#666;">No hay charlas eliminadas.</p>';
+    } else {
+        foreach ($eliminadas as $charla) {
+            $fecha_eliminacion = get_post_meta($charla->ID, '_gw_eliminada_fecha', true);
+            $eliminada_por_id = get_post_meta($charla->ID, '_gw_eliminada_por', true);
+            $usuario = get_user_by('id', $eliminada_por_id);
+            $nombre_usuario = $usuario ? $usuario->display_name : 'Administrador';
+            
+            echo '<div style="border:1px solid #dc3545;padding:12px;margin-bottom:12px;border-radius:8px;background:#fff5f5;">';
+            echo '<div style="display:flex;justify-content:space-between;align-items:center;">';
+            echo '<h4 style="margin:0;color:#dc3545;">🗑️ ' . esc_html($charla->post_title) . '</h4>';
+            echo '<div style="display:flex;gap:8px;">';
+            echo '<button type="button" class="gw-restaurar-charla button button-small" data-charla-id="'.$charla->ID.'" style="background:#28a745;border-color:#28a745;color:white;">Restaurar</button>';
+            echo '<button type="button" class="gw-eliminar-definitivo button button-small" data-charla-id="'.$charla->ID.'" style="background:#dc3545;border-color:#dc3545;color:white;">Eliminar definitivo</button>';
+            echo '</div>';
+            echo '</div>';
+            echo '<p style="margin:8px 0 0 0;font-size:12px;color:#666;">';
+            echo 'Eliminada el ' . date('d/m/Y H:i', strtotime($fecha_eliminacion)) . ' por ' . esc_html($nombre_usuario);
+            echo '</p>';
+            echo '</div>';
+        }
+    }
+    $html = ob_get_clean();
+    
+    wp_send_json_success(['html' => $html]);
+});
+
+// AJAX handler para restaurar charla
+add_action('wp_ajax_gw_restaurar_charla', function() {
+    if (!current_user_can('manage_options')) wp_send_json_error();
+    
+    $charla_id = intval($_POST['charla_id'] ?? 0);
+    if (!$charla_id) wp_send_json_error(['msg' => 'ID inválido']);
+    
+    // Remover marcas de eliminación
+    delete_post_meta($charla_id, '_gw_eliminada');
+    delete_post_meta($charla_id, '_gw_eliminada_fecha');
+    delete_post_meta($charla_id, '_gw_eliminada_por');
+    
+    wp_send_json_success(['msg' => 'Charla restaurada correctamente']);
+});
+
+// AJAX handler para eliminar definitivamente charla
+add_action('wp_ajax_gw_eliminar_definitivo', function() {
+    if (!current_user_can('manage_options')) wp_send_json_error();
+    
+    $charla_id = intval($_POST['charla_id'] ?? 0);
+    if (!$charla_id) wp_send_json_error(['msg' => 'ID inválido']);
+    
+    // Eliminar definitivamente
+    wp_delete_post($charla_id, true);
+    
+    wp_send_json_success(['msg' => 'Charla eliminada definitivamente']);
+});
+
+// Modificar el handler original de agregar charla para que devuelva HTML actualizado
+add_action('wp_ajax_gw_agregar_charla', function() {
+    if (!current_user_can('manage_options')) wp_send_json_error();
+    
+    $titulo = sanitize_text_field($_POST['titulo'] ?? '');
+    if (empty($titulo)) wp_send_json_error(['msg' => 'Título requerido']);
+    
+    $charla_id = wp_insert_post([
+        'post_type' => 'charla',
+        'post_title' => $titulo,
+        'post_status' => 'publish'
+    ]);
+    
+    if (is_wp_error($charla_id)) {
+        wp_send_json_error(['msg' => 'Error al crear la charla']);
+    }
+    
+    // Devolver HTML actualizado
+    ob_start();
+    
+    // Función para renderizar una charla individual (repetida para el AJAX)
+    function gw_render_charla_individual_ajax($charla) {
+        $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
+        if (!is_array($sesiones)) $sesiones = [];
+        if (empty($sesiones)) $sesiones = [[]];
+        
+        // Determinar modalidades presentes
+        $modalidades = [];
+        $lugares = [];
+        foreach ($sesiones as $sesion) {
+            if (isset($sesion['modalidad'])) {
+                $modalidades[] = $sesion['modalidad'];
+            }
+            if (isset($sesion['lugar']) && !empty($sesion['lugar'])) {
+                $lugares[] = $sesion['lugar'];
+            }
+        }
+        $modalidades = array_unique($modalidades);
+        $lugares = array_unique($lugares);
+        
+        echo '<div class="gw-charla-item" data-modalidades="'.implode(',', $modalidades).'" data-lugares="'.implode(',', $lugares).'" data-nombre="'.esc_attr(strtolower($charla->post_title)).'" style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;position:relative;">';
+        
+        // Botón eliminar
+        echo '<button type="button" class="gw-eliminar-charla" data-charla-id="'.$charla->ID.'" style="position:absolute;top:12px;right:12px;background:#dc3545;color:white;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:14px;" title="Eliminar charla">🗑️</button>';
+        
+        echo '<h3 style="margin:0 0 12px 0;padding-right:40px;">' . esc_html($charla->post_title) . '</h3>';
+        
+        // Mostrar tags de modalidades y lugares
+        if (!empty($modalidades)) {
+            echo '<div style="margin-bottom:8px;">';
+            foreach ($modalidades as $mod) {
+                $color = $mod === 'Virtual' ? '#007cba' : '#46b450';
+                echo '<span style="background:'.$color.';color:white;padding:2px 8px;border-radius:12px;font-size:11px;margin-right:6px;">'.$mod.'</span>';
+            }
+            echo '</div>';
+        }
+        
+        echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
+        wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
+        echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
+        
+        foreach ($sesiones as $idx => $sesion) {
+            ?>
+            <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
+                <label>Modalidad:
+                    <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
+                        <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
+                        <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
+                    </select>
+                </label>
+                <label style="margin-left:18px;">Fecha:
+                    <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
+                </label>
+                <label style="margin-left:18px;">Hora:
+                    <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
+                </label>
+                <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
+                    Lugar físico:
+                    <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
+                </label>
+                <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
+                    Link:
+                    <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
+                </label>
+                <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
+            </div>
+            <?php
+        }
+        
+        echo '</div>';
+        echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
+        echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
+        echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
+        echo '</form>';
+        echo '</div>';
+    }
+    
+    $charlas = get_posts([
+        'post_type' => 'charla',
+        'numberposts' => -1,
+        'orderby' => 'title',
+        'order' => 'ASC',
+        'meta_query' => [
+            [
+                'key' => '_gw_eliminada',
+                'compare' => 'NOT EXISTS'
+            ]
+        ]
+    ]);
+    
+    if (empty($charlas)) {
+        echo '<p>No hay charlas registradas aún.</p>';
+    } else {
+        foreach ($charlas as $index => $charla) {
+            $display_style = $index >= 5 ? 'style="display:none;"' : '';
+            echo '<div class="gw-charla-wrapper" '.$display_style.'>';
+            gw_render_charla_individual_ajax($charla);
+            echo '</div>';
+        }
+        
+        // Botón ver más si hay más de 5 charlas
+        if (count($charlas) > 5) {
+            echo '<div id="gw-ver-mas-container" style="text-align:center;margin-top:20px;">';
+            echo '<button type="button" id="gw-ver-mas-charlas" class="button button-secondary">Ver más charlas (' . (count($charlas) - 5) . ' restantes)</button>';
+            echo '</div>';
+        }
+    }
+    
+    $html = ob_get_clean();
+    
+    wp_send_json_success(['html' => $html]);
+});
+
+// Actualizar el handler original de guardar sesiones para que también maneje la paginación
 add_action('wp_ajax_gw_guardar_sesiones_charla', function() {
     if (!current_user_can('manage_options')) wp_send_json_error();
     $charla_id = intval($_POST['charla_id'] ?? 0);
     if (!$charla_id) wp_send_json_error(['msg'=>'ID inválido']);
+    
     // Verificar nonce
     $nonce_field = 'gw_sesiones_charla_nonce';
     if (!isset($_POST[$nonce_field]) || !wp_verify_nonce($_POST[$nonce_field], 'gw_sesiones_charla_'.$charla_id)) {
         wp_send_json_error(['msg'=>'Nonce inválido']);
     }
-    // Procesar sesiones
+    
+    // Procesar sesiones (código original mantenido)
     $sesiones = [];
     if (!empty($_POST['sesion_modalidad']) && is_array($_POST['sesion_modalidad'])) {
         foreach ($_POST['sesion_modalidad'] as $i => $mod) {
@@ -3365,366 +4527,911 @@ add_action('wp_ajax_gw_guardar_sesiones_charla', function() {
         }
     }
     update_post_meta($charla_id, '_gw_sesiones', $sesiones);
-    // Devolver listado actualizado para recarga AJAX
-    $charlas = get_posts([
-        'post_type' => 'charla',
-        'numberposts' => -1,
-        'orderby' => 'title',
-        'order' => 'ASC'
-    ]);
-    ob_start();
-    if(empty($charlas)) {
-        echo '<p>No hay charlas registradas aún.</p>';
-    } else {
-        foreach ($charlas as $charla) {
-            $sesiones = get_post_meta($charla->ID, '_gw_sesiones', true);
-            if (!is_array($sesiones)) $sesiones = [];
-            if (empty($sesiones)) $sesiones = [[]];
-            echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;">';
-            echo '<h3 style="margin:0 0 12px 0;">' . esc_html($charla->post_title) . '</h3>';
-            echo '<form method="post" class="gw-form-sesiones-charla" data-charla="'.$charla->ID.'">';
-            wp_nonce_field('gw_sesiones_charla_'.$charla->ID, 'gw_sesiones_charla_nonce');
-            echo '<div id="gw-sesiones-list-'.$charla->ID.'">';
-            foreach ($sesiones as $idx => $sesion) {
-                ?>
-                <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
-                    <label>Modalidad:
-                        <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
-                            <option value="Presencial" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Presencial'); ?>>Presencial</option>
-                            <option value="Virtual" <?php selected((isset($sesion['modalidad'])?$sesion['modalidad']:''),'Virtual'); ?>>Virtual</option>
-                        </select>
-                    </label>
-                    <label style="margin-left:18px;">Fecha:
-                        <input type="date" name="sesion_fecha[]" value="<?php echo isset($sesion['fecha']) ? esc_attr($sesion['fecha']) : ''; ?>" required>
-                    </label>
-                    <label style="margin-left:18px;">Hora:
-                        <input type="time" name="sesion_hora[]" value="<?php echo isset($sesion['hora']) ? esc_attr($sesion['hora']) : ''; ?>" required>
-                    </label>
-                    <label class="gw-lugar-label-panel" style="margin-left:18px;<?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'display:none;'; ?>">
-                        Lugar físico:
-                        <input type="text" name="sesion_lugar[]" value="<?php echo isset($sesion['lugar']) ? esc_attr($sesion['lugar']) : ''; ?>" <?php if(isset($sesion['modalidad']) && strtolower($sesion['modalidad'])=='virtual') echo 'disabled'; ?> >
-                    </label>
-                    <label class="gw-link-label-panel" style="margin-left:18px;<?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'display:none;'; ?>">
-                        Link:
-                        <input type="url" name="sesion_link[]" value="<?php echo isset($sesion['link']) ? esc_attr($sesion['link']) : ''; ?>" <?php if(!isset($sesion['modalidad']) || strtolower($sesion['modalidad'])!='virtual') echo 'disabled'; ?>>
-                    </label>
-                    <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
-                </div>
-                <?php
-            }
-            echo '</div>';
-            echo '<button type="button" class="gw-add-sesion-panel button button-secondary">Agregar sesión</button>';
-            echo '<button type="submit" class="button button-primary" style="margin-left:14px;">Guardar sesiones</button>';
-            echo '<span class="gw-sesiones-guardado" style="margin-left:18px;color:#1e7e34;display:none;">Guardado</span>';
-            echo '</form>';
-            echo '</div>';
-        }
-    }
-    $html = ob_get_clean();
-    wp_send_json_success(['html'=>$html]);
+    
+    // Solo devolver HTML actualizado si es necesario (mantener comportamiento original)
+    wp_send_json_success(['msg' => 'Sesiones guardadas correctamente']);
 });
-// AJAX handler para agregar nuevo proyecto y devolver listado actualizado
-add_action('wp_ajax_gw_nuevo_proyecto', function(){
-    if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) wp_send_json_error();
-    $titulo = sanitize_text_field($_POST['titulo'] ?? '');
-    if (!$titulo) wp_send_json_error(['msg'=>'Falta el título']);
-    $id = wp_insert_post([
-        'post_title' => $titulo,
-        'post_type' => 'proyecto',
+
+
+
+
+
+
+
+
+
+
+
+// ==============================================
+// FUNCIONES PHP AJAX PARA GESTIÓN DE PROYECTOS
+// ==============================================
+
+// ---- LISTAR PAÍSES (ID + nombre) desde CPT 'pais' ----
+remove_all_actions('wp_ajax_gw_listar_paises_codigos');
+add_action('wp_ajax_gw_listar_paises_codigos', function () {
+    if ( ! current_user_can('read') ) wp_send_json_error(['msg' => 'No autorizado']);
+
+    $paises = get_posts([
+        'post_type'   => 'pais',
         'post_status' => 'publish',
-    ]);
-    if (!$id) wp_send_json_error(['msg'=>'Error al guardar']);
-    // Devolver listado actualizado:
-    $proyectos = get_posts([
-        'post_type' => 'proyecto',
         'numberposts' => -1,
-        'orderby' => 'title',
-        'order' => 'ASC'
+        'orderby'     => 'title',
+        'order'       => 'ASC',
     ]);
-    ob_start();
-    if(empty($proyectos)) {
-        echo '<p>No hay proyectos registrados aún.</p>';
-    } else {
-        echo '<ul style="padding-left:12px;">';
-        foreach($proyectos as $proy){
-            $edit_url = admin_url('post.php?post='.$proy->ID.'&action=edit');
-            echo '<li style="margin-bottom:8px;"><b>'.esc_html($proy->post_title).'</b> <a href="'.$edit_url.'" target="_blank" style="margin-left:8px;font-size:0.94em;">Editar en WordPress</a></li>';
+
+    $out = array_map(function($p){
+        return ['id' => (int)$p->ID, 'nombre' => $p->post_title];
+    }, $paises);
+
+    wp_send_json_success($out);
+});
+
+// ---- OBTENER COACHES (sin filtro) ----
+remove_all_actions('wp_ajax_gw_obtener_coaches');
+add_action('wp_ajax_gw_obtener_coaches', function(){
+    if ( ! current_user_can('read') ) wp_send_json_error(['msg' => 'No autorizado']);
+
+    $coaches = get_users([
+        'role__in' => ['administrator', 'editor', 'coordinador_pais', 'coach'],
+        'orderby'  => 'display_name',
+        'order'    => 'ASC',
+        'fields'   => 'all',
+    ]);
+
+    $data = array_map(function($user) {
+        // Nombre de país (si existe)
+        $pais_nombre = get_user_meta($user->ID, 'pais', true);
+        if (!$pais_nombre) {
+            // Si no hay nombre, intenta resolver por ID
+            $pais_id = get_user_meta($user->ID, 'gw_pais_id', true);
+            if (is_numeric($pais_id) && $pais_id) {
+                $post = get_post((int)$pais_id);
+                if ($post && $post->post_type === 'pais') {
+                    $pais_nombre = $post->post_title;
+                }
+            }
         }
-        echo '</ul>';
+        $pais_nombre = $pais_nombre ?: 'Sin especificar';
+
+        return [
+            'id'   => (int)$user->ID,
+            'name' => $user->display_name ?: $user->user_login,
+            'pais' => $pais_nombre
+        ];
+    }, $coaches);
+
+    wp_send_json_success($data);
+});
+
+// ---- OBTENER COACHES POR pais_id (match por usermeta gw_pais_id) ----
+remove_all_actions('wp_ajax_gw_obtener_coaches_por_pais');
+add_action('wp_ajax_gw_obtener_coaches_por_pais', function () {
+    if ( ! current_user_can('read') ) wp_send_json_error(['msg' => 'No autorizado']);
+
+    $pais_id = isset($_GET['pais_id']) ? intval($_GET['pais_id']) : 0;
+    if (!$pais_id) {
+        wp_send_json_error(['msg' => 'pais_id requerido']);
+    }
+
+    // Solo roles relevantes (coach / coordinador_pais). Quita/añade según tu flujo.
+    $q = new WP_User_Query([
+        'role__in'   => ['coach','coordinador_pais'],
+        'orderby'    => 'display_name',
+        'order'      => 'ASC',
+        'fields'     => ['ID','display_name','user_login'],
+        'meta_query' => [
+            [
+                'key'     => 'gw_pais_id',
+                'value'   => $pais_id,
+                'compare' => '='
+            ]
+        ],
+    ]);
+    $users = $q->get_results();
+
+    $out = [];
+    foreach ($users as $u) {
+        $out[] = [
+            'id'   => (int)$u->ID,
+            'name' => $u->display_name ?: $u->user_login,
+            'tipo' => 'Coach',
+        ];
+    }
+
+    // (Opcional) Si quieres incluir admin siempre, descomenta:
+    /*
+    $admin_q = new WP_User_Query([
+        'role'   => 'administrator',
+        'fields' => ['ID','display_name','user_login'],
+        'number' => 1
+    ]);
+    $admins = $admin_q->get_results();
+    if (!empty($admins)) {
+        $a = $admins[0];
+        array_unshift($out, [
+            'id'   => (int)$a->ID,
+            'name' => $a->display_name ?: $a->user_login,
+            'tipo' => 'Administrador',
+        ]);
+    }
+    */
+
+    wp_send_json_success($out);
+});
+
+// ---- CREAR PROYECTO ----
+add_action('wp_ajax_gw_nuevo_proyecto', function(){
+    if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) {
+        wp_send_json_error(['msg' => 'No tienes permisos']);
+    }
+
+    $titulo      = sanitize_text_field($_POST['titulo'] ?? '');
+    $pais_nombre = sanitize_text_field($_POST['pais'] ?? ''); // seguimos guardando el NOMBRE del país para tu listado
+    $coach       = intval($_POST['coach'] ?? 0);
+    $descripcion = sanitize_textarea_field($_POST['descripcion'] ?? '');
+
+    if (!$titulo || !$pais_nombre || !$coach) {
+        wp_send_json_error(['msg' => 'Faltan campos obligatorios']);
+    }
+
+    $coach_user = get_user_by('ID', $coach);
+    if (!$coach_user) {
+        wp_send_json_error(['msg' => 'Coach no válido']);
+    }
+
+    $proyecto_id = wp_insert_post([
+        'post_title'   => $titulo,
+        'post_type'    => 'proyecto',
+        'post_status'  => 'publish',
+        'post_content' => $descripcion,
+        'meta_input'   => [
+            '_gw_proyecto_pais'           => $pais_nombre, // nombre (tu listado actual usa texto)
+            '_gw_proyecto_coach'          => $coach,
+            '_gw_proyecto_estado'         => 'activo',
+            '_gw_proyecto_fecha_creacion' => current_time('mysql'),
+            '_gw_proyecto_creado_por'     => get_current_user_id()
+        ]
+    ]);
+
+    if (!$proyecto_id) {
+        wp_send_json_error(['msg' => 'Error al guardar en base de datos']);
+    }
+
+    gw_registrar_historial_proyecto($proyecto_id, 'creado', 'Proyecto creado');
+    wp_send_json_success(['msg' => 'Proyecto creado exitosamente']);
+});
+
+// ---- LISTAR PROYECTOS (con filtros) ----
+add_action('wp_ajax_gw_listar_proyectos', function(){
+    $pais     = sanitize_text_field($_GET['pais'] ?? '');
+    $busqueda = sanitize_text_field($_GET['busqueda'] ?? '');
+    $estado   = sanitize_text_field($_GET['estado'] ?? 'activo');
+
+    $args = [
+        'post_type'   => 'proyecto',
+        'numberposts' => -1,
+        'orderby'     => 'title',
+        'order'       => 'ASC',
+        'post_status' => 'publish'
+    ];
+
+    if ($busqueda) {
+        $args['s'] = $busqueda;
+    }
+
+    $proyectos = get_posts($args);
+
+    $proyectos_filtrados = [];
+    foreach ($proyectos as $proyecto) {
+        $pais_proyecto   = get_post_meta($proyecto->ID, '_gw_proyecto_pais', true);
+        $estado_proyecto = get_post_meta($proyecto->ID, '_gw_proyecto_estado', true);
+
+        if (empty($estado_proyecto)) {
+            $estado_proyecto = 'activo';
+            update_post_meta($proyecto->ID, '_gw_proyecto_estado', 'activo');
+            update_post_meta($proyecto->ID, '_gw_proyecto_fecha_creacion', $proyecto->post_date);
+            update_post_meta($proyecto->ID, '_gw_proyecto_creado_por', 1);
+        }
+
+        if (empty($pais_proyecto)) {
+            $pais_proyecto = 'Sin especificar';
+            update_post_meta($proyecto->ID, '_gw_proyecto_pais', 'Sin especificar');
+        }
+
+        $incluir = true;
+        if ($pais && $pais_proyecto !== $pais) {
+            $incluir = false;
+        }
+        if ($estado && $estado_proyecto !== $estado) {
+            $incluir = false;
+        }
+        if ($incluir) {
+            $proyectos_filtrados[] = $proyecto;
+        }
+    }
+
+    ob_start();
+    if (empty($proyectos_filtrados)) {
+        echo '<p>No se encontraron proyectos con los filtros aplicados.</p>';
+    } else {
+        foreach ($proyectos_filtrados as $proyecto) {
+            $pais_proyecto   = get_post_meta($proyecto->ID, '_gw_proyecto_pais', true) ?: 'Sin especificar';
+            $coach_id        = get_post_meta($proyecto->ID, '_gw_proyecto_coach', true);
+            $estado_proyecto = get_post_meta($proyecto->ID, '_gw_proyecto_estado', true) ?: 'activo';
+            $fecha_creacion  = get_post_meta($proyecto->ID, '_gw_proyecto_fecha_creacion', true) ?: $proyecto->post_date;
+
+            $coach_name = 'Sin asignar';
+            if ($coach_id) {
+                $coach = get_user_by('ID', $coach_id);
+                $coach_name = $coach ? $coach->display_name : 'Sin asignar';
+            }
+
+            $clase_css = $estado_proyecto === 'eliminado' ? 'gw-proyecto-item gw-proyecto-eliminado' : 'gw-proyecto-item';
+
+            echo '<div class="' . $clase_css . '">';
+            echo '<div class="gw-proyecto-header">';
+            echo '<div>';
+            echo '<h4 style="margin:0;">' . esc_html($proyecto->post_title) . '</h4>';
+            echo '<div style="color:#666;font-size:14px;margin-top:5px;">';
+            echo '<strong>País:</strong> ' . esc_html($pais_proyecto) . ' | ';
+            echo '<strong>Coach:</strong> ' . esc_html($coach_name) . ' | ';
+            echo '<strong>Creado:</strong> ' . date('d/m/Y', strtotime($fecha_creacion));
+            if ($estado_proyecto === 'eliminado') {
+                echo ' | <span style="color:#f44336;"><strong>ELIMINADO</strong></span>';
+            }
+            echo '</div>';
+            echo '</div>';
+
+            if (current_user_can('manage_options') || current_user_can('coordinador_pais')) {
+                echo '<div class="gw-proyecto-acciones">';
+                if ($estado_proyecto === 'activo') {
+                    $descripcion = $proyecto->post_content ?: '';
+                    echo '<button class="gw-btn-editar" onclick="gwEditarProyecto(' . $proyecto->ID . ', \'' . esc_js($proyecto->post_title) . '\', \'' . esc_js($pais_proyecto) . '\', ' . $coach_id . ', \'' . esc_js($descripcion) . '\')">Editar</button>';
+                    echo '<button class="gw-btn-wp" onclick="window.open(\'' . admin_url('post.php?post=' . $proyecto->ID . '&action=edit') . '\', \'_blank\')">WP</button>';
+                    echo '<button class="gw-btn-eliminar" onclick="gwEliminarProyecto(' . $proyecto->ID . ')">Eliminar</button>';
+                } else {
+                    echo '<button class="gw-btn-restaurar" onclick="gwRestaurarProyecto(' . $proyecto->ID . ')">Restaurar</button>';
+                }
+                echo '<button class="gw-btn-historial" onclick="gwVerHistorial(' . $proyecto->ID . ')">Historial</button>';
+                echo '</div>';
+            }
+
+            echo '</div>';
+
+            if ($proyecto->post_content) {
+                echo '<div style="margin-top:10px;color:#666;">';
+                echo '<strong>Descripción:</strong> ' . esc_html($proyecto->post_content);
+                echo '</div>';
+            }
+
+            echo '</div>';
+        }
     }
     $html = ob_get_clean();
+
+    wp_send_json_success(['html' => $html]);
+});
+
+// ---- OBTENER PAÍSES (para el filtro de listado de proyectos) ----
+add_action('wp_ajax_gw_obtener_paises_proyectos', function(){
+    global $wpdb;
+
+    $proyectos_sin_pais = $wpdb->get_results($wpdb->prepare("
+        SELECT p.ID 
+        FROM {$wpdb->posts} p 
+        LEFT JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_gw_proyecto_pais'
+        WHERE p.post_type = 'proyecto' 
+        AND p.post_status = 'publish'
+        AND pm.meta_value IS NULL
+    "));
+    foreach ($proyectos_sin_pais as $proyecto) {
+        update_post_meta($proyecto->ID, '_gw_proyecto_pais', 'Sin especificar');
+    }
+
+    $paises = $wpdb->get_col($wpdb->prepare("
+        SELECT DISTINCT pm.meta_value 
+        FROM {$wpdb->postmeta} pm 
+        INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id 
+        WHERE pm.meta_key = '_gw_proyecto_pais' 
+        AND p.post_type = 'proyecto' 
+        AND p.post_status = 'publish'
+        ORDER BY pm.meta_value ASC
+    "));
+
+    wp_send_json_success($paises);
+});
+
+// ---- ELIMINAR / RESTAURAR / EDITAR PROYECTO ----
+add_action('wp_ajax_gw_eliminar_proyecto', function(){
+    if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) {
+        wp_send_json_error(['msg' => 'No tienes permisos']);
+    }
+    $proyecto_id = intval($_POST['proyecto_id'] ?? 0);
+    if (!$proyecto_id) wp_send_json_error(['msg' => 'ID no válido']);
+
+    $result = update_post_meta($proyecto_id, '_gw_proyecto_estado', 'eliminado');
+    if ($result !== false) {
+        gw_registrar_historial_proyecto($proyecto_id, 'eliminado', 'Proyecto eliminado por usuario');
+        wp_send_json_success();
+    } else {
+        wp_send_json_error(['msg' => 'Error al actualizar']);
+    }
+});
+
+add_action('wp_ajax_gw_restaurar_proyecto', function(){
+    if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) {
+        wp_send_json_error(['msg' => 'No tienes permisos']);
+    }
+    $proyecto_id = intval($_POST['proyecto_id'] ?? 0);
+    if (!$proyecto_id) wp_send_json_error(['msg' => 'ID no válido']);
+
+    $result = update_post_meta($proyecto_id, '_gw_proyecto_estado', 'activo');
+    if ($result !== false) {
+        gw_registrar_historial_proyecto($proyecto_id, 'restaurado', 'Proyecto restaurado por usuario');
+        wp_send_json_success();
+    } else {
+        wp_send_json_error(['msg' => 'Error al actualizar']);
+    }
+});
+
+add_action('wp_ajax_gw_editar_proyecto', function(){
+    if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) {
+        wp_send_json_error(['msg' => 'No tienes permisos']);
+    }
+
+    $proyecto_id = intval($_POST['proyecto_id'] ?? 0);
+    $titulo      = sanitize_text_field($_POST['titulo'] ?? '');
+    $pais_nombre = sanitize_text_field($_POST['pais'] ?? '');
+    $coach       = intval($_POST['coach'] ?? 0);
+    $descripcion = sanitize_textarea_field($_POST['descripcion'] ?? '');
+
+    if (!$proyecto_id || !$titulo) {
+        wp_send_json_error(['msg' => 'Faltan datos obligatorios']);
+    }
+
+    $result = wp_update_post([
+        'ID'           => $proyecto_id,
+        'post_title'   => $titulo,
+        'post_content' => $descripcion
+    ]);
+    if (is_wp_error($result)) {
+        wp_send_json_error(['msg' => 'Error al actualizar proyecto']);
+    }
+
+    if ($pais_nombre) {
+        update_post_meta($proyecto_id, '_gw_proyecto_pais', $pais_nombre);
+    }
+    if ($coach) {
+        $coach_user = get_user_by('ID', $coach);
+        if (!$coach_user) {
+            wp_send_json_error(['msg' => 'Coach no válido']);
+        }
+        update_post_meta($proyecto_id, '_gw_proyecto_coach', $coach);
+    }
+
+    gw_registrar_historial_proyecto($proyecto_id, 'editado', 'Proyecto editado por usuario');
+    wp_send_json_success(['msg' => 'Proyecto actualizado exitosamente']);
+});
+
+// ---- Historial de proyectos (helper) ----
+function gw_registrar_historial_proyecto($proyecto_id, $accion, $descripcion = '') {
+    global $wpdb;
+    $tabla_historial = $wpdb->prefix . 'gw_historial_proyectos';
+
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE IF NOT EXISTS {$tabla_historial} (
+        id int(11) NOT NULL AUTO_INCREMENT,
+        proyecto_id int(11) NOT NULL,
+        usuario_id int(11) NOT NULL,
+        accion varchar(50) NOT NULL,
+        descripcion text,
+        fecha datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY proyecto_id (proyecto_id),
+        KEY usuario_id (usuario_id)
+    ) {$charset_collate};";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+
+    $wpdb->insert($tabla_historial, [
+        'proyecto_id' => $proyecto_id,
+        'usuario_id'  => get_current_user_id(),
+        'accion'      => $accion,
+        'descripcion' => $descripcion,
+        'fecha'       => current_time('mysql')
+    ]);
+}
+
+// ---- Registrar CPT 'proyecto' ----
+add_action('init', function() {
+    if (!post_type_exists('proyecto')) {
+        register_post_type('proyecto', [
+            'labels' => [
+                'name'               => 'Proyectos',
+                'singular_name'      => 'Proyecto',
+                'add_new'            => 'Agregar Proyecto',
+                'add_new_item'       => 'Agregar Nuevo Proyecto',
+                'edit_item'          => 'Editar Proyecto',
+                'new_item'           => 'Nuevo Proyecto',
+                'view_item'          => 'Ver Proyecto',
+                'search_items'       => 'Buscar Proyectos',
+                'not_found'          => 'No se encontraron proyectos',
+                'not_found_in_trash' => 'No hay proyectos en la papelera'
+            ],
+            'public'       => false,
+            'show_ui'      => true,
+            'show_in_menu' => false,
+            'supports'     => ['title', 'editor'],
+            'menu_icon'    => 'dashicons-portfolio',
+            'has_archive'  => false,
+            'rewrite'      => false
+        ]);
+    }
+});
+
+// ---- Migración automática (una sola vez) ----
+add_action('wp_loaded', function() {
+    $migrado = get_option('gw_proyectos_migrados', false);
+    if (!$migrado) {
+        gw_migrar_proyectos_existentes();
+        update_option('gw_proyectos_migrados', true);
+    }
+});
+
+function gw_migrar_proyectos_existentes() {
+    $proyectos = get_posts([
+        'post_type'   => 'proyecto',
+        'numberposts' => -1,
+        'post_status' => 'publish'
+    ]);
+
+    $migrados = 0;
+    foreach ($proyectos as $proyecto) {
+        $necesita = false;
+
+        $estado = get_post_meta($proyecto->ID, '_gw_proyecto_estado', true);
+        if (empty($estado)) {
+            update_post_meta($proyecto->ID, '_gw_proyecto_estado', 'activo');
+            $necesita = true;
+        }
+        $fecha_creacion = get_post_meta($proyecto->ID, '_gw_proyecto_fecha_creacion', true);
+        if (empty($fecha_creacion)) {
+            update_post_meta($proyecto->ID, '_gw_proyecto_fecha_creacion', $proyecto->post_date);
+            $necesita = true;
+        }
+        $creado_por = get_post_meta($proyecto->ID, '_gw_proyecto_creado_por', true);
+        if (empty($creado_por)) {
+            update_post_meta($proyecto->ID, '_gw_proyecto_creado_por', 1);
+            $necesita = true;
+        }
+        $pais = get_post_meta($proyecto->ID, '_gw_proyecto_pais', true);
+        if (empty($pais)) {
+            update_post_meta($proyecto->ID, '_gw_proyecto_pais', 'Sin especificar');
+            $necesita = true;
+        }
+
+        if ($necesita) {
+            $migrados++;
+            gw_registrar_historial_proyecto($proyecto->ID, 'migrado', 'Proyecto migrado al nuevo sistema');
+        }
+    }
+
+    return $migrados;
+}
+
+// ---- Debug usuarios (opcional) ----
+add_action('wp_ajax_gw_debug_usuarios', function(){
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['msg' => 'No tienes permisos']);
+    }
+    $todos_usuarios = get_users(['orderby' => 'display_name', 'order' => 'ASC']);
+    $debug_info = [];
+
+    foreach($todos_usuarios as $usuario) {
+        $pais = get_user_meta($usuario->ID, 'pais', true);
+        $debug_info[] = [
+            'id'    => $usuario->ID,
+            'nombre'=> $usuario->display_name ?: $usuario->user_login,
+            'email' => $usuario->user_email,
+            'pais'  => $pais ?: '(no asignado)',
+            'roles' => implode(', ', $usuario->roles)
+        ];
+    }
+    wp_send_json_success($debug_info);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ======================================================
+// Helpers comunes
+// ======================================================
+if ( ! function_exists('gw_norm') ) {
+    function gw_norm($s){
+      $s = wp_strip_all_tags((string)$s);
+      $s = trim(preg_replace('/\s+/u',' ', $s));
+      $s = remove_accents($s);
+      return mb_strtolower($s, 'UTF-8');
+    }
+  }
+  if ( ! function_exists('gw_find_pais_id_by_name') ) {
+    function gw_find_pais_id_by_name($nombre){
+      if (!$nombre) return 0;
+  
+      // 1) exacto por título
+      $p = get_page_by_title($nombre, OBJECT, 'pais');
+      if ($p) return (int)$p->ID;
+  
+      // 2) normalizado
+      $norm = gw_norm($nombre);
+      $todos = get_posts([
+        'post_type'   => 'pais',
+        'post_status' => 'publish',
+        'numberposts' => -1,
+        'fields'      => 'ids'
+      ]);
+      foreach ($todos as $pid){
+        $t = get_the_title($pid);
+        if ($t && gw_norm($t) === $norm) return (int)$pid;
+      }
+      return 0;
+    }
+  }
+  
+  // Chequeo global (permisos + nonce) y utilidades de render
+  if ( ! function_exists('gw_caps_check') ) {
+    function gw_caps_check($require_id = false, $id_key = 'id') {
+      if ( ! current_user_can('manage_options') ) {
+        wp_send_json_error(['msg'=>'Sin permisos'], 403);
+      }
+      if ( ! isset($_REQUEST['security']) || ! wp_verify_nonce($_REQUEST['security'], 'gw_caps') ) {
+        wp_send_json_error(['msg'=>'Solicitud no verificada (nonce)'], 400);
+      }
+      if ( $require_id ) {
+        $id = intval($_REQUEST[$id_key] ?? 0);
+        if ( ! $id || get_post_type($id) !== 'capacitacion' ) {
+          wp_send_json_error(['msg'=>'ID inválido'], 400);
+        }
+        return $id;
+      }
+      return true;
+    }
+  }
+  
+  if ( ! function_exists('gw_caps_render_list_html') ) {
+    function gw_caps_render_list_html( $status = 'publish' ) {
+      $caps = get_posts([
+        'post_type'   => 'capacitacion',
+        'post_status' => $status,
+        'numberposts' => -1,
+        'orderby'     => 'title',
+        'order'       => 'ASC',
+      ]);
+      if ( ! $caps ) {
+        return '<p>No hay capacitaciones registradas.</p>';
+      }
+      ob_start();
+      foreach ($caps as $cap) {
+        $pais_id   = (int) get_post_meta($cap->ID, '_gw_pais_relacionado', true);
+        $proy_id   = (int) get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
+        $coach_id  = (int) get_post_meta($cap->ID, '_gw_coach_asignado', true);
+        $sesiones  = get_post_meta($cap->ID, '_gw_sesiones', true);
+  
+        $pais_t    = $pais_id  ? get_the_title($pais_id) : '-';
+        $proy_t    = $proy_id  ? get_the_title($proy_id) : '-';
+        $coach_t   = $coach_id ? (get_userdata($coach_id)->display_name ?? '-') : '-';
+        $num       = is_array($sesiones) ? count($sesiones) : 0;
+  
+        $modalidad = 'N/A';
+        if ( is_array($sesiones) && $sesiones ) {
+          $mods = array_unique(array_map(function($s){ return $s['modalidad'] ?? ''; }, $sesiones));
+          $modalidad = count($mods) > 1 ? 'Mixta' : ($mods[0] ?: 'N/A');
+        }
+        ?>
+        <div class="gw-capacitacion-card" data-pais="<?php echo esc_attr($pais_id); ?>" data-coach="<?php echo esc_attr($coach_id); ?>" data-modalidad="<?php echo esc_attr(strtolower($modalidad)); ?>">
+          <div class="gw-capacitacion-title"><?php echo esc_html($cap->post_title); ?></div>
+          <div class="gw-capacitacion-meta">
+            <span><strong>País:</strong> <?php echo esc_html($pais_t); ?></span>
+            <span><strong>Proyecto:</strong> <?php echo esc_html($proy_t); ?></span>
+            <span><strong>Coach:</strong> <?php echo esc_html($coach_t); ?></span>
+            <span><strong>Sesiones:</strong> <?php echo esc_html($num); ?> (<?php echo esc_html($modalidad); ?>)</span>
+          </div>
+          <div class="gw-capacitacion-actions">
+            <span class="gw-cap-edit" data-id="<?php echo esc_attr($cap->ID); ?>">Editar</span>
+            <span class="gw-cap-delete" data-id="<?php echo esc_attr($cap->ID); ?>">Eliminar</span>
+          </div>
+        </div>
+        <?php
+      }
+      return ob_get_clean();
+    }
+  }
+  
+  // ======================================================
+  // ENDPOINTS AJAX (TODOS con nonce/permisos)
+  // ======================================================
+  
+  // --- Proyectos por país ---
+  add_action('wp_ajax_gw_obtener_proyectos_por_pais', function(){
+    gw_caps_check();
+  
+    $pais_id = intval($_GET['pais_id'] ?? 0);
+    if(!$pais_id) {
+      wp_send_json_error(['msg'=>'ID de país inválido'], 400);
+    }
+  
+    $pais_title = get_the_title($pais_id); // "Perú"
+    $vals_match = array_unique(array_filter([
+      $pais_title,
+      remove_accents($pais_title),
+      mb_strtolower($pais_title,'UTF-8'),
+      mb_strtolower(remove_accents($pais_title),'UTF-8'),
+    ]));
+  
+    $proyectos = get_posts([
+      'post_type'   => 'proyecto',
+      'numberposts' => -1,
+      'orderby'     => 'title',
+      'order'       => 'ASC',
+      'meta_query'  => [
+        'relation' => 'OR',
+        [
+          'key'     => '_gw_pais_relacionado',
+          'value'   => $pais_id,
+          'compare' => '='
+        ],
+        [
+          'key'     => '_gw_proyecto_pais',
+          'value'   => $vals_match,
+          'compare' => 'IN'
+        ],
+      ],
+    ]);
+  
+    $data = [];
+    foreach($proyectos as $p){
+      $ok = false;
+      $m_id = get_post_meta($p->ID, '_gw_pais_relacionado', true);
+      if ($m_id && intval($m_id) === $pais_id) $ok = true;
+  
+      if (!$ok){
+        $m_str = get_post_meta($p->ID, '_gw_proyecto_pais', true);
+        if ($m_str){
+          $ok = in_array(gw_norm($m_str), array_map('gw_norm', $vals_match), true);
+        }
+      }
+      if ($ok){
+        $data[] = ['id'=>$p->ID, 'titulo'=>$p->post_title];
+      }
+    }
+  
+    wp_send_json_success($data);
+  });
+  
+  // --- Coaches por proyecto ---
+  add_action('wp_ajax_gw_obtener_coaches_por_proyecto', function(){
+    gw_caps_check();
+  
+    $proyecto_id = intval($_GET['proyecto_id'] ?? 0);
+    if(!$proyecto_id) {
+      wp_send_json_error(['msg'=>'ID de proyecto inválido'], 400);
+    }
+  
+    $pais_id = intval(get_post_meta($proyecto_id, '_gw_pais_relacionado', true));
+    if (!$pais_id){
+      $pais_str = get_post_meta($proyecto_id, '_gw_proyecto_pais', true);
+      if ($pais_str){
+        $pais_id = gw_find_pais_id_by_name($pais_str);
+      }
+    }
+    if (!$pais_id){
+      wp_send_json_success([]); // sin país -> sin coaches
+    }
+  
+    // Admin fallback (opcional)
+    $admins = (new WP_User_Query([
+      'role'   => 'administrator',
+      'number' => 1,
+      'fields' => ['ID','display_name','user_login']
+    ]))->get_results();
+  
+    // Coaches por país
+    $users = (new WP_User_Query([
+      'role__in'   => ['coach','coordinador_pais','editor','administrator'],
+      'orderby'    => 'display_name',
+      'order'      => 'ASC',
+      'fields'     => ['ID','display_name','user_login'],
+      'meta_query' => [[
+        'key'     => 'gw_pais_id',
+        'value'   => $pais_id,
+        'compare' => '=',
+        'type'    => 'NUMERIC'
+      ]],
+    ]))->get_results();
+  
+    $out = [];
+    if (!empty($admins)) {
+      $a = $admins[0];
+      $out[] = ['id'=>(int)$a->ID, 'nombre'=> $a->display_name ?: $a->user_login];
+    }
+    foreach($users as $u){
+      if (!empty($admins) && $u->ID === $admins[0]->ID) continue;
+      $out[] = ['id'=>(int)$u->ID, 'nombre'=> $u->display_name ?: $u->user_login];
+    }
+  
+    wp_send_json_success($out);
+  });
+  
+  // --- Guardar (crear/editar) ---
+  add_action('wp_ajax_gw_guardar_capacitacion_wizard', function(){
+    gw_caps_check();
+  
+    $edit_id = intval($_POST['edit_id'] ?? 0);
+    $titulo  = sanitize_text_field($_POST['titulo'] ?? '');
+    $pais    = intval($_POST['pais'] ?? 0);
+    $proy    = intval($_POST['proyecto'] ?? 0);
+    $coach   = intval($_POST['coach'] ?? 0);
+  
+    if ( ! $titulo || ! $pais || ! $proy || ! $coach ) {
+      wp_send_json_error(['msg'=>'Campos obligatorios faltantes'], 400);
+    }
+  
+    // Sesiones
+    $mods  = $_POST['sesion_modalidad'] ?? [];
+    $fechs = $_POST['sesion_fecha'] ?? [];
+    $horas = $_POST['sesion_hora'] ?? [];
+    $lug   = $_POST['sesion_lugar'] ?? [];
+    $lnk   = $_POST['sesion_link'] ?? [];
+  
+    $sesiones = [];
+    if ( is_array($mods) ) {
+      $n = count($mods);
+      for ($i=0; $i<$n; $i++) {
+        $mod  = $mods[$i]  ?? '';
+        $fec  = $fechs[$i] ?? '';
+        $hor  = $horas[$i] ?? '';
+        $lgr  = $lug[$i]   ?? '';
+        $lnk_i= $lnk[$i]   ?? '';
+  
+        if ( ! $fec || ! $hor ) continue;
+  
+        $sesiones[] = [
+          'modalidad' => ($mod === 'Virtual' ? 'Virtual' : 'Presencial'),
+          'fecha'     => sanitize_text_field($fec),
+          'hora'      => sanitize_text_field($hor),
+          'lugar'     => $mod === 'Virtual' ? '' : sanitize_text_field($lgr),
+          'link'      => $mod === 'Virtual' ? esc_url_raw($lnk_i) : '',
+        ];
+      }
+    }
+    if ( empty($sesiones) ) {
+      wp_send_json_error(['msg'=>'Debes agregar al menos una sesión válida'], 400);
+    }
+  
+    $postarr = [
+      'post_type'   => 'capacitacion',
+      'post_title'  => $titulo,
+      'post_status' => 'publish',
+    ];
+  
+    if ( $edit_id ) {
+      $postarr['ID'] = $edit_id;
+      $id = wp_update_post($postarr, true);
+    } else {
+      $id = wp_insert_post($postarr, true);
+    }
+    if ( is_wp_error($id) ) {
+      wp_send_json_error(['msg'=>$id->get_error_message()], 400);
+    }
+  
+    update_post_meta($id, '_gw_pais_relacionado', $pais);
+    update_post_meta($id, '_gw_proyecto_relacionado', $proy);
+    update_post_meta($id, '_gw_coach_asignado', $coach);
+    update_post_meta($id, '_gw_sesiones', $sesiones);
+  
+    $html = gw_caps_render_list_html('publish');
+    wp_send_json_success(['id'=>$id, 'html'=>$html]);
+  });
+  
+  // --- Obtener una capacitación (para editar) ---
+  add_action('wp_ajax_gw_obtener_capacitacion', function(){
+    $id = gw_caps_check(true, 'id');
+  
+    $data = [
+      'titulo'   => get_the_title($id),
+      'pais'     => (int) get_post_meta($id, '_gw_pais_relacionado', true),
+      'proyecto' => (int) get_post_meta($id, '_gw_proyecto_relacionado', true),
+      'coach'    => (int) get_post_meta($id, '_gw_coach_asignado', true),
+      'sesiones' => get_post_meta($id, '_gw_sesiones', true) ?: [],
+    ];
+    wp_send_json_success($data);
+  });
+  
+  // --- Enviar a papelera ---
+  add_action('wp_ajax_gw_eliminar_capacitacion', function(){
+    $id = gw_caps_check(true, 'id');
+    $res = wp_trash_post($id);
+    if ( ! $res ) wp_send_json_error(['msg'=>'No se pudo enviar a papelera'], 400);
+    $html = gw_caps_render_list_html('publish');
     wp_send_json_success(['html'=>$html]);
-});
-
-// AJAX: Guardar capacitación (crear o editar)
-add_action('wp_ajax_gw_guardar_capacitacion_wizard', function() {
-    try {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['msg'=>'Sin permisos']);
-        }
-
-        $titulo = sanitize_text_field($_POST['titulo'] ?? '');
-        if(empty($titulo)) {
-            wp_send_json_error(['msg'=>'El título es requerido']);
-        }
-
-        $edit_id = intval($_POST['edit_id']??0);
-        
-        // Debug para ver qué edit_id está llegando
-        error_log('Edit ID recibido: ' . $edit_id);
-        
-        // Si edit_id es 0 o vacío, es una nueva capacitación
-        if(!$edit_id || $edit_id === 0) {
-            error_log('Creando nueva capacitación (edit_id es 0 o vacío)');
-            $edit_id = 0; // Forzar a 0
-        }
-        $proyecto = intval($_POST['proyecto']??0);
-        $coach = intval($_POST['coach']??0);
-        $pais = intval($_POST['pais']??0);
-
-        // Validar que los campos requeridos estén completos
-        if(!$proyecto) {
-            wp_send_json_error(['msg'=>'Debe seleccionar un proyecto']);
-        }
-        if(!$coach) {
-            wp_send_json_error(['msg'=>'Debe seleccionar un coach']);
-        }
-        if(!$pais) {
-            wp_send_json_error(['msg'=>'Debe seleccionar un país']);
-        }
-
-        $sesiones = [];
-        if(!empty($_POST['sesion_modalidad']) && is_array($_POST['sesion_modalidad'])){
-            foreach($_POST['sesion_modalidad'] as $i=>$mod){
-                $modalidad = sanitize_text_field($mod);
-                $fecha = sanitize_text_field($_POST['sesion_fecha'][$i]??'');
-                $hora = sanitize_text_field($_POST['sesion_hora'][$i]??'');
-                
-                if(empty($fecha) || empty($hora)) {
-                    wp_send_json_error(['msg'=>'Todas las sesiones deben tener fecha y hora']);
-                }
-
-                $sesion = [
-                    'modalidad' => $modalidad,
-                    'fecha' => $fecha,
-                    'hora' => $hora,
-                ];
-
-                if(strtolower($modalidad)=='virtual'){
-                    $sesion['lugar'] = '';
-                    $sesion['link'] = sanitize_text_field($_POST['sesion_link'][$i]??'');
-                } else {
-                    $sesion['lugar'] = sanitize_text_field($_POST['sesion_lugar'][$i]??'');
-                    $sesion['link'] = '';
-                }
-
-                $sesiones[] = $sesion;
-            }
-        }
-
-        // Validar que haya al menos una sesión
-        if(empty($sesiones)) {
-            wp_send_json_error(['msg'=>'Debe agregar al menos una sesión']);
-        }
-
-        $post_args = [
-            'post_type'=>'capacitacion',
-            'post_status'=>'publish',
-            'post_title'=>$titulo,
-        ];
-
-        if($edit_id && $edit_id > 0){
-            // Verificar que el post existe antes de intentar actualizarlo
-            $existing_post = get_post($edit_id);
-            if($existing_post && $existing_post->post_type === 'capacitacion') {
-                $post_args['ID'] = $edit_id;
-                $id = wp_update_post($post_args);
-                if(is_wp_error($id)) {
-                    wp_send_json_error(['msg'=>'Error al actualizar: ' . $id->get_error_message()]);
-                }
-                error_log('Actualizando capacitación existente ID: ' . $edit_id);
-            } else {
-                // Si el ID no existe o no es válido, crear uno nuevo
-                $id = wp_insert_post($post_args);
-                if(is_wp_error($id)) {
-                    wp_send_json_error(['msg'=>'Error al crear: ' . $id->get_error_message()]);
-                }
-                error_log('Creando nueva capacitación (ID edit inválido)');
-            }
-        } else {
-            // Crear nuevo post
-            $id = wp_insert_post($post_args);
-            if(is_wp_error($id)) {
-                wp_send_json_error(['msg'=>'Error al crear: ' . $id->get_error_message()]);
-            }
-            error_log('Creando nueva capacitación');
-        }
-
-        if(!$id || $id === 0) {
-            wp_send_json_error(['msg'=>'No se pudo guardar el post']);
-        }
-
-        // Guardar meta datos
-        update_post_meta($id,'_gw_proyecto_relacionado',$proyecto);
-        update_post_meta($id,'_gw_coach_asignado',$coach);
-        update_post_meta($id,'_gw_pais_relacionado',$pais);
-        update_post_meta($id,'_gw_sesiones',$sesiones);
-
-        // Asignar la capacitación al voluntario actual
-        $user_id = get_current_user_id();
-        if ($user_id) {
-            update_user_meta($user_id, 'gw_capacitacion_id', $id);
-            // Si hay al menos una sesión, guarda fecha y hora de la primera sesión
-            if (!empty($sesiones[0]['fecha'])) {
-                update_user_meta($user_id, 'gw_fecha', $sesiones[0]['fecha']);
-            }
-            if (!empty($sesiones[0]['hora'])) {
-                update_user_meta($user_id, 'gw_hora', $sesiones[0]['hora']);
-            }
-        }
-
-        // Refrescar listado
-        ob_start();
-        $caps = get_posts([
-            'post_type'=>'capacitacion',
-            'numberposts'=>-1,
-            'orderby'=>'title',
-            'order'=>'ASC',
-            'post_status'=>'publish'
-        ]);
-        if(empty($caps)){
-            echo '<p>No hay capacitaciones registradas.</p>';
-        } else {
-            echo '<ul>';
-            foreach($caps as $cap){
-                $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
-                $proy_title = $proy ? get_the_title($proy) : '-';
-                echo '<li><b>'.esc_html($cap->post_title).'</b> <span style="color:#aaa;">(Proyecto: '.$proy_title.')</span> <span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span> <span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span></li>';
-            }
-            echo '</ul>';
-        }
-        $html = ob_get_clean();
-
-        // Asegurar que $html nunca sea undefined ni vacío
-        if (!isset($html) || $html === false || trim($html) === '') {
-            $html = '<p>No hay capacitaciones registradas.</p>';
-        }
-
-        wp_send_json_success(['html'=>$html, 'msg'=>'Capacitación guardada exitosamente', 'id'=>$id]);
-
-    } catch (Exception $e) {
-        error_log('Error en gw_guardar_capacitacion_wizard: ' . $e->getMessage());
-        wp_send_json_error(['msg'=>'Error interno: ' . $e->getMessage()]);
+  });
+  
+  // --- Restaurar desde papelera ---
+  add_action('wp_ajax_gw_restaurar_capacitacion', function(){
+    $id = gw_caps_check(true, 'id');
+    $res = wp_untrash_post($id);
+    if ( ! $res ) wp_send_json_error(['msg'=>'No se pudo restaurar'], 400);
+    wp_send_json_success(['msg'=>'Restaurada']);
+  });
+  
+  // --- Eliminar permanentemente ---
+  add_action('wp_ajax_gw_eliminar_permanente_capacitacion', function(){
+    $id = gw_caps_check(true, 'id');
+    $res = wp_delete_post($id, true);
+    if ( ! $res ) wp_send_json_error(['msg'=>'No se pudo eliminar permanentemente'], 400);
+    wp_send_json_success(['msg'=>'Eliminada permanentemente']);
+  });
+  
+  // --- Listar papelera (JSON) ---
+  add_action('wp_ajax_gw_obtener_capacitaciones_eliminadas', function(){
+    gw_caps_check();
+    $caps = get_posts([
+      'post_type'   => 'capacitacion',
+      'post_status' => 'trash',
+      'numberposts' => -1,
+      'orderby'     => 'title',
+      'order'       => 'ASC',
+    ]);
+    $data = [];
+    foreach ($caps as $c) {
+      $data[] = [
+        'id'    => $c->ID,
+        'titulo'=> $c->post_title,
+        'pais'  => get_the_title( (int) get_post_meta($c->ID, '_gw_pais_relacionado', true) ),
+        'proyecto' => get_the_title( (int) get_post_meta($c->ID, '_gw_proyecto_relacionado', true) ),
+        'coach' => ( ($u = get_userdata( (int) get_post_meta($c->ID, '_gw_coach_asignado', true) )) ? $u->display_name : '-' ),
+        'fecha_eliminacion' => get_post_time( 'Y-m-d H:i', false, $c, true ),
+      ];
     }
-});
+    wp_send_json_success($data);
+  });
+  
+  // --- Listar activas (HTML) ---
+  add_action('wp_ajax_gw_obtener_capacitaciones_activas', function(){
+    gw_caps_check();
+    wp_send_json_success([ 'html' => gw_caps_render_list_html('publish') ]);
+  });
 
-// AJAX: Obtener datos para editar capacitación - CORREGIDO
-add_action('wp_ajax_gw_obtener_capacitacion', function(){
-    try {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['msg'=>'Sin permisos']);
-        }
 
-        $id = intval($_GET['id']??0);
-        if(!$id) {
-            wp_send_json_error(['msg'=>'ID inválido']);
-        }
 
-        // Verificar que el post existe
-        $post = get_post($id);
-        if(!$post || $post->post_type !== 'capacitacion') {
-            wp_send_json_error(['msg'=>'Capacitación no encontrada']);
-        }
 
-        // Obtener meta datos con valores por defecto y conversión de tipos
-        $proyecto = get_post_meta($id,'_gw_proyecto_relacionado',true);
-        $coach = get_post_meta($id,'_gw_coach_asignado',true);
-        $pais = get_post_meta($id,'_gw_pais_relacionado',true);
-        $sesiones = get_post_meta($id,'_gw_sesiones',true);
 
-        // IMPORTANTE: Asegurar que los valores sean strings para los selects
-        $data = [
-            'titulo' => $post->post_title ?: '',
-            'proyecto' => $proyecto ? strval($proyecto) : '',
-            'coach' => $coach ? strval($coach) : '',
-            'pais' => $pais ? strval($pais) : '',
-            'sesiones' => is_array($sesiones) ? $sesiones : []
-        ];
 
-        // Verificar que las sesiones tengan la estructura correcta
-        if(!empty($data['sesiones'])) {
-            foreach($data['sesiones'] as $index => $sesion) {
-                // Asegurar que cada sesión tenga todos los campos necesarios
-                $data['sesiones'][$index] = [
-                    'modalidad' => isset($sesion['modalidad']) ? $sesion['modalidad'] : 'Presencial',
-                    'fecha' => isset($sesion['fecha']) ? $sesion['fecha'] : '',
-                    'hora' => isset($sesion['hora']) ? $sesion['hora'] : '',
-                    'lugar' => isset($sesion['lugar']) ? $sesion['lugar'] : '',
-                    'link' => isset($sesion['link']) ? $sesion['link'] : ''
-                ];
-            }
-        }
 
-        // Debug para ver qué datos se están enviando
-        error_log('Datos de capacitación ID ' . $id . ': ' . print_r($data, true));
 
-        wp_send_json_success(['data'=>$data]);
 
-    } catch (Exception $e) {
-        error_log('Error en gw_obtener_capacitacion: ' . $e->getMessage());
-        wp_send_json_error(['msg'=>'Error interno: ' . $e->getMessage()]);
-    }
-});
 
-// AJAX: Eliminar capacitación
-add_action('wp_ajax_gw_eliminar_capacitacion', function(){
-    try {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['msg'=>'Sin permisos']);
-        }
 
-        $id = intval($_POST['id']??0);
-        if($id) {
-            $result = wp_delete_post($id, true);
-            if(!$result) {
-                wp_send_json_error(['msg'=>'No se pudo eliminar la capacitación']);
-            }
-        }
 
-        // Refrescar listado
-        ob_start();
-        $caps = get_posts([
-            'post_type'=>'capacitacion',
-            'numberposts'=>-1,
-            'orderby'=>'title',
-            'order'=>'ASC',
-            'post_status'=>'publish'
-        ]);
-        if(empty($caps)){
-            echo '<p>No hay capacitaciones registradas.</p>';
-        } else {
-            echo '<ul>';
-            foreach($caps as $cap){
-                $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
-                $proy_title = $proy ? get_the_title($proy) : '-';
-                echo '<li><b>'.esc_html($cap->post_title).'</b> <span style="color:#aaa;">(Proyecto: '.$proy_title.')</span> <span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span> <span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span></li>';
-            }
-            echo '</ul>';
-        }
-        $html = ob_get_clean();
 
-        // Asegurar que $html nunca sea undefined ni vacío
-        if (!isset($html) || $html === false || trim($html) === '') {
-            $html = '<p>No hay capacitaciones registradas.</p>';
-        }
-
-        wp_send_json_success(['html'=>$html]);
-
-    } catch (Exception $e) {
-        error_log('Error en gw_eliminar_capacitacion: ' . $e->getMessage());
-        wp_send_json_error(['msg'=>'Error interno: ' . $e->getMessage()]);
-    }
-});
 // =================== INICIO BLOQUE REVISIÓN/ACEPTACIÓN DE DOCUMENTOS ===================
 
 
@@ -3863,3 +5570,6 @@ add_action('wp_enqueue_scripts', function () {
 });
 
 // =================== FIN BLOQUE REVISIÓN/ACEPTACIÓN DE DOCUMENTOS ===================
+
+
+
