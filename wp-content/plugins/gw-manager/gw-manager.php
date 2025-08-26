@@ -919,206 +919,280 @@ add_shortcode('gw_progreso_voluntario', function() {
 });
 
 // Muestra una tabla con el progreso de todos los voluntarios
-function mostrar_tabla_progreso_admin() {
-    $voluntarios = get_users(['role' => 'voluntario']);
 
-    // Agregar al administrador actual para pruebas
-    if (current_user_can('manage_options')) {
-        $current = wp_get_current_user();
-        $exists = false;
-        foreach ($voluntarios as $u) { if ($u->ID === $current->ID) { $exists = true; break; } }
-        if (!$exists) array_unshift($voluntarios, $current);
+function mostrar_tabla_progreso_admin() {
+  $voluntarios = get_users(['role' => 'voluntario']);
+
+  // Agregar al administrador actual para pruebas
+  if (current_user_can('manage_options')) {
+      $current = wp_get_current_user();
+      $exists = false;
+      foreach ($voluntarios as $u) { if ($u->ID === $current->ID) { $exists = true; break; } }
+      if (!$exists) array_unshift($voluntarios, $current);
+  }
+
+  ob_start(); ?>
+  <div>
+    <h2>Resumen de Progreso de Voluntarios</h2>
+    <table class="widefat striped">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Charlas</th>
+          <th>Capacitación</th>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($voluntarios as $v): ?>
+          <?php
+            $cap_id    = get_user_meta($v->ID, 'gw_capacitacion_id', true);
+            $cap_title = $cap_id ? get_the_title($cap_id) : '-';
+            $fecha     = get_user_meta($v->ID, 'gw_fecha', true) ?: '-';
+            $hora      = get_user_meta($v->ID, 'gw_hora', true) ?: '-';
+
+            $charlas_asignadas = get_user_meta($v->ID, 'gw_charlas_asignadas', true);
+            if (!is_array($charlas_asignadas)) $charlas_asignadas = [];
+            $total_charlas = count($charlas_asignadas);
+            
+            // Contar charlas completadas
+            $charlas_completadas = 0;
+            foreach ($charlas_asignadas as $charla_key) {
+                if (get_user_meta($v->ID, 'gw_' . $charla_key, true)) {
+                    $charlas_completadas++;
+                }
+            }
+          ?>
+          <tr>
+            <td><?php echo esc_html($v->display_name); ?></td>
+            <td><?php echo esc_html($v->user_email); ?></td>
+            <td>
+              <?php if ($total_charlas > 0): ?>
+                <button type="button" class="button gw-ver-charlas" style="font-size: 11px; padding: 2px 8px; height: auto;" data-user-id="<?php echo esc_attr($v->ID); ?>">
+                  Ver charlas (<?php echo $charlas_completadas; ?>/<?php echo $total_charlas; ?>)
+                </button>
+              <?php else: ?>
+                <span style="color: #999;">Sin charlas asignadas</span>
+              <?php endif; ?>
+            </td>
+            <td><?php echo esc_html($cap_title); ?></td>
+            <td><?php echo esc_html($fecha); ?></td>
+            <td><?php echo esc_html($hora); ?></td>
+            <td>
+              <button type="button" class="button button-small gw-revisar-docs" data-user-id="<?php echo esc_attr($v->ID); ?>">
+                Revisar documentos
+              </button>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal principal -->
+  <div id="gw-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:99998;"></div>
+  <div id="gw-modal" style="display:none; position:fixed; z-index:99999; left:50%; top:50%; transform:translate(-50%,-50%);
+       width:760px; max-width:92vw; background:#fff; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25); overflow:hidden;">
+    <div style="padding:14px 16px; background:#f7fafd; border-bottom:1px solid #e3e3e3; display:flex; justify-content:space-between; align-items:center;">
+      <strong id="gw-modal-title">Modal</strong>
+      <button type="button" class="button button-small" id="gw-modal-close">Cerrar</button>
+    </div>
+    <div id="gw-modal-body" style="padding:14px; max-height:70vh; overflow:auto;"></div>
+  </div>
+
+  <script>
+  jQuery(function($){
+    // ajaxurl (frontend)
+    if (typeof window.ajaxurl === 'undefined') {
+      window.ajaxurl = "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>";
     }
 
-    ob_start(); ?>
-    <div>
-      <h2>Resumen de Progreso de Voluntarios</h2>
-      <table class="widefat striped">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>Charlas</th>
-            <th>Capacitación</th>
-            <th>Fecha</th>
-            <th>Hora</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($voluntarios as $v): ?>
-            <?php
-              $cap_id    = get_user_meta($v->ID, 'gw_capacitacion_id', true);
-              $cap_title = $cap_id ? get_the_title($cap_id) : '-';
-              $fecha     = get_user_meta($v->ID, 'gw_fecha', true) ?: '-';
-              $hora      = get_user_meta($v->ID, 'gw_hora', true) ?: '-';
+    function abrirModal(titulo = 'Modal'){
+      $('#gw-modal-title').text(titulo);
+      $('#gw-modal, #gw-modal-overlay').show();
+    }
+    
+    function cerrarModal(){
+      $('#gw-modal, #gw-modal-overlay').hide();
+      $('#gw-modal-body').html('');
+      $('#gw-doc-viewer').remove();
+    }
 
-              $charlas_asignadas = get_user_meta($v->ID, 'gw_charlas_asignadas', true);
-              if (!is_array($charlas_asignadas)) $charlas_asignadas = [];
-              $lista_charlas = [];
-              foreach ($charlas_asignadas as $charla_key) {
-                  $estado = get_user_meta($v->ID, 'gw_' . $charla_key, true) ? '✅' : '❌';
-                  $lista_charlas[] = esc_html($charla_key) . ' ' . $estado;
-              }
-            ?>
-            <tr>
-              <td><?php echo esc_html($v->display_name); ?></td>
-              <td><?php echo esc_html($v->user_email); ?></td>
-              <td><?php echo implode('<br>', $lista_charlas); ?></td>
-              <td><?php echo esc_html($cap_title); ?></td>
-              <td><?php echo esc_html($fecha); ?></td>
-              <td><?php echo esc_html($hora); ?></td>
-              <td>
-                <button type="button" class="button button-small gw-revisar-docs" data-user-id="<?php echo esc_attr($v->ID); ?>">
-                  Revisar documentos
-                </button>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
+    $(document).on('click', '#gw-modal-close, #gw-modal-overlay', cerrarModal);
 
-    <!-- Modal -->
-    <div id="gw-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:99998;"></div>
-    <div id="gw-modal" style="display:none; position:fixed; z-index:99999; left:50%; top:50%; transform:translate(-50%,-50%);
-         width:760px; max-width:92vw; background:#fff; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25); overflow:hidden;">
-      <div style="padding:14px 16px; background:#f7fafd; border-bottom:1px solid #e3e3e3; display:flex; justify-content:space-between; align-items:center;">
-        <strong>Documentos del voluntario</strong>
-        <button type="button" class="button button-small" id="gw-modal-close">Cerrar</button>
-      </div>
-      <div id="gw-modal-body" style="padding:14px; max-height:70vh; overflow:auto;"></div>
-    </div>
-
-    <script>
-    jQuery(function($){ // <- asegura que jQuery esté listo
-
-      // ajaxurl (frontend)
-      if (typeof window.ajaxurl === 'undefined') {
-        window.ajaxurl = "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>";
-      }
-
-      function abrirModal(){ $('#gw-modal, #gw-modal-overlay').show(); }
-      function cerrarModal(){ $('#gw-modal, #gw-modal-overlay').hide(); $('#gw-modal-body').html(''); }
-
-      $(document).on('click', '#gw-modal-close, #gw-modal-overlay', cerrarModal);
-
-      // Cargar HTML (no JSON) en el modal
-      function cargarDocs(userId){
-        $('#gw-modal-body').html('<p>Cargando…</p>');
-        $.ajax({
-          url: ajaxurl,
-          method: 'POST',
-          data: { action: 'gw_obtener_docs_voluntario', user_id: userId },
-          dataType: 'html'
-        })
-        .done(function(html){ $('#gw-modal-body').html(html); })
-        .fail(function(xhr){
-          var raw = (xhr && xhr.responseText) ? xhr.responseText.substring(0,500) : '';
-          $('#gw-modal-body').html('<p>Error al cargar documentos.</p><pre style="white-space:pre-wrap">'+raw+'</pre>');
-        });
-      }
-
-      // Abrir modal desde la tabla
-      $(document).on('click', '.gw-revisar-docs', function(){
-        var userId = $(this).data('user-id');
-        abrirModal();
-        cargarDocs(userId);
-      });
-
-      // Ver archivo embebido
-      $(document).on('click', '.gw-ver-archivo', function(e){
-        e.preventDefault();
-        var url  = $(this).data('url');
-        var tipo = $(this).data('tipo');
-
-        var $wrap = $('#gw-doc-viewer');
-        var $body = $('#gw-doc-viewer-body');
-        if (!$wrap.length) {
-          $('#gw-modal-body').prepend(
-            '<div id="gw-doc-viewer" style="margin-bottom:14px; border:1px solid #e3e3e3; border-radius:10px; overflow:hidden;">' +
-              '<div style="padding:8px 10px; background:#f7fafd; border-bottom:1px solid #e3e3e3; display:flex; justify-content:space-between; align-items:center;">' +
-                '<strong>Vista previa del archivo</strong>' +
-                '<button type="button" class="button button-small" id="gw-cerrar-visor">Cerrar</button>' +
-              '</div>' +
-              '<div id="gw-doc-viewer-body" style="height:420px; background:#fff;"></div>' +
-            '</div>'
-          );
-          $wrap = $('#gw-doc-viewer');
-          $body = $('#gw-doc-viewer-body');
-        }
-
-        $body.empty();
-
-        if (tipo === 'image') {
-          $body.append($('<img>', { src:url, alt:'Vista previa',
-            css:{ maxWidth:'100%', maxHeight:'100%', display:'block', margin:'0 auto' }}));
-        } else if (tipo === 'pdf') {
-          $body.append($('<iframe>', { src:url, css:{ width:'100%', height:'100%', border:0 }, allow:'fullscreen' }));
-        } else {
-          $body.append(
-            $('<div>', { css:{ padding:'10px', background:'#fff' } }).append(
-              $('<p>').text('Este tipo de archivo puede no mostrarse embebido. Puedes abrirlo aquí: '),
-              $('<a>', { href:url, text:'Abrir/Descargar', target:'_self', rel:'noopener' })
-            )
-          );
-          $body.append($('<iframe>', { src:url, css:{ width:'100%', height:'100%', border:0 } }));
-        }
-        $wrap.show();
-        var cont = $wrap.get(0); if (cont && cont.scrollIntoView) cont.scrollIntoView({ behavior:'smooth', block:'start' });
-      });
-
-      // Cerrar visor
-      $(document).on('click', '#gw-cerrar-visor', function(){
-        $('#gw-doc-viewer-body').empty();
-        $('#gw-doc-viewer').hide();
-      });
-
-      // Aprobar / Rechazar — ENVÍA row_id + nonce (no doc_id)
-      $(document).on('click', '.gw-aprobar-doc, .gw-rechazar-doc', function(e){
-        e.preventDefault();
-        var isApprove = $(this).hasClass('gw-aprobar-doc');
-        var action    = isApprove ? 'gw_aprobar_doc' : 'gw_rechazar_doc';
-
-        var rowId  = parseInt($(this).data('row-id'), 10);
-        var userId = parseInt($(this).data('user-id'), 10);
-        var nonce  = $(this).data('nonce');
-
-        if (!rowId || !userId || !nonce) {
-          alert('Error: faltan datos (row_id/nonce).');
-          console.error({rowId,userId,nonce});
-          return;
-        }
-
-        var $btn = $(this).prop('disabled', true);
-
-        $.ajax({
-          url: ajaxurl,
-          method: 'POST',
-          dataType: 'json',
-          data: { action: action, row_id: rowId, user_id: userId, nonce: nonce }
-        })
-        .done(function(resp){
-          if (resp && resp.success) {
-            cargarDocs(userId); // refresca la lista y los botones
-          } else {
-            alert('Error: ' + (resp && resp.data && resp.data.message ? resp.data.message : 'No se pudo actualizar'));
-            console.error(resp);
-            $btn.prop('disabled', false);
-          }
-        })
-        .fail(function(xhr){
-          alert('Error: No se pudo actualizar');
-          console.error(xhr);
-          $btn.prop('disabled', false);
-        });
-      });
-
+    // Ver charlas del voluntario
+    $(document).on('click', '.gw-ver-charlas', function(){
+      var userId = $(this).data('user-id');
+      var userName = $(this).closest('tr').find('td:first').text();
+      
+      abrirModal('Charlas de ' + userName);
+      cargarCharlas(userId);
     });
-    </script>
-    <?php
-    return ob_get_clean();
+
+    function cargarCharlas(userId){
+      $('#gw-modal-body').html('<p>Cargando charlas…</p>');
+      $.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        data: { action: 'gw_obtener_charlas_voluntario', user_id: userId },
+        dataType: 'html'
+      })
+      .done(function(html){ $('#gw-modal-body').html(html); })
+      .fail(function(xhr){
+        var raw = (xhr && xhr.responseText) ? xhr.responseText.substring(0,500) : '';
+        $('#gw-modal-body').html('<p>Error al cargar charlas.</p><pre style="white-space:pre-wrap">'+raw+'</pre>');
+      });
+    }
+
+    // Abrir modal para documentos
+    $(document).on('click', '.gw-revisar-docs', function(){
+      var userId = $(this).data('user-id');
+      var userName = $(this).closest('tr').find('td:first').text();
+      
+      abrirModal('Documentos de ' + userName);
+      cargarDocs(userId);
+    });
+
+    function cargarDocs(userId){
+      $('#gw-modal-body').html('<p>Cargando documentos…</p>');
+      $.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        data: { action: 'gw_obtener_docs_voluntario', user_id: userId },
+        dataType: 'html'
+      })
+      .done(function(html){ $('#gw-modal-body').html(html); })
+      .fail(function(xhr){
+        var raw = (xhr && xhr.responseText) ? xhr.responseText.substring(0,500) : '';
+        $('#gw-modal-body').html('<p>Error al cargar documentos.</p><pre style="white-space:pre-wrap">'+raw+'</pre>');
+      });
+    }
+
+    // Ver archivo embebido
+    $(document).on('click', '.gw-ver-archivo', function(e){
+      e.preventDefault();
+      var url  = $(this).data('url');
+      var tipo = $(this).data('tipo');
+
+      var $wrap = $('#gw-doc-viewer');
+      var $body = $('#gw-doc-viewer-body');
+      if (!$wrap.length) {
+        $('#gw-modal-body').prepend(
+          '<div id="gw-doc-viewer" style="margin-bottom:14px; border:1px solid #e3e3e3; border-radius:10px; overflow:hidden;">' +
+            '<div style="padding:8px 10px; background:#f7fafd; border-bottom:1px solid #e3e3e3; display:flex; justify-content:space-between; align-items:center;">' +
+              '<strong>Vista previa del archivo</strong>' +
+              '<button type="button" class="button button-small" id="gw-cerrar-visor">Cerrar</button>' +
+            '</div>' +
+            '<div id="gw-doc-viewer-body" style="height:420px; background:#fff;"></div>' +
+          '</div>'
+        );
+        $wrap = $('#gw-doc-viewer');
+        $body = $('#gw-doc-viewer-body');
+      }
+
+      $body.empty();
+
+      if (tipo === 'image') {
+        $body.append($('<img>', { src:url, alt:'Vista previa',
+          css:{ maxWidth:'100%', maxHeight:'100%', display:'block', margin:'0 auto' }}));
+      } else if (tipo === 'pdf') {
+        $body.append($('<iframe>', { src:url, css:{ width:'100%', height:'100%', border:0 }, allow:'fullscreen' }));
+      } else {
+        $body.append(
+          $('<div>', { css:{ padding:'10px', background:'#fff' } }).append(
+            $('<p>').text('Este tipo de archivo puede no mostrarse embebido. Puedes abrirlo aquí: '),
+            $('<a>', { href:url, text:'Abrir/Descargar', target:'_self', rel:'noopener' })
+          )
+        );
+        $body.append($('<iframe>', { src:url, css:{ width:'100%', height:'100%', border:0 } }));
+      }
+      $wrap.show();
+      var cont = $wrap.get(0); if (cont && cont.scrollIntoView) cont.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+
+    // Cerrar visor
+    $(document).on('click', '#gw-cerrar-visor', function(){
+      $('#gw-doc-viewer-body').empty();
+      $('#gw-doc-viewer').hide();
+    });
+
+    // Aprobar documentos
+    $(document).on('click', '.gw-aprobar-doc', function(e){
+      e.preventDefault();
+      var docId  = $(this).data('doc-id');  // Cambio: usar doc-id
+      var userId = $(this).data('user-id');
+      var nonce  = $(this).data('nonce');
+
+      if (!docId || !userId || !nonce) {
+        alert('Error: faltan datos.');
+        return;
+      }
+
+      var $btn = $(this).prop('disabled', true);
+
+      $.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        dataType: 'json',
+        data: { action: 'gw_aprobar_doc', doc_id: docId, user_id: userId, nonce: nonce }
+      })
+      .done(function(resp){
+        if (resp && resp.success) {
+          cargarDocs(userId);
+        } else {
+          alert('Error: ' + (resp && resp.data && resp.data.message ? resp.data.message : 'No se pudo actualizar'));
+          $btn.prop('disabled', false);
+        }
+      })
+      .fail(function(xhr){
+        alert('Error: No se pudo actualizar');
+        $btn.prop('disabled', false);
+      });
+    });
+
+    // Rechazar documentos
+    $(document).on('click', '.gw-rechazar-doc', function(e){
+      e.preventDefault();
+      var docId  = $(this).data('doc-id');  // Cambio: usar doc-id
+      var userId = $(this).data('user-id');
+      var nonce  = $(this).data('nonce');
+
+      if (!docId || !userId || !nonce) {
+        alert('Error: faltan datos.');
+        return;
+      }
+
+      var $btn = $(this).prop('disabled', true);
+
+      $.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        dataType: 'json',
+        data: { action: 'gw_rechazar_doc', doc_id: docId, user_id: userId, nonce: nonce }
+      })
+      .done(function(resp){
+        if (resp && resp.success) {
+          cargarDocs(userId);
+        } else {
+          alert('Error: ' + (resp && resp.data && resp.data.message ? resp.data.message : 'No se pudo actualizar'));
+          $btn.prop('disabled', false);
+        }
+      })
+      .fail(function(xhr){
+        alert('Error: No se pudo actualizar');
+        $btn.prop('disabled', false);
+      });
+    });
+
+  });
+  </script>
+  <?php
+  return ob_get_clean();
 }
+
 
 
 // Mostrar solo el progreso (para voluntario)
@@ -5649,90 +5723,156 @@ if ( ! function_exists('gw_norm') ) {
 
 
 
+// 1. Ver charlas del voluntario
+add_action('wp_ajax_gw_obtener_charlas_voluntario', 'gw_obtener_charlas_voluntario_callback');
+add_action('wp_ajax_nopriv_gw_obtener_charlas_voluntario', 'gw_obtener_charlas_voluntario_callback');
 
+function gw_obtener_charlas_voluntario_callback() {
+    if (!current_user_can('manage_options')) {
+        wp_die('Sin permisos');
+    }
 
+    $user_id = intval($_POST['user_id']);
+    if (!$user_id) {
+        wp_die('ID de usuario inválido');
+    }
 
+    $user = get_userdata($user_id);
+    if (!$user) {
+        wp_die('Usuario no encontrado');
+    }
 
+    $charlas_asignadas = get_user_meta($user_id, 'gw_charlas_asignadas', true);
+    if (!is_array($charlas_asignadas)) {
+        $charlas_asignadas = [];
+    }
 
+    // Personaliza estos nombres según tus charlas reales
+    $charlas_disponibles = array(
+        '96' => 'Introducción al Voluntariado',
+        '93' => 'Técnicas de Comunicación',
+        '94' => 'Primeros Auxilios Básicos',
+        '101' => 'Manejo de Situaciones Difíciles',
+        '102' => 'Trabajo en Equipo',
+        '103' => 'Ética y Valores',
+    );
 
+    ob_start(); ?>
+    
+    <?php if (empty($charlas_asignadas)): ?>
+        <div style="text-align: center; padding: 40px;">
+            <p style="color: #666; font-size: 16px;">Este voluntario no tiene charlas asignadas.</p>
+        </div>
+    <?php else: ?>
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 15px 0;">Charlas asignadas a <?php echo esc_html($user->display_name); ?></h4>
+        </div>
+        
+        <table class="widefat striped" style="margin: 0;">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Código</th>
+                    <th>Nombre de la Charla</th>
+                    <th style="width: 100px; text-align: center;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($charlas_asignadas as $charla_key): ?>
+                    <?php
+                        $completada = get_user_meta($user_id, 'gw_' . $charla_key, true);
+                        $nombre_charla = isset($charlas_disponibles[$charla_key]) 
+                            ? $charlas_disponibles[$charla_key] 
+                            : 'Charla ' . $charla_key;
+                    ?>
+                    <tr>
+                        <td style="font-weight: bold; color: #0073aa;">
+                            <?php echo esc_html($charla_key); ?>
+                        </td>
+                        <td><?php echo esc_html($nombre_charla); ?></td>
+                        <td style="text-align: center;">
+                            <?php if ($completada): ?>
+                                <span style="color: #46b450; font-size: 18px;" title="Completada">✅</span>
+                            <?php else: ?>
+                                <span style="color: #dc3232; font-size: 18px;" title="Pendiente">❌</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
+        <?php
+        $completadas = 0;
+        foreach ($charlas_asignadas as $charla_key) {
+            if (get_user_meta($user_id, 'gw_' . $charla_key, true)) {
+                $completadas++;
+            }
+        }
+        $total = count($charlas_asignadas);
+        $porcentaje = $total > 0 ? round(($completadas / $total) * 100, 1) : 0;
+        ?>
 
+        <div style="margin-top: 20px; padding: 15px; background: #f7fafd; border-radius: 8px; border-left: 4px solid #0073aa;">
+            <h4 style="margin: 0 0 10px 0; color: #0073aa;">Resumen del Progreso</h4>
+            <p style="margin: 0; font-size: 16px;">
+                <strong><?php echo $completadas; ?></strong> de <strong><?php echo $total; ?></strong> charlas completadas
+                <span style="color: #666;">(<?php echo $porcentaje; ?>%)</span>
+            </p>
+            
+            <div style="margin-top: 10px; background: #e0e0e0; border-radius: 10px; height: 10px; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #46b450, #0073aa); height: 100%; width: <?php echo $porcentaje; ?>%; transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+    <?php endif; ?>
 
-// =================== INICIO BLOQUE REVISIÓN/ACEPTACIÓN DE DOCUMENTOS ===================
+    <?php
+    echo ob_get_clean();
+    wp_die();
+}
 
+// 2. Ver documentos del voluntario - CORREGIDO PARA MANEJAR DOCUMENTOS INDEPENDIENTES
+add_action('wp_ajax_gw_obtener_docs_voluntario', 'gw_obtener_docs_independientes_callback');
 
-// APROBAR
-add_action('wp_ajax_gw_aprobar_doc', function () {
-    if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'Sin permisos'], 403);
-    if (isset($_POST['nonce']) && !wp_verify_nonce($_POST['nonce'], 'gw_docs_review')) {
-        wp_send_json_error(['message'=>'Nonce inválido'], 400);
+function gw_obtener_docs_independientes_callback() {
+    if (!current_user_can('manage_options')) {
+        echo '<p>Sin permisos.</p>';
+        wp_die();
+    }
+
+    $user_id = intval($_POST['user_id']);
+    if (!$user_id) {
+        echo '<p>ID inválido.</p>';
+        wp_die();
     }
 
     global $wpdb;
-    $table  = $wpdb->prefix . 'voluntario_docs';
-    $row_id = intval($_POST['row_id'] ?? $_POST['doc_id'] ?? 0);
-    $user_id= intval($_POST['user_id'] ?? 0);
-    if (!$row_id || !$user_id) wp_send_json_error(['message'=>'Parámetros inválidos'], 400);
-
-    $res = $wpdb->update(
-        $table,
-        ['status'=>'aceptado','fecha_revision'=>current_time('mysql'),'revisado_por'=>get_current_user_id()],
-        ['id'=>$row_id,'user_id'=>$user_id],
-        ['%s','%s','%d'], ['%d','%d']
-    );
-    if ($res === false) wp_send_json_error(['message'=>$wpdb->last_error ?: 'DB error']);
-    wp_send_json_success(['message'=>'OK','status'=>'aceptado']);
-});
-
-// RECHAZAR (igual que lo tenías, no cambia)
-add_action('wp_ajax_gw_rechazar_doc', function () {
-    if (!current_user_can('manage_options')) wp_send_json_error(['message'=>'Sin permisos'], 403);
-    if (isset($_POST['nonce']) && !wp_verify_nonce($_POST['nonce'], 'gw_docs_review')) {
-        wp_send_json_error(['message'=>'Nonce inválido'], 400);
-    }
-
-    global $wpdb;
-    $table  = $wpdb->prefix . 'voluntario_docs';
-    $row_id = intval($_POST['row_id'] ?? $_POST['doc_id'] ?? 0);
-    $user_id= intval($_POST['user_id'] ?? 0);
-    if (!$row_id || !$user_id) wp_send_json_error(['message'=>'Parámetros inválidos'], 400);
-
-    $res = $wpdb->update(
-        $table,
-        ['status'=>'rechazado','fecha_revision'=>current_time('mysql'),'revisado_por'=>get_current_user_id()],
-        ['id'=>$row_id,'user_id'=>$user_id],
-        ['%s','%s','%d'], ['%d','%d']
-    );
-    if ($res === false) wp_send_json_error(['message'=>$wpdb->last_error ?: 'DB error']);
-    wp_send_json_success(['message'=>'OK','status'=>'rechazado']);
-});
-
-
-
-// AJAX: Obtener documentos subidos por voluntario
-add_action('wp_ajax_gw_obtener_docs_voluntario', function() {
-    if (!current_user_can('manage_options')) { status_header(403); echo '<p>Sin permisos.</p>'; wp_die(); }
-
-    global $wpdb;
-    $user_id = intval($_POST['user_id'] ?? 0);
-    if (!$user_id) { echo '<p>ID inválido.</p>'; wp_die(); }
-
     $table = $wpdb->prefix . 'voluntario_docs';
+    
+    // Verificar si la tabla existe
+    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'") === $table;
+    if (!$table_exists) {
+        echo '<div style="text-align: center; padding: 40px;">
+                <p style="color: #dc3232; font-size: 16px;">La tabla voluntario_docs no existe.</p>
+              </div>';
+        wp_die();
+    }
+
+    // Obtener el registro del usuario
     $row = $wpdb->get_row($wpdb->prepare(
         "SELECT * FROM $table WHERE user_id = %d ORDER BY fecha_subida DESC LIMIT 1",
         $user_id
     ));
-    if (!$row) { echo '<p>El voluntario no ha subido documentos.</p>'; wp_die(); }
 
-    // Forzar esquema https si la página está en https (evita mixed content)
+    if (!$row) {
+        echo '<p>El voluntario no ha subido documentos.</p>';
+        wp_die();
+    }
+
+    // Función para forzar HTTPS si es necesario
     $to_https = function($url){
         if (!$url) return '';
-        return esc_url( set_url_scheme( esc_url_raw($url), is_ssl() ? 'https' : 'http') );
+        return esc_url(set_url_scheme(esc_url_raw($url), is_ssl() ? 'https' : 'http'));
     };
-
-    $docs = [];
-    if (!empty($row->documento_1_url)) $docs[] = ['label'=>'Documento 1', 'url'=>$to_https($row->documento_1_url)];
-    if (!empty($row->documento_2_url)) $docs[] = ['label'=>'Documento 2', 'url'=>$to_https($row->documento_2_url)];
 
     $tipo = function($url){
         $ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
@@ -5741,53 +5881,330 @@ add_action('wp_ajax_gw_obtener_docs_voluntario', function() {
         return 'other';
     };
 
-    $nonce  = wp_create_nonce('gw_docs_review');
-    $estado = $row->status ? esc_html($row->status) : 'pendiente';
+    $nonce = wp_create_nonce('gw_docs_review');
 
-    // Visor
-    echo '<div id="gw-doc-viewer" style="display:none; margin-bottom:14px; border:1px solid #e3e3e3; border-radius:10px; overflow:hidden;">
-            <div style="padding:8px 10px; background:#f7fafd; border-bottom:1px solid #e3e3e3; display:flex; justify-content:space-between; align-items:center;">
-                <strong>Vista previa del archivo</strong>
-                <button type="button" class="button button-small" id="gw-cerrar-visor">Cerrar</button>
-            </div>
-            <div id="gw-doc-viewer-body" style="height:420px; background:#fff;"></div>
-          </div>';
-
-    echo '<table class="widefat striped"><thead><tr>
-            <th>Documento</th><th>Archivo</th><th>Estado</th><th>Acción</th>
-          </tr></thead><tbody>';
-
-    if (empty($docs)) {
-        echo '<tr><td colspan="4">No hay URLs de documentos para este voluntario.</td></tr>';
-    } else {
-        foreach ($docs as $d) {
-            $t = $tipo($d['url']);
-            echo '<tr>';
-            echo '<td>'.esc_html($d['label']).'</td>';
-            echo '<td>';
-              echo '<button type="button" class="button gw-ver-archivo" data-url="'.$d['url'].'" data-tipo="'.$t.'">Ver archivo</button>';
-              if ($t === 'image') {
-                echo '<div style="margin-top:8px;"><img src="'.$d['url'].'" alt="Documento" style="max-width:120px;max-height:120px;border:1px solid #ccc;border-radius:6px;" loading="lazy"></div>';
-              }
-            echo '</td>';
-            echo '<td>'.ucfirst($estado).'</td>';
-            echo '<td>';
-              if ($estado !== 'aprobado') {
-                echo '<button class="button gw-aprobar-doc" data-row-id="'.intval($row->id).'" data-user-id="'.intval($user_id).'" data-nonce="'.$nonce.'">Aprobar</button> ';
-              }
-              if ($estado !== 'rechazado') {
-                echo '<button class="button gw-rechazar-doc" data-row-id="'.intval($row->id).'" data-user-id="'.intval($user_id).'" data-nonce="'.$nonce.'">Rechazar</button>';
-              }
-            echo '</td>';
-            echo '</tr>';
-        }
+    // Crear array de documentos individuales
+    $documentos = [];
+    
+    // Documento 1
+    if (!empty($row->documento_1_url)) {
+        $documentos[] = [
+            'id' => 'doc1',
+            'tipo' => 'documento_1', 
+            'label' => 'Documento 1',
+            'url' => $to_https($row->documento_1_url),
+            'estado' => get_user_meta($user_id, 'gw_doc1_estado', true) ?: 'pendiente'
+        ];
+    }
+    
+    // Documento 2  
+    if (!empty($row->documento_2_url)) {
+        $documentos[] = [
+            'id' => 'doc2',
+            'tipo' => 'documento_2',
+            'label' => 'Documento 2', 
+            'url' => $to_https($row->documento_2_url),
+            'estado' => get_user_meta($user_id, 'gw_doc2_estado', true) ?: 'pendiente'
+        ];
     }
 
-    echo '</tbody></table>';
+    ob_start(); ?>
+
+    <table class="widefat striped">
+        <thead>
+            <tr>
+                <th>Documento</th>
+                <th>Archivo</th>
+                <th>Estado</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($documentos)): ?>
+                <tr><td colspan="4">No hay documentos subidos para este voluntario.</td></tr>
+            <?php else: ?>
+                <?php foreach ($documentos as $doc): ?>
+                    <?php $t = $tipo($doc['url']); ?>
+                    <tr>
+                        <td><?php echo esc_html($doc['label']); ?></td>
+                        <td>
+                            <button type="button" class="button gw-ver-archivo" 
+                                    data-url="<?php echo esc_attr($doc['url']); ?>" 
+                                    data-tipo="<?php echo esc_attr($t); ?>">
+                                Ver archivo
+                            </button>
+                            <?php if ($t === 'image'): ?>
+                                <div style="margin-top:8px;">
+                                    <img src="<?php echo esc_url($doc['url']); ?>" alt="Documento" 
+                                         style="max-width:120px;max-height:120px;border:1px solid #ccc;border-radius:6px;" 
+                                         loading="lazy">
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php
+                            $color = '';
+                            $texto_estado = '';
+                            switch ($doc['estado']) {
+                                case 'aceptado':
+                                    $color = '#46b450';
+                                    $texto_estado = 'Aceptado';
+                                    break;
+                                case 'rechazado':
+                                    $color = '#dc3232';
+                                    $texto_estado = 'Rechazado';
+                                    break;
+                                default:
+                                    $color = '#ffb900';
+                                    $texto_estado = 'Pendiente';
+                            }
+                            ?>
+                            <span style="color: <?php echo $color; ?>; font-weight: bold;">
+                                <?php echo $texto_estado; ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php if ($doc['estado'] !== 'aceptado'): ?>
+                                <button type="button" class="button gw-aprobar-doc" 
+                                        style="background: #46b450; border-color: #46b450; color: white; margin-right: 5px;"
+                                        data-doc-id="<?php echo esc_attr($doc['id']); ?>" 
+                                        data-user-id="<?php echo esc_attr($user_id); ?>" 
+                                        data-nonce="<?php echo esc_attr($nonce); ?>">
+                                    Aprobar
+                                </button>
+                            <?php endif; ?>
+                            
+                            <?php if ($doc['estado'] !== 'rechazado'): ?>
+                                <button type="button" class="button gw-rechazar-doc" 
+                                        style="background: #dc3232; border-color: #dc3232; color: white;"
+                                        data-doc-id="<?php echo esc_attr($doc['id']); ?>" 
+                                        data-user-id="<?php echo esc_attr($user_id); ?>" 
+                                        data-nonce="<?php echo esc_attr($nonce); ?>">
+                                    Rechazar
+                                </button>
+                            <?php endif; ?>
+                            
+                            <?php if ($doc['estado'] === 'aceptado'): ?>
+                                <span style="color: #46b450;">✅ Aprobado</span>
+                            <?php elseif ($doc['estado'] === 'rechazado'): ?>
+                                <span style="color: #dc3232;">❌ Necesita nueva subida</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+
+    <!-- Estadísticas de documentos -->
+    <?php 
+    $aprobados = 0;
+    $rechazados = 0; 
+    $pendientes = 0;
+    foreach ($documentos as $doc) {
+        switch ($doc['estado']) {
+            case 'aceptado': $aprobados++; break;
+            case 'rechazado': $rechazados++; break;
+            default: $pendientes++; break;
+        }
+    }
+    ?>
+    
+    <div style="margin-top: 20px; padding: 15px; background: #f7fafd; border-radius: 8px;">
+        <h4 style="margin: 0 0 10px 0;">Resumen de Documentos</h4>
+        <p style="margin: 5px 0;">
+            <span style="color: #46b450;">✅ Aprobados: <?php echo $aprobados; ?></span> | 
+            <span style="color: #dc3232;">❌ Rechazados: <?php echo $rechazados; ?></span> | 
+            <span style="color: #ffb900;">⏳ Pendientes: <?php echo $pendientes; ?></span>
+        </p>
+    </div>
+
+    <?php
+    echo ob_get_clean();
     wp_die();
-});
+}
 
+// 3. Aprobar documento individual - CORREGIDO
+add_action('wp_ajax_gw_aprobar_doc', 'gw_aprobar_doc_individual_callback');
 
+function gw_aprobar_doc_individual_callback() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Sin permisos'], 403);
+    }
+
+    if (isset($_POST['nonce']) && !wp_verify_nonce($_POST['nonce'], 'gw_docs_review')) {
+        wp_send_json_error(['message' => 'Nonce inválido'], 400);
+    }
+
+    $doc_id = sanitize_text_field($_POST['doc_id'] ?? '');
+    $user_id = intval($_POST['user_id'] ?? 0);
+
+    if (!$doc_id || !$user_id) {
+        wp_send_json_error(['message' => 'Parámetros inválidos'], 400);
+    }
+
+    // Actualizar el estado individual del documento
+    $meta_key = 'gw_' . $doc_id . '_estado';
+    update_user_meta($user_id, $meta_key, 'aceptado');
+    
+    // Log de quien aprobó
+    update_user_meta($user_id, 'gw_' . $doc_id . '_aprobado_por', get_current_user_id());
+    update_user_meta($user_id, 'gw_' . $doc_id . '_fecha_aprobacion', current_time('mysql'));
+
+    wp_send_json_success(['message' => 'Documento aprobado correctamente', 'status' => 'aceptado']);
+}
+
+// 4. Rechazar documento individual - CORREGIDO
+add_action('wp_ajax_gw_rechazar_doc', 'gw_rechazar_doc_individual_callback');
+
+function gw_rechazar_doc_individual_callback() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Sin permisos'], 403);
+    }
+
+    if (isset($_POST['nonce']) && !wp_verify_nonce($_POST['nonce'], 'gw_docs_review')) {
+        wp_send_json_error(['message' => 'Nonce inválido'], 400);
+    }
+
+    $doc_id = sanitize_text_field($_POST['doc_id'] ?? '');
+    $user_id = intval($_POST['user_id'] ?? 0);
+
+    if (!$doc_id || !$user_id) {
+        wp_send_json_error(['message' => 'Parámetros inválidos'], 400);
+    }
+
+    // Actualizar el estado individual del documento
+    $meta_key = 'gw_' . $doc_id . '_estado';
+    update_user_meta($user_id, $meta_key, 'rechazado');
+    
+    // Log de quien rechazó
+    update_user_meta($user_id, 'gw_' . $doc_id . '_rechazado_por', get_current_user_id());
+    update_user_meta($user_id, 'gw_' . $doc_id . '_fecha_rechazo', current_time('mysql'));
+
+    // Limpiar el archivo específico en la base de datos para permitir nueva subida
+    global $wpdb;
+    $table = $wpdb->prefix . 'voluntario_docs';
+    
+    // Determinar qué campo limpiar según el doc_id
+    $campo_a_limpiar = '';
+    switch ($doc_id) {
+        case 'doc1':
+            $campo_a_limpiar = 'documento_1_url';
+            break;
+        case 'doc2':
+            $campo_a_limpiar = 'documento_2_url';
+            break;
+        case 'doc3':
+            $campo_a_limpiar = 'documento_3_url';
+            break;
+        case 'doc4':
+            $campo_a_limpiar = 'documento_4_url';
+            break;
+    }
+
+    if ($campo_a_limpiar) {
+        $wpdb->update(
+            $table,
+            [$campo_a_limpiar => ''],
+            ['user_id' => $user_id],
+            ['%s'],
+            ['%d']
+        );
+    }
+
+    // Enviar correo específico para este documento
+    $user = get_userdata($user_id);
+    if ($user) {
+        gw_enviar_correo_rechazo_documento($user, $doc_id);
+    }
+
+    wp_send_json_success(['message' => 'Documento rechazado y usuario notificado', 'status' => 'rechazado']);
+}
+
+// 5. Función para enviar correo de rechazo específico por documento
+function gw_enviar_correo_rechazo_documento($user, $doc_id) {
+    $to = $user->user_email;
+    
+    // Determinar el nombre del documento rechazado
+    $nombres_docs = [
+        'doc1' => 'Documento de identidad (Foto 1)',
+        'doc2' => 'Documento de identidad (Foto 2)',
+        'doc3' => 'Documento adicional (Foto 3)',
+        'doc4' => 'Documento adicional (Foto 4)'
+    ];
+    
+    $nombre_documento = $nombres_docs[$doc_id] ?? 'Documento';
+    
+    $subject = 'Documento rechazado - ' . $nombre_documento;
+    
+    // URL del portal - personaliza según tu configuración
+    $portal_url = home_url('/portal-voluntario/');
+
+    $message = "
+    <html>
+    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+        <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+            <div style='background: #dc3232; color: white; padding: 15px; border-radius: 5px 5px 0 0;'>
+                <h2>Documento Rechazado</h2>
+            </div>
+            <div style='background: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px;'>
+                <p>Estimado/a <strong>" . esc_html($user->display_name) . "</strong>,</p>
+                
+                <div style='background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 15px 0;'>
+                    <p><strong>El documento \"$nombre_documento\" ha sido rechazado y requiere acción de su parte.</strong></p>
+                </div>
+                
+                <p>Le informamos que el documento <strong>\"$nombre_documento\"</strong> que subió a nuestro sistema ha sido rechazado durante el proceso de revisión.</p>
+                
+                <div style='background: #e7f3ff; border-left: 4px solid #0073aa; padding: 10px; margin: 15px 0;'>
+                    <p><strong>Importante:</strong> Solo este documento específico fue rechazado. Sus otros documentos mantienen su estado actual.</p>
+                </div>
+                
+                <h3>¿Qué debe hacer ahora?</h3>
+                <ul>
+                    <li>Revisar los requisitos específicos para este documento</li>
+                    <li>Preparar una nueva versión que cumpla con los estándares</li>
+                    <li>Ingresar al portal para subir únicamente este documento corregido</li>
+                </ul>
+                
+                <p>Para continuar con su proceso de voluntariado, debe ingresar al portal y subir una nueva versión del documento rechazado:</p>
+                
+                <a href='$portal_url' style='display: inline-block; background: #0073aa; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin-top: 15px;'>Ingresar al Portal</a>
+                
+                <p style='margin-top: 20px;'><strong>Nota:</strong> Su proceso de aplicación continuará una vez que suba el documento corregido.</p>
+                
+                <p>Si tiene dudas sobre los requisitos específicos de este documento, puede contactarnos respondiendo a este correo.</p>
+                
+                <p>Saludos cordiales,<br><strong>Equipo de Administración</strong></p>
+            </div>
+        </div>
+    </body>
+    </html>";
+
+    $headers = array(
+        'Content-Type: text/html; charset=UTF-8',
+        'From: ' . get_bloginfo('name') . ' <' . get_option('admin_email') . '>'
+    );
+
+    wp_mail($to, $subject, $message, $headers);
+}
+
+// 6. Función para actualizar el formulario de subida (PASO 8) - CORREGIDA
+function gw_actualizar_paso8_para_rechazos() {
+    // Esta función debe ir en tu archivo del PASO 8
+    // Modifica la lógica de mostrar documentos para verificar estados individuales
+    
+    // En lugar de verificar solo $status, ahora verificar cada documento:
+    /*
+    $doc1_estado = get_user_meta($user_id, 'gw_doc1_estado', true) ?: 'pendiente';
+    $doc2_estado = get_user_meta($user_id, 'gw_doc2_estado', true) ?: 'pendiente';
+    
+    // Mostrar cada documento con su estado específico
+    // Permitir subida individual de documentos rechazados
+    */
+}
+
+// 7. Cargar scripts necesarios
 add_action('wp_enqueue_scripts', function () {
     if (is_page('panel-administrativo')) {
         wp_enqueue_script('jquery');
@@ -5795,12 +6212,274 @@ add_action('wp_enqueue_scripts', function () {
     }
 });
 
-// =================== FIN BLOQUE REVISIÓN/ACEPTACIÓN DE DOCUMENTOS ===================
-<<<<<<< HEAD
+// 8. Función auxiliar para verificar configuración de correo
+function gw_verificar_configuracion_correo() {
+    // Test de envío de correo
+    $admin_email = get_option('admin_email');
+    $test_sent = wp_mail($admin_email, 'Test - Sistema de documentos', 'Este es un correo de prueba del sistema de documentos de voluntarios.');
+    
+    if ($test_sent) {
+        return "✅ Configuración de correo funcionando";
+    } else {
+        return "❌ Error en configuración de correo. Revisar plugins SMTP o configuración del servidor.";
+    }
+}
+
+// 9. Shortcode para probar correos (opcional - solo para debug)
+add_shortcode('test_correo_docs', function() {
+    if (!current_user_can('manage_options')) return 'Sin permisos';
+    
+    if (isset($_GET['test_mail'])) {
+        $resultado = gw_verificar_configuracion_correo();
+        return '<div style="padding: 10px; background: #f0f0f0; margin: 10px 0;">' . $resultado . '</div>';
+    }
+    
+    return '<a href="?test_mail=1" class="button">Probar configuración de correo</a>';
+});
+
+/**
+ * Sube un documento a /wp-content/uploads/documentos-voluntarios usando la API de WordPress.
+ * @param array  $file     La entrada de $_FILES['...'].
+ * @param int    $user_id  ID del usuario.
+ * @param string $doc_tipo Etiqueta del doc (ej: documento_1).
+ * @return string|false    URL final del archivo o false en error.
+ */
+function gw_subir_documento_personalizado( $file, $user_id, $doc_tipo ) {
+    if ( empty($file) || !isset($file['tmp_name']) ) return false;
+    if ( $file['error'] !== UPLOAD_ERR_OK ) return false;
+    if ( ! file_exists($file['tmp_name']) ) return false;
+
+    // Extensiones permitidas
+    $allowed_mimes = array(
+        'jpg|jpeg' => 'image/jpeg',
+        'png'      => 'image/png',
+        'gif'      => 'image/gif',
+        'webp'     => 'image/webp',
+    );
+
+    // Base de uploads
+    $uploads = wp_upload_dir();
+    if ( ! empty($uploads['error']) ) return false;
+
+    // 📌 Crear carpeta personalizada con año/mes (igual que WP)
+    $time       = current_time('mysql');
+    $subdir     = '/documentos-voluntarios/' . date('Y/m', strtotime($time));
+    $custom_dir = $uploads['basedir'] . $subdir;
+    $custom_url = $uploads['baseurl'] . $subdir;
+
+    // 👉 Crear directorio recursivamente si no existe
+    if ( ! wp_mkdir_p( $custom_dir ) ) {
+        error_log('GW Upload Error: no se pudo crear carpeta ' . $custom_dir);
+        return false;
+    }
+
+    // Filtro upload_dir para forzar esta ruta
+    $filter = function( $dirs ) use ( $custom_dir, $custom_url, $subdir ) {
+        $dirs['path']   = $custom_dir;
+        $dirs['url']    = $custom_url;
+        $dirs['subdir'] = $subdir;
+        return $dirs;
+    };
+    add_filter( 'upload_dir', $filter );
+
+    // Nombre de archivo seguro
+    $ext = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+    $safe_base  = sanitize_file_name( $user_id . '_' . $doc_tipo . '_' . time() );
+    $file['name'] = $safe_base . '.' . $ext;
+
+    // Subir
+    $result = wp_handle_upload( $file, array(
+        'test_form' => false,
+        'mimes'     => $allowed_mimes,
+    ));
+
+    remove_filter( 'upload_dir', $filter );
+
+    if ( isset($result['error']) ) {
+        error_log('GW Upload Error: ' . $result['error']);
+        return false;
+    }
+
+    // Seguridad: index.php
+    $index_file = $custom_dir . '/index.php';
+    if ( ! file_exists($index_file) ) {
+        file_put_contents($index_file, "<?php\n// Silence is golden\n");
+    }
+
+    return esc_url_raw($result['url']);
+}
+
+// Función auxiliar para verificar configuración de uploads
+function gw_verificar_configuracion_uploads() {
+    $upload_info = wp_upload_dir();
+    $results = [];
+    
+    $results['wp_upload_dir_error'] = $upload_info['error'];
+    $results['upload_dir'] = $upload_info['basedir'];
+    $results['upload_url'] = $upload_info['baseurl'];
+    $results['dir_exists'] = file_exists($upload_info['basedir']);
+    $results['dir_writable'] = is_writable($upload_info['basedir']);
+    
+    $docs_dir = $upload_info['basedir'] . '/documentos-voluntarios/';
+    $results['docs_dir_exists'] = file_exists($docs_dir);
+    $results['docs_dir_writable'] = file_exists($docs_dir) ? is_writable($docs_dir) : 'N/A';
+    
+    $results['max_upload_size'] = wp_max_upload_size();
+    $results['php_max_filesize'] = ini_get('upload_max_filesize');
+    $results['php_max_post_size'] = ini_get('post_max_size');
+    
+    return $results;
+}
+
+// Shortcode para diagnóstico (temporal, solo para admin)
+function gw_diagnostico_uploads_shortcode() {
+    if (!current_user_can('manage_options')) {
+        return 'Sin permisos para ver diagnóstico.';
+    }
+    
+    $config = gw_verificar_configuracion_uploads();
+    
+    ob_start();
+    ?>
+    <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 10px 0;">
+        <h3>Diagnóstico de Configuración de Uploads</h3>
+        <ul>
+            <li><strong>Error WP Upload Dir:</strong> <?php echo $config['wp_upload_dir_error'] ?: 'Ninguno'; ?></li>
+            <li><strong>Directorio base:</strong> <?php echo esc_html($config['upload_dir']); ?></li>
+            <li><strong>URL base:</strong> <?php echo esc_html($config['upload_url']); ?></li>
+            <li><strong>Directorio existe:</strong> <?php echo $config['dir_exists'] ? '✅ Sí' : '❌ No'; ?></li>
+            <li><strong>Directorio escribible:</strong> <?php echo $config['dir_writable'] ? '✅ Sí' : '❌ No'; ?></li>
+            <li><strong>Dir documentos existe:</strong> <?php echo $config['docs_dir_exists'] ? '✅ Sí' : '❌ No'; ?></li>
+            <li><strong>Dir documentos escribible:</strong> <?php echo $config['docs_dir_writable'] === 'N/A' ? 'N/A' : ($config['docs_dir_writable'] ? '✅ Sí' : '❌ No'); ?></li>
+            <li><strong>Tamaño máximo WP:</strong> <?php echo size_format($config['max_upload_size']); ?></li>
+            <li><strong>PHP max filesize:</strong> <?php echo $config['php_max_filesize']; ?></li>
+            <li><strong>PHP max post size:</strong> <?php echo $config['php_max_post_size']; ?></li>
+        </ul>
+        
+        <?php if (isset($_GET['test_create_dir'])): ?>
+            <?php
+            $test_dir = $config['upload_dir'] . '/test-gw-' . time() . '/';
+            $create_result = wp_mkdir_p($test_dir);
+            ?>
+            <div style="margin-top: 10px; padding: 10px; background: <?php echo $create_result ? '#d4edda' : '#f8d7da'; ?>;">
+                <strong>Test de creación de directorio:</strong>
+                <?php echo $create_result ? '✅ Exitoso' : '❌ Falló'; ?>
+                <?php if ($create_result): ?>
+                    <?php 
+                    // Limpiar directorio de prueba
+                    rmdir($test_dir);
+                    ?>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+        
+        <p style="margin-top: 15px;">
+            <a href="?test_create_dir=1" class="button">Probar creación de directorio</a>
+        </p>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('gw_diagnostico_uploads', 'gw_diagnostico_uploads_shortcode');
+
+// Función para obtener mensaje de error de upload
+function gw_obtener_mensaje_error_upload($error_code) {
+    switch ($error_code) {
+        case UPLOAD_ERR_OK:
+            return 'Sin errores';
+        case UPLOAD_ERR_INI_SIZE:
+            return 'El archivo excede upload_max_filesize del servidor (' . ini_get('upload_max_filesize') . ')';
+        case UPLOAD_ERR_FORM_SIZE:
+            return 'El archivo excede MAX_FILE_SIZE del formulario';
+        case UPLOAD_ERR_PARTIAL:
+            return 'El archivo se subió parcialmente';
+        case UPLOAD_ERR_NO_FILE:
+            return 'No se seleccionó archivo';
+        case UPLOAD_ERR_NO_TMP_DIR:
+            return 'Falta directorio temporal del servidor';
+        case UPLOAD_ERR_CANT_WRITE:
+            return 'Error de escritura en disco del servidor';
+        case UPLOAD_ERR_EXTENSION:
+            return 'Una extensión PHP bloqueó la subida';
+        default:
+            return 'Error desconocido (' . $error_code . ')';
+    }
+}
+
+// Función para crear el archivo index.php de seguridad en el directorio de documentos
+function gw_crear_index_seguridad_documentos() {
+    $upload_info = wp_upload_dir();
+    $docs_dir = $upload_info['basedir'] . '/documentos-voluntarios/';
+    $index_file = $docs_dir . 'index.php';
+    
+    if (file_exists($docs_dir) && !file_exists($index_file)) {
+        $index_content = "<?php\n// Silencio es oro\n";
+        file_put_contents($index_file, $index_content);
+    }
+}
+
+// Crear el index.php al activar el plugin o cargar el sistema
+add_action('init', 'gw_crear_index_seguridad_documentos');
+
+// Función para verificar permisos del directorio y corregirlos si es necesario
+function gw_verificar_permisos_directorio_documentos() {
+    $upload_info = wp_upload_dir();
+    $docs_dir = $upload_info['basedir'] . '/documentos-voluntarios/';
+    
+    if (file_exists($docs_dir)) {
+        $permisos_actuales = substr(sprintf('%o', fileperms($docs_dir)), -4);
+        
+        // Si los permisos no son adecuados, intentar corregirlos
+        if ($permisos_actuales !== '0755' && $permisos_actuales !== '0775') {
+            $resultado = chmod($docs_dir, 0755);
+            error_log("GW Permisos - Cambio de permisos en $docs_dir: " . ($resultado ? 'exitoso' : 'falló'));
+        }
+        
+        return [
+            'exists' => true,
+            'writable' => is_writable($docs_dir),
+            'permisos' => $permisos_actuales
+        ];
+    }
+    
+    return [
+        'exists' => false,
+        'writable' => false,
+        'permisos' => null
+    ];
+}
+
+// Hook para verificar permisos periódicamente (solo en admin)
+if (is_admin()) {
+    add_action('admin_init', function() {
+        // Solo verificar una vez por sesión
+        if (!get_transient('gw_permisos_verificados')) {
+            $estado = gw_verificar_permisos_directorio_documentos();
+            
+            if (!$estado['writable']) {
+                add_action('admin_notices', function() {
+                    echo '<div class="notice notice-warning"><p><strong>Glasswing:</strong> El directorio de documentos no tiene permisos de escritura. Los uploads pueden fallar.</p></div>';
+                });
+            }
+            
+            // Marcar como verificado por 1 hora
+            set_transient('gw_permisos_verificados', true, HOUR_IN_SECONDS);
+        }
+    });
+}
 
 
 
-=======
+
+
+
+
+
+
+
+
+
+
 // ================================
 // MÓDULO: Reportes y Listados
 // Visible para Administrador y Coordinador de país
@@ -6487,4 +7166,10 @@ add_action('admin_post_gw_reportes_export', function(){
 
     wp_die('Formato no soportado.');
 });
->>>>>>> e5aabb5 (gw-manager: Proyectos y listados)
+
+
+
+
+
+
+

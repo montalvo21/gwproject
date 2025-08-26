@@ -1680,7 +1680,8 @@ function gw_step_5_charla($user_id) {
     }
     
     if ($is_admin) $content .= gw_step_5_charla_admin_form($user_id, $charlas_asignadas, $admin_assign_output);
-    return $render_layout('Charlas', 'Selecciona una opción de horario para registrarte en la charla.', $content);
+    // Cambiar el título y subtítulo para mostrar el nombre específico de la charla y un subtítulo más descriptivo
+        return $render_layout($charla_actual->post_title, 'Selecciona una de las sesiones disponibles', $content);
 }
 
 // Mini formulario para asignar IDs de charla manualmente (solo admin)
@@ -2898,7 +2899,9 @@ function gw_charla_detalles_metabox_callback($post) {
     </script>
     <?php
 }
-// === PASO 8: Subida de documentos y selección de escuela ===
+// === PASO 8: Subida de documentos y selección de escuela - ACTUALIZADO ===
+
+
 function gw_step_8_documentos($user_id) {
     // Verificar si ya seleccionó escuela y horario
     $escuela_id = get_user_meta($user_id, 'gw_escuela_seleccionada', true);
@@ -2907,14 +2910,13 @@ function gw_step_8_documentos($user_id) {
     // Variables para mensajes
     $error = '';
     $success = '';
-    $just_submitted = false; // Variable para controlar el contador
+    $just_submitted = false;
 
     // Procesar selección nueva
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['escuela_id']) && isset($_POST['horario_idx']) && check_admin_referer('gw_step8_seleccion', 'gw_step8_nonce')) {
         $escuela_id = intval($_POST['escuela_id']);
         $horario_idx = intval($_POST['horario_idx']);
 
-        // Obtener la escuela y horario seleccionados
         $escuela = get_post($escuela_id);
         $horarios = get_post_meta($escuela_id, '_gw_escuela_horarios', true);
         if (!is_array($horarios)) $horarios = [];
@@ -2928,98 +2930,177 @@ function gw_step_8_documentos($user_id) {
         }
     }
 
-    // ------ SUBIDA DE DOCUMENTOS (DUI/ID) -------
+    // ------ OBTENER ESTADOS INDIVIDUALES DE DOCUMENTOS -------
+    $doc1_estado = get_user_meta($user_id, 'gw_doc1_estado', true) ?: 'pendiente';
+    $doc2_estado = get_user_meta($user_id, 'gw_doc2_estado', true) ?: 'pendiente';
+    $doc3_estado = get_user_meta($user_id, 'gw_doc3_estado', true) ?: 'pendiente';
+    $doc4_estado = get_user_meta($user_id, 'gw_doc4_estado', true) ?: 'pendiente';
+    
+    // Verificar si todos los documentos obligatorios están aceptados
+    $todos_aceptados = ($doc1_estado === 'aceptado' && $doc2_estado === 'aceptado');
+    
+    // Obtener datos de la tabla original para URLs
     global $wpdb;
-    $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
-    $status = $docs ? $docs['status'] : '';
-
-    // Procesar subida de documentos
+    $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$wpdb->prefix}voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
+    
+    // PROCESAR SUBIDA DE DOCUMENTOS - MEJORADO
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_docs_nonce']) && wp_verify_nonce($_POST['gw_docs_nonce'], 'gw_docs_subida')) {
         $cons1 = isset($_POST['consentimiento1']) ? 1 : 0;
         $cons2 = isset($_POST['consentimiento2']) ? 1 : 0;
 
-        // Archivos (actualizado para manejar hasta 4 documentos)
         $errors = [];
-        $file_names = [null, null, null, null]; // Array para 4 documentos
+        $file_names = [null, null, null, null];
+        
+        // Aumentar límites para subida
+        ini_set('memory_limit', '256M');
+        ini_set('max_execution_time', 300);
         
         for ($i = 1; $i <= 4; $i++) {
-            if (isset($_FILES["documento_$i"]) && $_FILES["documento_$i"]['size'] > 0) {
-                $file = $_FILES["documento_$i"];
-                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                if (!in_array($ext, ['jpg','jpeg','png','gif','webp'])) {
-                    $errors[] = "Documento $i: Formato inválido ($ext)";
-                    continue;
+            $doc_estado = get_user_meta($user_id, "gw_doc{$i}_estado", true);
+            
+            // Solo permitir subida si el documento no está aceptado
+            if ($doc_estado !== 'aceptado') {
+                if (isset($_FILES["documento_$i"]) && $_FILES["documento_$i"]['size'] > 0) {
+                    $file = $_FILES["documento_$i"];
+                    
+                    // Verificar errores de subida antes de procesar
+                    if ($file['error'] !== UPLOAD_ERR_OK) {
+                        $error_msg = gw_obtener_mensaje_error_upload($file['error']);
+                        $errors[] = "Documento $i: $error_msg";
+                        continue;
+                    }
+                    
+                    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                    if (!in_array($ext, ['jpg','jpeg','png','gif','webp'])) {
+                        $errors[] = "Documento $i: Formato inválido ($ext). Solo se permiten: JPG, PNG, GIF, WEBP";
+                        continue;
+                    }
+                    
+                    // Verificar tamaño del archivo (máximo 5MB)
+                    if ($file['size'] > 5 * 1024 * 1024) {
+                        $errors[] = "Documento $i: El archivo es demasiado grande (" . size_format($file['size']) . "). Máximo 5MB.";
+                        continue;
+                    }
+                    
+                    // Usar la función mejorada
+                    $url = gw_subir_documento_personalizado($file, $user_id, "documento_$i");
+                    if (!$url) {
+                        $last_error = error_get_last();
+                        $error_detail = $last_error ? $last_error['message'] : 'Error desconocido';
+                        $errors[] = "Documento $i: Error al subir archivo - $error_detail";
+                        continue;
+                    }
+                    $file_names[$i-1] = $url;
+                    
+                    // Resetear el estado a pendiente al subir nuevo archivo
+                    update_user_meta($user_id, "gw_doc{$i}_estado", 'pendiente');
+                } else {
+                    // Conservar archivo existente si no se subió uno nuevo
+                    if ($docs && isset($docs["documento_{$i}_url"]) && $docs["documento_{$i}_url"]) {
+                        $file_names[$i-1] = $docs["documento_{$i}_url"];
+                    }
                 }
-                // Subir a uploads
-                require_once(ABSPATH . 'wp-admin/includes/file.php');
-                $upload = wp_handle_upload($file, ['test_form' => false]);
-                if (!empty($upload['error'])) {
-                    $errors[] = "Documento $i: " . $upload['error'];
-                    continue;
-                }
-                $file_names[$i-1] = $upload['url'];
             } else {
-                // Si ya tenía antes, conservar
+                // Documento ya aceptado, conservar
                 if ($docs && isset($docs["documento_{$i}_url"]) && $docs["documento_{$i}_url"]) {
                     $file_names[$i-1] = $docs["documento_{$i}_url"];
                 }
             }
         }
         
-        // Validar que al menos los primeros 2 documentos estén subidos
-        if (!$file_names[0] || !$file_names[1]) {
-            $errors[] = "Debes subir al menos los primeros 2 documentos obligatorios.";
+        // Validaciones mejoradas
+        if (!$file_names[0] && $doc1_estado !== 'aceptado') {
+            $errors[] = "Debes subir el primer documento de identidad (Foto 1).";
         }
-        if (!$cons1 || !$cons2) $errors[] = "Debes aceptar ambos consentimientos.";
+        if (!$file_names[1] && $doc2_estado !== 'aceptado') {
+            $errors[] = "Debes subir el segundo documento de identidad (Foto 2).";
+        }
+        if (!$cons1 || !$cons2) {
+            $errors[] = "Debes aceptar ambos consentimientos.";
+        }
 
         if (empty($errors)) {
-            // Insertar/actualizar en la tabla personalizada
-            if ($docs) {
-                $wpdb->update($wpdb->prefix . 'voluntario_docs', [
-                    'documento_1_url' => $file_names[0],
-                    'documento_2_url' => $file_names[1],
-                    'documento_3_url' => $file_names[2],
-                    'documento_4_url' => $file_names[3],
-                    'consent_1'       => $cons1,
-                    'consent_2'       => $cons2,
-                    'status'          => 'pendiente',
-                    'updated_at'      => current_time('mysql', 1)
-                ], [ 'user_id' => $user_id ]);
+            $table_name = $wpdb->prefix . 'voluntario_docs';
+            
+            // Verificar si la tabla existe
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+            
+            if (!$table_exists) {
+                $errors[] = "Error del sistema: Tabla de documentos no encontrada. Contacta al administrador.";
             } else {
-                $wpdb->insert(
-                    $wpdb->prefix . 'voluntario_docs',
-                    [
-                        'user_id'           => $user_id,
-                        'escuela_id'        => $escuela_id,
-                        'documento_1_url'   => esc_url_raw($file_names[0]),
-                        'documento_2_url'   => esc_url_raw($file_names[1]),
-                        'documento_3_url'   => esc_url_raw($file_names[2]),
-                        'documento_4_url'   => esc_url_raw($file_names[3]),
-                        'consent_1'         => $cons1,
-                        'consent_2'         => $cons2,
-                        'status'            => 'pendiente',
-                        'fecha_subida'      => current_time('mysql', 1),
-                        'fecha_revision'    => current_time('mysql', 1),
-                    ],
-                    [ '%d','%d','%s','%s','%s','%s','%d','%d','%s','%s','%s' ]
-                );
+                // Actualizar/insertar en la tabla
+                if ($docs) {
+                    $update_result = $wpdb->update(
+                        $table_name, 
+                        [
+                            'documento_1_url' => $file_names[0],
+                            'documento_2_url' => $file_names[1],
+                            'documento_3_url' => $file_names[2],
+                            'documento_4_url' => $file_names[3],
+                            'consent_1'       => $cons1,
+                            'consent_2'       => $cons2,
+                            'status'          => 'pendiente',
+                            'updated_at'      => current_time('mysql', 1)
+                        ], 
+                        ['user_id' => $user_id]
+                    );
+                    
+                    if ($update_result === false) {
+                        $errors[] = "Error al actualizar los documentos en la base de datos.";
+                    }
+                } else {
+                    $insert_result = $wpdb->insert(
+                        $table_name,
+                        [
+                            'user_id'           => $user_id,
+                            'escuela_id'        => $escuela_id,
+                            'documento_1_url'   => $file_names[0] ? esc_url_raw($file_names[0]) : '',
+                            'documento_2_url'   => $file_names[1] ? esc_url_raw($file_names[1]) : '',
+                            'documento_3_url'   => $file_names[2] ? esc_url_raw($file_names[2]) : '',
+                            'documento_4_url'   => $file_names[3] ? esc_url_raw($file_names[3]) : '',
+                            'consent_1'         => $cons1,
+                            'consent_2'         => $cons2,
+                            'status'            => 'pendiente',
+                            'fecha_subida'      => current_time('mysql', 1),
+                        ],
+                        ['%d','%d','%s','%s','%s','%s','%d','%d','%s','%s']
+                    );
+                    
+                    if (!$insert_result) {
+                        $errors[] = "Error al guardar los documentos en la base de datos.";
+                    }
+                }
+                
+                if (empty($errors)) {
+                    $just_submitted = true;
+                    $success = '¡Documentos enviados correctamente! Espera a que sean validados.';
+                    
+                    // Enviar correo de notificación al admin (opcional)
+                    gw_notificar_admin_nuevos_documentos($user_id);
+                }
             }
-            $just_submitted = true; // Activar el contador
-            $success = '¡Documentos enviados correctamente! Espera a que sean validados.';
-        } else {
-            $error = implode(' ', $errors);
+        }
+        
+        if (!empty($errors)) {
+            $error = implode('<br>', $errors);
         }
     }
 
-    // Cargar datos actuales
-    $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM wp_voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
-    $status = $docs && isset($docs['status']) ? $docs['status'] : '';
+    // Recargar datos después del procesamiento
+    $docs = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$wpdb->prefix}voluntario_docs WHERE user_id=%d", $user_id), ARRAY_A );
     $doc1 = $docs && isset($docs['documento_1_url']) ? $docs['documento_1_url'] : '';
     $doc2 = $docs && isset($docs['documento_2_url']) ? $docs['documento_2_url'] : '';
     $doc3 = $docs && isset($docs['documento_3_url']) ? $docs['documento_3_url'] : '';
     $doc4 = $docs && isset($docs['documento_4_url']) ? $docs['documento_4_url'] : '';
     $cons1 = $docs && isset($docs['consent_1']) ? $docs['consent_1'] : '';
     $cons2 = $docs && isset($docs['consent_2']) ? $docs['consent_2'] : '';
+
+    // Actualizar estados después del procesamiento
+    $doc1_estado = get_user_meta($user_id, 'gw_doc1_estado', true) ?: 'pendiente';
+    $doc2_estado = get_user_meta($user_id, 'gw_doc2_estado', true) ?: 'pendiente';
+    $doc3_estado = get_user_meta($user_id, 'gw_doc3_estado', true) ?: 'pendiente';
+    $doc4_estado = get_user_meta($user_id, 'gw_doc4_estado', true) ?: 'pendiente';
+    $todos_aceptados = ($doc1_estado === 'aceptado' && $doc2_estado === 'aceptado');
 
     // Obtener escuelas
     $escuelas = get_posts([
@@ -3042,7 +3123,7 @@ function gw_step_8_documentos($user_id) {
                 </div> 
 
                 <div class="gw-steps-container">
-                    <!-- Paso 1 -->
+                    <!-- Pasos 1-7 (iguales) -->
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -3050,8 +3131,6 @@ function gw_step_8_documentos($user_id) {
                             <p>Cuéntanos quién eres para empezar.</p>
                         </div>
                     </div>
-
-                    <!-- Paso 2 -->
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -3059,8 +3138,6 @@ function gw_step_8_documentos($user_id) {
                             <p>Mira este breve video para conocer Glasswing.</p>
                         </div>
                     </div>
-
-                    <!-- Paso 3 -->
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -3068,10 +3145,6 @@ function gw_step_8_documentos($user_id) {
                             <p>Completa tu información para la inducción.</p>
                         </div>
                     </div>
-
-                    <!-- Paso 4 -->
-
-                    <!-- Paso 5 -->
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -3079,8 +3152,6 @@ function gw_step_8_documentos($user_id) {
                             <p>Regístrate en la charla asignada y participa.</p>
                         </div>
                     </div>
-
-                    <!-- Paso 6 -->
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -3088,8 +3159,6 @@ function gw_step_8_documentos($user_id) {
                             <p>Elige el proyecto en el que participarás.</p>
                         </div>
                     </div>
-
-                    <!-- Paso 7 -->
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -3097,8 +3166,6 @@ function gw_step_8_documentos($user_id) {
                             <p>Inscríbete y marca tu asistencia para continuar.</p>
                         </div>
                     </div>
-
-                    <!-- Paso 8 - ACTIVO -->
                     <div class="gw-step-item active">
                         <div class="gw-step-number">8</div>
                         <div class="gw-step-content">
@@ -3128,7 +3195,7 @@ function gw_step_8_documentos($user_id) {
                 <div class="gw-form-container">
                     
                     <?php if ($just_submitted): ?>
-                        <!-- Pantalla de confirmación con contador -->
+                        <!-- Pantalla de confirmación -->
                         <div class="gw-submission-success">
                             <div class="gw-success-animation">
                                 <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3144,9 +3211,10 @@ function gw_step_8_documentos($user_id) {
                             <div class="gw-info-box">
                                 <h3>¿Qué sigue ahora?</h3>
                                 <ul>
-                                    <li>📋 Nuestro equipo revisará tus documentos</li>
-                                    <li>📧 Recibirás una notificación cuando sean aprobados</li>
-                                    <li>🎉 Podrás comenzar tu voluntariado una vez aprobado</li>
+                                    <li>📋 Nuestro equipo revisará tus documentos individualmente</li>
+                                    <li>📧 Recibirás notificaciones específicas por cada documento</li>
+                                    <li>🔄 Podrás volver a subir solo los documentos rechazados</li>
+                                    <li>🎉 Comenzarás tu voluntariado una vez todos sean aprobados</li>
                                 </ul>
                             </div>
                             <div class="gw-countdown-section">
@@ -3156,8 +3224,8 @@ function gw_step_8_documentos($user_id) {
                             </div>
                         </div>
                     
-                    <?php elseif ($status === 'validado'): ?>
-                        <!-- Estado aprobado -->
+                    <?php elseif ($todos_aceptados): ?>
+                        <!-- Todos los documentos aceptados -->
                         <div class="gw-approved-status">
                             <div class="gw-success-icon">
                                 <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3174,32 +3242,8 @@ function gw_step_8_documentos($user_id) {
                             </div>
                         </div>
                     
-                    <?php elseif ($status === 'rechazado' || $status === 'denegado'): ?>
-                        <!-- Estado denegado -->
-                        <div class="gw-rejected-status">
-                            <div class="gw-error-icon">
-                                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="15" y1="9" x2="9" y2="15"/>
-                                    <line x1="9" y1="9" x2="15" y2="15"/>
-                                </svg>
-                            </div>
-                            <h1>Documentos no aprobados</h1>
-                            <p>Lamentablemente, tus documentos no pudieron ser aprobados. Por favor, contacta con nuestro equipo para más información sobre los próximos pasos.</p>
-                            <div class="gw-contact-info">
-                                <h3>Información de contacto:</h3>
-                                <p>📧 Email: voluntarios@glasswing.org</p>
-                                <p>📞 Teléfono: [NÚMERO DE CONTACTO]</p>
-                            </div>
-                            <div class="gw-countdown-section">
-                                <p>Cerrando sesión automáticamente en:</p>
-                                <div class="gw-countdown" id="gw-countdown">15</div>
-                                <p class="gw-countdown-text">segundos</p>
-                            </div>
-                        </div>
-                    
                     <?php else: ?>
-                        <!-- Formulario normal -->
+                        <!-- Formulario principal -->
                         <div class="gw-form-header">
                             <h1>Documentos y escuela</h1>
                             <p>Selecciona tu escuela, horario y sube los documentos requeridos.</p>
@@ -3212,7 +3256,7 @@ function gw_step_8_documentos($user_id) {
                                     <line x1="15" y1="9" x2="9" y2="15"/>
                                     <line x1="9" y1="9" x2="15" y2="15"/>
                                 </svg>
-                                <span><?php echo esc_html($error); ?></span>
+                                <span><?php echo wp_kses_post($error); ?></span>
                             </div>
                         <?php endif; ?>
 
@@ -3226,8 +3270,39 @@ function gw_step_8_documentos($user_id) {
                             </div>
                         <?php endif; ?>
 
+                        <!-- Estado individual de documentos rechazados -->
+                        <?php 
+                        $hay_rechazados = ($doc1_estado === 'rechazado' || $doc2_estado === 'rechazado' || $doc3_estado === 'rechazado' || $doc4_estado === 'rechazado');
+                        if ($hay_rechazados): ?>
+                            <div class="gw-rejected-docs-notice">
+                                <div class="gw-notice-header">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="15" y1="9" x2="9" y2="15"/>
+                                        <line x1="9" y1="9" x2="15" y2="15"/>
+                                    </svg>
+                                    <h3>Documentos que necesitan corrección</h3>
+                                </div>
+                                <p>Los siguientes documentos fueron rechazados y necesitas subir nuevas versiones:</p>
+                                <ul>
+                                    <?php if ($doc1_estado === 'rechazado'): ?>
+                                        <li>❌ Documento de identidad (Foto 1)</li>
+                                    <?php endif; ?>
+                                    <?php if ($doc2_estado === 'rechazado'): ?>
+                                        <li>❌ Documento de identidad (Foto 2)</li>
+                                    <?php endif; ?>
+                                    <?php if ($doc3_estado === 'rechazado'): ?>
+                                        <li>❌ Documento adicional (Foto 3)</li>
+                                    <?php endif; ?>
+                                    <?php if ($doc4_estado === 'rechazado'): ?>
+                                        <li>❌ Documento adicional (Foto 4)</li>
+                                    <?php endif; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Selección de escuela -->
                         <?php if ($escuela_id && $horario): ?>
-                            <!-- Resumen de selección -->
                             <div class="gw-selection-summary">
                                 <div class="gw-summary-header">
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3245,23 +3320,13 @@ function gw_step_8_documentos($user_id) {
                                 </div>
                             </div>
                         <?php else: ?>
-                            <!-- Selección de escuela y horario -->
+                            <!-- Formulario de selección de escuela -->
                             <div class="gw-section">
                                 <div class="gw-section-header">
                                     <h2>Selecciona tu escuela y horario</h2>
                                     <p>Elige la escuela y el horario donde vas a realizar tu voluntariado.</p>
                                 </div>
-
-                                <?php if (empty($escuelas)): ?>
-                                    <div class="gw-error-message">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <line x1="15" y1="9" x2="9" y2="15"/>
-                                            <line x1="9" y1="9" x2="15" y2="15"/>
-                                        </svg>
-                                        <span>No hay escuelas disponibles por el momento.</span>
-                                    </div>
-                                <?php else: ?>
+                                <?php if (!empty($escuelas)): ?>
                                     <form method="post" class="gw-school-form">
                                         <?php wp_nonce_field('gw_step8_seleccion', 'gw_step8_nonce'); ?>
                                         <div class="gw-schools-grid">
@@ -3307,162 +3372,203 @@ function gw_step_8_documentos($user_id) {
                             </div>
                         <?php endif; ?>
 
-                        <?php if ($escuela_id && $horario && $status !== 'validado' && $status !== 'rechazado' && $status !== 'denegado'): ?>
-                            <!-- Sección de documentos -->
+                        <!-- Formulario de documentos con estados individuales -->
+                        <?php if ($escuela_id && $horario): ?>
                             <div class="gw-section">
                                 <div class="gw-section-header">
                                     <h2>Subir documentos</h2>
                                     <p>Sube tu DUI o documento de identidad para completar tu registro.</p>
                                 </div>
 
-                                <?php if ($status === 'pendiente'): ?>
-                                    <div class="gw-info-message">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <path d="M12 16v-4"/>
-                                            <path d="M12 8h.01"/>
-                                        </svg>
-                                        <span>Documentos enviados. Espera validación del coach/admin.</span>
-                                    </div>
-                                <?php endif; ?>
-
                                 <form method="post" enctype="multipart/form-data" class="gw-documents-form" id="gw-documents-form">
                                     <?php wp_nonce_field('gw_docs_subida', 'gw_docs_nonce'); ?>
                                     
                                     <div class="gw-documents-grid" id="documents-container">
-                                        <!-- Documento 1 - SIEMPRE VISIBLE -->
+                                        <!-- Documento 1 -->
                                         <div class="gw-document-upload" data-doc="1">
                                             <label class="gw-upload-label">
                                                 <span class="gw-label-text">Documento de identidad (Foto 1)</span>
                                                 <span class="gw-required">*</span>
+                                                <?php 
+                                                $color1 = '';
+                                                $text1 = '';
+                                                switch ($doc1_estado) {
+                                                    case 'aceptado': $color1 = '#46b450'; $text1 = 'APROBADO'; break;
+                                                    case 'rechazado': $color1 = '#dc3232'; $text1 = 'RECHAZADO - SUBIR NUEVO'; break;
+                                                    default: $color1 = '#ffb900'; $text1 = 'PENDIENTE'; break;
+                                                }
+                                                ?>
+                                                <span style="color: <?php echo $color1; ?>; font-size: 10px; font-weight: bold; margin-left: 10px;"><?php echo $text1; ?></span>
                                             </label>
-                                            <?php if ($doc1): ?>
+                                            
+                                            <?php if ($doc1 && $doc1_estado !== 'rechazado'): ?>
                                                 <div class="gw-document-preview">
                                                     <img src="<?php echo esc_url($doc1); ?>" alt="Documento 1">
-                                                    <div class="gw-document-status">✓ Subido</div>
+                                                    <div class="gw-document-status" style="background: <?php echo $color1; ?>;">
+                                                        <?php echo $doc1_estado === 'aceptado' ? '✓ Aprobado' : '⏳ En revisión'; ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
-                                            <div class="gw-file-upload">
-                                                <input type="file" 
-                                                       name="documento_1" 
-                                                       id="documento_1"
-                                                       accept="image/*"
-                                                       class="gw-file-input"
-                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
-                                                <label for="documento_1" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                        <polyline points="7,10 12,15 17,10"/>
-                                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                                    </svg>
-                                                    <span><?php echo $doc1 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
-                                                </label>
-                                            </div>
+                                            
+                                            <?php if ($doc1_estado !== 'aceptado'): ?>
+                                                <div class="gw-file-upload">
+                                                    <input type="file" 
+                                                           name="documento_1" 
+                                                           id="documento_1"
+                                                           accept="image/*"
+                                                           class="gw-file-input">
+                                                    <label for="documento_1" class="gw-file-label">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                            <polyline points="7,10 12,15 17,10"/>
+                                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                                        </svg>
+                                                        <span><?php echo ($doc1_estado === 'rechazado') ? 'Subir nuevo archivo' : ($doc1 ? 'Cambiar archivo' : 'Seleccionar archivo'); ?></span>
+                                                    </label>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
 
-                                        <!-- Documento 2 - SIEMPRE VISIBLE -->
+                                        <!-- Documento 2 -->
                                         <div class="gw-document-upload" data-doc="2">
                                             <label class="gw-upload-label">
                                                 <span class="gw-label-text">Documento de identidad (Foto 2)</span>
                                                 <span class="gw-required">*</span>
+                                                <?php 
+                                                $color2 = '';
+                                                $text2 = '';
+                                                switch ($doc2_estado) {
+                                                    case 'aceptado': $color2 = '#46b450'; $text2 = 'APROBADO'; break;
+                                                    case 'rechazado': $color2 = '#dc3232'; $text2 = 'RECHAZADO - SUBIR NUEVO'; break;
+                                                    default: $color2 = '#ffb900'; $text2 = 'PENDIENTE'; break;
+                                                }
+                                                ?>
+                                                <span style="color: <?php echo $color2; ?>; font-size: 10px; font-weight: bold; margin-left: 10px;"><?php echo $text2; ?></span>
                                             </label>
-                                            <?php if ($doc2): ?>
+                                            
+                                            <?php if ($doc2 && $doc2_estado !== 'rechazado'): ?>
                                                 <div class="gw-document-preview">
                                                     <img src="<?php echo esc_url($doc2); ?>" alt="Documento 2">
-                                                    <div class="gw-document-status">✓ Subido</div>
+                                                    <div class="gw-document-status" style="background: <?php echo $color2; ?>;">
+                                                        <?php echo $doc2_estado === 'aceptado' ? '✓ Aprobado' : '⏳ En revisión'; ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
-                                            <div class="gw-file-upload">
-                                                <input type="file" 
-                                                       name="documento_2" 
-                                                       id="documento_2"
-                                                       accept="image/*"
-                                                       class="gw-file-input"
-                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
-                                                <label for="documento_2" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                        <polyline points="7,10 12,15 17,10"/>
-                                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                                    </svg>
-                                                    <span><?php echo $doc2 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
-                                                </label>
-                                            </div>
+                                            
+                                            <?php if ($doc2_estado !== 'aceptado'): ?>
+                                                <div class="gw-file-upload">
+                                                    <input type="file" 
+                                                           name="documento_2" 
+                                                           id="documento_2"
+                                                           accept="image/*"
+                                                           class="gw-file-input">
+                                                    <label for="documento_2" class="gw-file-label">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                            <polyline points="7,10 12,15 17,10"/>
+                                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                                        </svg>
+                                                        <span><?php echo ($doc2_estado === 'rechazado') ? 'Subir nuevo archivo' : ($doc2 ? 'Cambiar archivo' : 'Seleccionar archivo'); ?></span>
+                                                    </label>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
 
-                                        <!-- Documento 3 - OPCIONAL -->
-                                        <div class="gw-document-upload optional-doc" data-doc="3" style="<?php echo $doc3 ? 'display: flex;' : 'display: none;'; ?>">
+                                        <!-- Documento 3 - Solo si existe o fue rechazado -->
+                                        <?php if ($doc3 || $doc3_estado === 'rechazado'): ?>
+                                        <div class="gw-document-upload optional-doc" data-doc="3" style="display: flex;">
                                             <label class="gw-upload-label">
                                                 <span class="gw-label-text">Documento adicional (Foto 3)</span>
-                                                <button type="button" class="gw-remove-doc" data-target="3" <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
-                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <line x1="18" y1="6" x2="6" y2="18"/>
-                                                        <line x1="6" y1="6" x2="18" y2="18"/>
-                                                    </svg>
-                                                </button>
+                                                <?php 
+                                                $color3 = '';
+                                                $text3 = '';
+                                                switch ($doc3_estado) {
+                                                    case 'aceptado': $color3 = '#46b450'; $text3 = 'APROBADO'; break;
+                                                    case 'rechazado': $color3 = '#dc3232'; $text3 = 'RECHAZADO - SUBIR NUEVO'; break;
+                                                    default: $color3 = '#ffb900'; $text3 = 'PENDIENTE'; break;
+                                                }
+                                                ?>
+                                                <span style="color: <?php echo $color3; ?>; font-size: 10px; font-weight: bold; margin-left: 10px;"><?php echo $text3; ?></span>
                                             </label>
-                                            <?php if ($doc3): ?>
+                                            
+                                            <?php if ($doc3 && $doc3_estado !== 'rechazado'): ?>
                                                 <div class="gw-document-preview">
                                                     <img src="<?php echo esc_url($doc3); ?>" alt="Documento 3">
-                                                    <div class="gw-document-status">✓ Subido</div>
+                                                    <div class="gw-document-status" style="background: <?php echo $color3; ?>;">
+                                                        <?php echo $doc3_estado === 'aceptado' ? '✓ Aprobado' : '⏳ En revisión'; ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
-                                            <div class="gw-file-upload">
-                                                <input type="file" 
-                                                       name="documento_3" 
-                                                       id="documento_3"
-                                                       accept="image/*"
-                                                       class="gw-file-input"
-                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
-                                                <label for="documento_3" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                        <polyline points="7,10 12,15 17,10"/>
-                                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                                    </svg>
-                                                    <span><?php echo $doc3 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
-                                                </label>
-                                            </div>
+                                            
+                                            <?php if ($doc3_estado !== 'aceptado'): ?>
+                                                <div class="gw-file-upload">
+                                                    <input type="file" 
+                                                           name="documento_3" 
+                                                           id="documento_3"
+                                                           accept="image/*"
+                                                           class="gw-file-input">
+                                                    <label for="documento_3" class="gw-file-label">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                            <polyline points="7,10 12,15 17,10"/>
+                                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                                        </svg>
+                                                        <span><?php echo ($doc3_estado === 'rechazado') ? 'Subir nuevo archivo' : 'Seleccionar archivo'; ?></span>
+                                                    </label>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
+                                        <?php endif; ?>
 
-                                        <!-- Documento 4 - OPCIONAL -->
-                                        <div class="gw-document-upload optional-doc" data-doc="4" style="<?php echo $doc4 ? 'display: flex;' : 'display: none;'; ?>">
+                                        <!-- Documento 4 - Solo si existe o fue rechazado -->
+                                        <?php if ($doc4 || $doc4_estado === 'rechazado'): ?>
+                                        <div class="gw-document-upload optional-doc" data-doc="4" style="display: flex;">
                                             <label class="gw-upload-label">
                                                 <span class="gw-label-text">Documento adicional (Foto 4)</span>
-                                                <button type="button" class="gw-remove-doc" data-target="4" <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
-                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <line x1="18" y1="6" x2="6" y2="18"/>
-                                                        <line x1="6" y1="6" x2="18" y2="18"/>
-                                                    </svg>
-                                                </button>
+                                                <?php 
+                                                $color4 = '';
+                                                $text4 = '';
+                                                switch ($doc4_estado) {
+                                                    case 'aceptado': $color4 = '#46b450'; $text4 = 'APROBADO'; break;
+                                                    case 'rechazado': $color4 = '#dc3232'; $text4 = 'RECHAZADO - SUBIR NUEVO'; break;
+                                                    default: $color4 = '#ffb900'; $text4 = 'PENDIENTE'; break;
+                                                }
+                                                ?>
+                                                <span style="color: <?php echo $color4; ?>; font-size: 10px; font-weight: bold; margin-left: 10px;"><?php echo $text4; ?></span>
                                             </label>
-                                            <?php if ($doc4): ?>
+                                            
+                                            <?php if ($doc4 && $doc4_estado !== 'rechazado'): ?>
                                                 <div class="gw-document-preview">
                                                     <img src="<?php echo esc_url($doc4); ?>" alt="Documento 4">
-                                                    <div class="gw-document-status">✓ Subido</div>
+                                                    <div class="gw-document-status" style="background: <?php echo $color4; ?>;">
+                                                        <?php echo $doc4_estado === 'aceptado' ? '✓ Aprobado' : '⏳ En revisión'; ?>
+                                                    </div>
                                                 </div>
                                             <?php endif; ?>
-                                            <div class="gw-file-upload">
-                                                <input type="file" 
-                                                       name="documento_4" 
-                                                       id="documento_4"
-                                                       accept="image/*"
-                                                       class="gw-file-input"
-                                                       <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
-                                                <label for="documento_4" class="gw-file-label <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>">
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                        <polyline points="7,10 12,15 17,10"/>
-                                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                                    </svg>
-                                                    <span><?php echo $doc4 ? 'Cambiar archivo' : 'Seleccionar archivo'; ?></span>
-                                                </label>
-                                            </div>
+                                            
+                                            <?php if ($doc4_estado !== 'aceptado'): ?>
+                                                <div class="gw-file-upload">
+                                                    <input type="file" 
+                                                           name="documento_4" 
+                                                           id="documento_4"
+                                                           accept="image/*"
+                                                           class="gw-file-input">
+                                                    <label for="documento_4" class="gw-file-label">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                            <polyline points="7,10 12,15 17,10"/>
+                                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                                        </svg>
+                                                        <span><?php echo ($doc4_estado === 'rechazado') ? 'Subir nuevo archivo' : 'Seleccionar archivo'; ?></span>
+                                                    </label>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
+                                        <?php endif; ?>
                                     </div>
 
-                                    <!-- Botones para agregar más fotos -->
-                                    <?php if ($status !== 'pendiente'): ?>
+                                    <!-- Botón para agregar más fotos (solo si no están todos) -->
+                                    <?php if (!$doc3 && !$doc4 && $doc3_estado !== 'rechazado' && $doc4_estado !== 'rechazado'): ?>
                                         <div class="gw-add-photos-section">
                                             <button type="button" id="add-photo-btn" class="gw-add-photo-btn">
                                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -3482,8 +3588,7 @@ function gw_step_8_documentos($user_id) {
                                                    name="consentimiento1" 
                                                    id="consentimiento1"
                                                    value="1" 
-                                                   <?php checked($cons1, 1); ?>
-                                                   <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                   <?php checked($cons1, 1); ?>>
                                             <label for="consentimiento1">
                                                 <span class="gw-checkbox-custom"></span>
                                                 Acepto el consentimiento #1 y autorizo el uso de mi información personal
@@ -3494,8 +3599,7 @@ function gw_step_8_documentos($user_id) {
                                                    name="consentimiento2" 
                                                    id="consentimiento2"
                                                    value="1" 
-                                                   <?php checked($cons2, 1); ?>
-                                                   <?php echo ($status === 'pendiente') ? 'disabled' : ''; ?>>
+                                                   <?php checked($cons2, 1); ?>>
                                             <label for="consentimiento2">
                                                 <span class="gw-checkbox-custom"></span>
                                                 Acepto el consentimiento #2 y las políticas de privacidad
@@ -3503,13 +3607,41 @@ function gw_step_8_documentos($user_id) {
                                         </div>
                                     </div>
 
+                                    <!-- Resumen de estado de documentos -->
+                                    <div class="gw-documents-summary">
+                                        <h4>Estado de tus documentos:</h4>
+                                        <div class="gw-doc-status-grid">
+                                            <div class="gw-doc-status-item">
+                                                <span class="gw-doc-name">Documento 1:</span>
+                                                <span class="gw-doc-state" style="color: <?php echo $color1; ?>;"><?php echo $text1; ?></span>
+                                            </div>
+                                            <div class="gw-doc-status-item">
+                                                <span class="gw-doc-name">Documento 2:</span>
+                                                <span class="gw-doc-state" style="color: <?php echo $color2; ?>;"><?php echo $text2; ?></span>
+                                            </div>
+                                            <?php if ($doc3 || $doc3_estado === 'rechazado'): ?>
+                                            <div class="gw-doc-status-item">
+                                                <span class="gw-doc-name">Documento 3:</span>
+                                                <span class="gw-doc-state" style="color: <?php echo $color3; ?>;"><?php echo $text3; ?></span>
+                                            </div>
+                                            <?php endif; ?>
+                                            <?php if ($doc4 || $doc4_estado === 'rechazado'): ?>
+                                            <div class="gw-doc-status-item">
+                                                <span class="gw-doc-name">Documento 4:</span>
+                                                <span class="gw-doc-state" style="color: <?php echo $color4; ?>;"><?php echo $text4; ?></span>
+                                            </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+
                                     <div class="gw-form-actions">
-                                        <button type="submit" 
-                                                class="gw-btn-primary" 
-                                                id="gw-submit-docs"
-                                                <?php if ($status === 'pendiente') echo 'disabled'; ?>>
+                                        <button type="submit" class="gw-btn-primary" id="gw-submit-docs">
                                             <span class="gw-btn-text">
-                                                <?php echo $status === 'pendiente' ? 'Documentos enviados' : 'Enviar documentos'; ?>
+                                                <?php if ($hay_rechazados): ?>
+                                                    Subir documentos corregidos
+                                                <?php else: ?>
+                                                    Enviar documentos
+                                                <?php endif; ?>
                                             </span>
                                             <span class="gw-btn-loading" style="display: none;">
                                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3532,13 +3664,10 @@ function gw_step_8_documentos($user_id) {
     (function() {
         'use strict';
         
-        // FUNCIÓN PARA CERRAR SESIÓN Y REDIRIGIR
         function logoutAndRedirect() {
-            // Usar logout personalizado que maneja el flujo completo
             window.location.href = '<?php echo home_url(); ?>?gw_logout=1';
         }
         
-        // CONTADOR REGRESIVO
         function startCountdown(seconds, callback) {
             const countdownElement = document.getElementById('gw-countdown');
             if (!countdownElement) return;
@@ -3550,7 +3679,6 @@ function gw_step_8_documentos($user_id) {
                 count--;
                 countdownElement.textContent = count;
                 
-                // Cambiar color cuando quedan pocos segundos
                 if (count <= 3) {
                     countdownElement.style.color = '#ef4444';
                     countdownElement.style.transform = 'scale(1.1)';
@@ -3565,22 +3693,14 @@ function gw_step_8_documentos($user_id) {
             }, 1000);
         }
         
-        // INICIALIZAR CONTADOR SEGÚN EL ESTADO
         <?php if ($just_submitted): ?>
-            // Recién enviado - 10 segundos
             startCountdown(10, logoutAndRedirect);
-        <?php elseif ($status === 'validado'): ?>
-            // Aprobado - 15 segundos (más tiempo para leer)
-            startCountdown(15, logoutAndRedirect);
-        <?php elseif ($status === 'rechazado' || $status === 'denegado'): ?>
-            // Rechazado - 15 segundos (más tiempo para leer)
+        <?php elseif ($todos_aceptados): ?>
             startCountdown(15, logoutAndRedirect);
         <?php endif; ?>
         
-        // El resto del código del formulario solo si no estamos en estados finales
-        <?php if (!$just_submitted && $status !== 'validado' && $status !== 'rechazado' && $status !== 'denegado'): ?>
+        <?php if (!$just_submitted && !$todos_aceptados): ?>
         
-        // Elementos del DOM
         const form = document.getElementById('gw-documents-form');
         if (!form) return;
         
@@ -3590,132 +3710,49 @@ function gw_step_8_documentos($user_id) {
         const fileInputs = form.querySelectorAll('.gw-file-input');
         const checkboxes = form.querySelectorAll('input[type="checkbox"]');
         
-        // Manejo de documentos dinámicos
-        const addPhotoBtn = document.getElementById('add-photo-btn');
-        const documentsContainer = document.getElementById('documents-container');
-        let visibleDocs = 2; // Por defecto se muestran 2
-        
-        // Contar documentos visibles al cargar
-        <?php if ($doc3): ?>visibleDocs = 3;<?php endif; ?>
-        <?php if ($doc4): ?>visibleDocs = 4;<?php endif; ?>
-        
-        if (addPhotoBtn) {
-            addPhotoBtn.addEventListener('click', function() {
-                if (visibleDocs < 4) {
-                    const nextDoc = visibleDocs + 1;
-                    const docElement = document.querySelector(`[data-doc="${nextDoc}"]`);
-                    
-                    if (docElement) {
-                        docElement.style.display = 'flex';
-                        visibleDocs++;
-                        
-                        // Actualizar el grid para acomodar más elementos
-                        updateGridLayout();
-                        
-                        // Ocultar botón si ya se llegó al máximo
-                        if (visibleDocs >= 4) {
-                            addPhotoBtn.style.display = 'none';
-                        }
-                        
-                        // Actualizar texto del botón
-                        updateAddButtonText();
-                    }
-                }
-            });
-        }
-        
-        // Manejo de botones de remover documento
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.gw-remove-doc')) {
-                const removeBtn = e.target.closest('.gw-remove-doc');
-                const targetDoc = removeBtn.getAttribute('data-target');
-                const docElement = document.querySelector(`[data-doc="${targetDoc}"]`);
-                
-                if (docElement) {
-                    // Limpiar el input
-                    const fileInput = docElement.querySelector('.gw-file-input');
-                    if (fileInput) {
-                        fileInput.value = '';
-                        const label = fileInput.nextElementSibling;
-                        if (label) {
-                            label.classList.remove('file-selected');
-                            const span = label.querySelector('span');
-                            if (span) span.textContent = 'Seleccionar archivo';
-                        }
-                    }
-                    
-                    // Ocultar el elemento
-                    docElement.style.display = 'none';
-                    visibleDocs--;
-                    
-                    // Mostrar botón de agregar si no está visible
-                    if (addPhotoBtn) {
-                        addPhotoBtn.style.display = 'flex';
-                    }
-                    
-                    // Actualizar layout
-                    updateGridLayout();
-                    updateAddButtonText();
-                }
-            }
-        });
-        
-        function updateGridLayout() {
-            if (documentsContainer) {
-                // Ajustar el grid según la cantidad de documentos visibles
-                if (visibleDocs <= 2) {
-                    documentsContainer.style.gridTemplateColumns = '1fr 1fr';
-                } else {
-                    documentsContainer.style.gridTemplateColumns = '1fr 1fr';
-                }
-            }
-        }
-        
-        function updateAddButtonText() {
-            if (addPhotoBtn) {
-                const remaining = 4 - visibleDocs;
-                if (remaining > 0) {
-                    const photoText = remaining === 1 ? 'foto' : 'fotos';
-                    const span = addPhotoBtn.querySelector('svg').nextElementSibling;
-                    if (span) span.textContent = `Agregar otra foto (${remaining} restante${remaining > 1 ? 's' : ''})`;
-                } else {
-                    addPhotoBtn.style.display = 'none';
-                }
-            }
-        }
-        
-        // Previsualización de archivos
+        // Validación mejorada de archivos
         fileInputs.forEach(input => {
             input.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
                 
-                // Validar tipo de archivo
+                // Limpiar mensajes de error previos
+                const existingError = this.parentNode.querySelector('.gw-file-error');
+                if (existingError) existingError.remove();
+                
                 const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
                 if (!validTypes.includes(file.type)) {
-                    alert('Por favor selecciona un archivo de imagen válido (JPG, PNG, GIF, WEBP)');
+                    this.showError('Por favor selecciona un archivo de imagen válido (JPG, PNG, GIF, WEBP)');
                     this.value = '';
                     return;
                 }
                 
-                // Validar tamaño (5MB máximo)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('El archivo es demasiado grande. Máximo 5MB.');
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                if (file.size > maxSize) {
+                    this.showError('El archivo es demasiado grande (' + (file.size / (1024*1024)).toFixed(1) + 'MB). Máximo 5MB.');
                     this.value = '';
                     return;
                 }
                 
-                // Actualizar label
+                // Mostrar nombre del archivo seleccionado
                 const label = this.nextElementSibling;
                 if (label) {
                     const span = label.querySelector('span');
-                    if (span) span.textContent = file.name;
+                    if (span) span.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + 'KB)';
                     label.classList.add('file-selected');
                 }
             });
+            
+            // Método para mostrar errores
+            input.showError = function(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'gw-file-error';
+                errorDiv.style.cssText = 'color: #dc3232; font-size: 12px; margin-top: 5px; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;';
+                errorDiv.textContent = message;
+                this.parentNode.appendChild(errorDiv);
+            };
         });
         
-        // Validación de formulario
         function validateForm() {
             const consent1 = document.getElementById('consentimiento1');
             const consent2 = document.getElementById('consentimiento2');
@@ -3723,12 +3760,12 @@ function gw_step_8_documentos($user_id) {
             let isValid = true;
             let errors = [];
             
-            // Verificar que al menos los 2 documentos obligatorios estén subidos
+            // Verificar documentos obligatorios
             const doc1Input = document.getElementById('documento_1');
             const doc2Input = document.getElementById('documento_2');
             
-            const hasDoc1 = doc1Input.files.length > 0 || document.querySelector('[data-doc="1"]').querySelector('.gw-document-preview');
-            const hasDoc2 = doc2Input.files.length > 0 || document.querySelector('[data-doc="2"]').querySelector('.gw-document-preview');
+            const hasDoc1 = doc1Input?.files.length > 0 || <?php echo $doc1 && $doc1_estado !== 'rechazado' ? 'true' : 'false'; ?>;
+            const hasDoc2 = doc2Input?.files.length > 0 || <?php echo $doc2 && $doc2_estado !== 'rechazado' ? 'true' : 'false'; ?>;
             
             if (!hasDoc1) {
                 errors.push('Debes subir el primer documento (Foto 1)');
@@ -3740,12 +3777,12 @@ function gw_step_8_documentos($user_id) {
                 isValid = false;
             }
             
-            if (!consent1.checked) {
+            if (!consent1?.checked) {
                 errors.push('Debes aceptar el consentimiento #1');
                 isValid = false;
             }
             
-            if (!consent2.checked) {
+            if (!consent2?.checked) {
                 errors.push('Debes aceptar el consentimiento #2');
                 isValid = false;
             }
@@ -3757,7 +3794,6 @@ function gw_step_8_documentos($user_id) {
             return isValid;
         }
         
-        // Manejo del envío del formulario
         if (submitBtn) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -3766,43 +3802,16 @@ function gw_step_8_documentos($user_id) {
                     return;
                 }
                 
-                // Mostrar estado de carga
                 submitBtn.disabled = true;
                 submitBtn.classList.add('loading');
                 if (btnText) btnText.style.display = 'none';
                 if (btnLoading) btnLoading.style.display = 'flex';
                 
-                // Enviar formulario
                 this.submit();
             });
         }
         
-        // Manejo de selección de escuela
-        const schoolRadios = document.querySelectorAll('input[name="escuela_id"]');
-        schoolRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                // Actualizar estado visual de las tarjetas
-                document.querySelectorAll('.gw-school-card').forEach(card => {
-                    card.classList.remove('selected');
-                });
-                
-                const selectedCard = this.closest('.gw-school-card');
-                if (selectedCard) {
-                    selectedCard.classList.add('selected');
-                }
-            });
-        });
-        
-        // Prevenir envío doble
-        let isSubmitting = false;
-        form.addEventListener('submit', function() {
-            if (isSubmitting) {
-                return false;
-            }
-            isSubmitting = true;
-        });
-        
-        // Animación para checkboxes personalizados
+        // Manejo de checkboxes personalizados
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', function() {
                 const customBox = this.nextElementSibling.querySelector('.gw-checkbox-custom');
@@ -3815,7 +3824,6 @@ function gw_step_8_documentos($user_id) {
                 }
             });
             
-            // Inicializar estado
             if (checkbox.checked) {
                 const customBox = checkbox.nextElementSibling.querySelector('.gw-checkbox-custom');
                 if (customBox) {
@@ -3827,6 +3835,93 @@ function gw_step_8_documentos($user_id) {
         <?php endif; ?>
     })();
     </script>
+    
+    <style>
+    .gw-rejected-docs-notice {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .gw-rejected-docs-notice .gw-notice-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .gw-rejected-docs-notice .gw-notice-header svg {
+        color: #dc3232;
+    }
+    .gw-rejected-docs-notice h3 {
+        margin: 0;
+        color: #dc3232;
+    }
+    .gw-rejected-docs-notice ul {
+        margin: 10px 0 0 20px;
+    }
+    .gw-documents-summary {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+    }
+    .gw-documents-summary h4 {
+        margin: 0 0 10px 0;
+        color: #495057;
+    }
+    .gw-doc-status-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .gw-doc-status-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 0;
+    }
+    .gw-doc-name {
+        font-weight: 500;
+    }
+    .gw-doc-state {
+        font-weight: bold;
+        font-size: 12px;
+    }
+    .gw-file-error {
+        animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .file-selected {
+        background: #e8f5e8 !important;
+        border-color: #46b450 !important;
+    }
+    </style>
     <?php
     return ob_get_clean();
 }
+
+// Función adicional para notificar al admin
+function gw_notificar_admin_nuevos_documentos($user_id) {
+    $user = get_userdata($user_id);
+    if (!$user) return;
+    
+    $admin_email = get_option('admin_email');
+    $subject = 'Nuevos documentos subidos - ' . $user->display_name;
+    
+    $message = "
+    <html>
+    <body>
+        <p>El voluntario <strong>{$user->display_name}</strong> ({$user->user_email}) ha subido nuevos documentos.</p>
+        <p><a href='" . admin_url('admin.php?page=panel-administrativo') . "'>Ir al panel administrativo para revisar</a></p>
+    </body>
+    </html>";
+    
+    $headers = ['Content-Type: text/html; charset=UTF-8'];
+    wp_mail($admin_email, $subject, $message, $headers);
+}
+
