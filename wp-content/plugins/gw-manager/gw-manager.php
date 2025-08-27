@@ -449,7 +449,7 @@ if (empty($data['access_token'])) {
 
     // 5) Redirecciones (igual a tu lógica)
     if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
-        wp_redirect(site_url('/panel-administrativo')); exit;
+        wp_redirect(site_url('/index.php/panel-administrativo')); exit;
     }
     if (in_array('voluntario', $user->roles)) {
         $active = get_user_meta($user->ID, 'gw_active', true); if ($active === '') $active = '1';
@@ -489,7 +489,7 @@ if (!function_exists('gw_login_home_shortcode')) {
         if (is_user_logged_in() && !(defined('REST_REQUEST') && REST_REQUEST) && !(defined('DOING_AJAX') && DOING_AJAX)) {
             $user = wp_get_current_user();
             if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
-                wp_redirect(site_url('/panel-administrativo')); exit;
+                wp_redirect(site_url('/index.php/panel-administrativo')); exit;
             } else {
                 wp_redirect(site_url('/index.php/portal-voluntario')); exit;
             }
@@ -739,7 +739,7 @@ add_filter('login_redirect', 'gw_redireccionar_por_rol', 10, 3);
 function gw_redireccionar_por_rol($redirect_to, $request, $user) {
     if (is_wp_error($user)) return $redirect_to;
     if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
-        return site_url('/panel-administrativo');
+        return site_url('/index.php/panel-administrativo');
     }
     if (in_array('voluntario', $user->roles)) {
         $active = get_user_meta($user->ID, 'gw_active', true);
@@ -754,7 +754,7 @@ function gw_redireccionar_por_rol($redirect_to, $request, $user) {
 add_filter('nsl_login_redirect_url', function($url, $provider, $user) {
     if ($user && is_a($user, 'WP_User')) {
         if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
-            return site_url('/panel-administrativo');
+            return site_url('/index.php/panel-administrativo');
         }
         if (in_array('voluntario', $user->roles)) {
             $active = get_user_meta($user->ID, 'gw_active', true);
@@ -2902,6 +2902,52 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     </script>
     
     <style>
+
+/* Botón primario "Guardar sesiones" en la pestaña de charlas: azul */
+#gw-admin-tab-charlas .button.button-primary{
+  background: #1e88e5 !important;   /* azulito */
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+}
+
+#gw-admin-tab-charlas .button.button-primary:hover{
+  background: #1976d2 !important;
+  border-color: #1976d2 !important;
+}
+
+#gw-admin-tab-charlas .button.button-primary:active{
+  background: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+
+#gw-admin-tab-charlas .button.button-primary:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+}
+
+
+/* Botón "Eliminar" dentro de cada sesión: rojo estilo danger */
+.gw-remove-sesion-panel.button {
+  background: #dc3545 !important;
+  border-color: #dc3545 !important;
+  color: #fff !important;
+}
+
+.gw-remove-sesion-panel.button:hover {
+  background: #c82333 !important;
+  border-color: #bd2130 !important;
+}
+
+.gw-remove-sesion-panel.button:active {
+  background: #a71e2a !important;
+  border-color: #a71e2a !important;
+}
+
+.gw-remove-sesion-panel.button:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.35) !important;
+  outline: none;
+}
+
     .gw-sesion-block-panel label {font-weight:normal;}
     .gw-charla-item {
         transition: all 0.3s ease;
