@@ -934,6 +934,8 @@ function mostrar_tabla_progreso_admin() {
   ob_start(); ?>
   <div>
     <h2>Resumen de Progreso de Voluntarios</h2>
+    <div class="gw-progreso-table-wrap">
+
     <table class="widefat striped">
       <thead>
         <tr>
@@ -990,6 +992,8 @@ function mostrar_tabla_progreso_admin() {
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div>
+
   </div>
 
   <!-- Modal principal -->
@@ -1189,6 +1193,56 @@ function mostrar_tabla_progreso_admin() {
 
   });
   </script>
+
+  <style>/* Scroll horizontal SOLO para la tabla de Progreso */
+#gw-admin-tab-progreso .gw-progreso-table-wrap{
+  overflow-x: auto;           /* habilita scroll L⇄R */
+  overflow-y: visible;        /* sin scroll vertical extra */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Haz que la tabla sea más ancha que el contenedor
+   para que aparezca la barra horizontal cuando sea necesario */
+#gw-admin-tab-progreso .gw-progreso-table-wrap .widefat{
+  min-width: 1200px;          /* ajusta el mínimo a tu gusto */
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+/* Evita que el contenido se parta: favorece el scroll */
+#gw-admin-tab-progreso .gw-progreso-table-wrap .widefat th,
+#gw-admin-tab-progreso .gw-progreso-table-wrap .widefat td{
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Botón "Ver charlas" → azul */
+#gw-admin-tab-progreso .button.gw-ver-charlas,
+.gw-progreso-admin .button.gw-ver-charlas{
+  background: #1e88e5 !important;
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+}
+
+#gw-admin-tab-progreso .button.gw-ver-charlas:hover,
+.gw-progreso-admin .button.gw-ver-charlas:hover{
+  background: #1976d2 !important;
+  border-color: #1976d2 !important;
+}
+
+#gw-admin-tab-progreso .button.gw-ver-charlas:active,
+.gw-progreso-admin .button.gw-ver-charlas:active{
+  background: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+
+#gw-admin-tab-progreso .button.gw-ver-charlas:focus,
+.gw-progreso-admin .button.gw-ver-charlas:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+}
+
+</style>
   <?php
   return ob_get_clean();
 }
@@ -2028,6 +2082,30 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                         });
                     });
                     </script>
+                    <style>
+                      /* Botón "Generar link/QR" (solo en la pestaña de Países) */
+#gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn{
+  background:#1e88e5 !important;
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+}
+
+#gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn:hover{
+  background:#1e88e5 !important;
+  border-color: #1976d2 !important;
+}
+
+#gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn:active{
+  background: #1e88e5 !important;
+  border-color: #1565c0 !important;
+}
+
+#gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+}
+
+                    </style>
                 </div>
 
 <!-- TAB USUARIOS -->
@@ -2116,6 +2194,45 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     .gw-log-list{max-height:300px;overflow:auto;border:1px solid #e0e0e0;border-radius:8px;padding:8px;background:#fafafa;}
     .gw-log-item{border-bottom:1px dashed #e0e0e0;padding:6px 4px;}
     .gw-log-item small{color:#607d8b;}
+
+    /* Botón DESACTIVAR (toggle): rojo */
+#gw-admin-tab-usuarios .button.button-small.gw-user-toggle{
+  background: #dc3545 !important;
+  border-color: #dc3545 !important;
+  color: #fff !important;
+}
+#gw-admin-tab-usuarios .button.button-small.gw-user-toggle:hover{
+  background: #c82333 !important;
+  border-color: #bd2130 !important;
+}
+#gw-admin-tab-usuarios .button.button-small.gw-user-toggle:active{
+  background: #a71e2a !important;
+  border-color: #a71e2a !important;
+}
+#gw-admin-tab-usuarios .button.button-small.gw-user-toggle:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220,53,69,.35) !important;
+}
+
+/* Botón HISTORIAL: azul */
+#gw-admin-tab-usuarios .button.button-small.gw-user-history{
+  background: #1e88e5 !important;
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+}
+#gw-admin-tab-usuarios .button.button-small.gw-user-history:hover{
+  background:#1e88e5 !important;
+  border-color: #1976d2 !important;
+}
+#gw-admin-tab-usuarios .button.button-small.gw-user-history:active{
+  background: #1e88e5 !important;
+  border-color: #1565c0 !important;
+}
+#gw-admin-tab-usuarios .button.button-small.gw-user-history:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+}
+
   </style>
 
   <div class="gw-users-toolbar">
@@ -2911,12 +3028,12 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 }
 
 #gw-admin-tab-charlas .button.button-primary:hover{
-  background: #1976d2 !important;
+  background: #1e88e5 !important;
   border-color: #1976d2 !important;
 }
 
 #gw-admin-tab-charlas .button.button-primary:active{
-  background: #1565c0 !important;
+  background: #1e88e5 !important;
   border-color: #1565c0 !important;
 }
 
@@ -4090,6 +4207,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     // Mostrar el shortcode de progreso del voluntario (admin)
                     echo do_shortcode('[gw_progreso_voluntario]');
                     ?>
+
                 </div>
 
                 <!-- TAB AUSENCIAS -->
@@ -4203,6 +4321,97 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     });
                 })();
                 </script>
+
+                <style>
+                  /* ===== AUSENCIAS: layout desktop ===== */
+/* ===== AUSENCIAS (solo desktop): evitar corte a la derecha ===== */
+@media (min-width: 1100px){
+  /* wrapper flex de la sección */
+  #gw-admin-tab-ausencias > div[style*="display:flex"]{
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  /* panel de ajustes a la izquierda (ancho fijo razonable) */
+  #gw-admin-tab-ausencias #gw-abs-settings{
+    flex: 0 0 520px;
+    max-width: 560px;
+  }
+
+  /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
+  #gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]{
+    flex: 1 1 auto;
+    min-width: 0 !important;          /* clave para que no se corte */
+    overflow-x: auto;                  /* scroll solo si no cabe */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
+  #gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
+    width: 100%;
+    min-width: 980px;                  /* ajusta si lo ves necesario */
+    table-layout: auto;
+  }
+
+  /* reservar espacio para Acciones y evitar saltos de botones */
+  #gw-admin-tab-ausencias .widefat th:last-child,
+  #gw-admin-tab-ausencias .widefat td:last-child{
+    width: 280px;                      /* sube/baja según botones */
+    white-space: nowrap;
+    padding-right: 16px;
+  }
+
+  /* permitir salto de línea en "Capacitación" si es largo */
+  #gw-admin-tab-ausencias .widefat td:nth-child(2){
+    white-space: normal;
+  }
+
+  #gw-admin-tab-ausencias .widefat td{ vertical-align: middle; }
+
+
+
+  /* AUSENCIAS: colores de acciones */
+#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver{
+  background: #1e88e5 !important;   /* azul */
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver:hover{
+  background: #1976d2 !important;
+  border-color: #1976d2 !important;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver:active{
+  background: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+}
+
+/* Ocultar: rojo (peligro) */
+#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar{
+  background: #dc3545 !important;
+  border-color: #dc3545 !important;
+  color: #fff !important;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar:hover{
+  background: #c82333 !important;
+  border-color: #bd2130 !important;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar:active{
+  background: #a71e2a !important;
+  border-color: #a71e2a !important;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220,53,69,.35) !important;
+}
+
+/* Reactivar usuario: lo dejo con tu verde actual */
+
+
+                </style>
                 </div>
 
                 <!-- TAB REPORTES -->
@@ -4438,6 +4647,55 @@ jQuery(function($){
   });
 });
 </script>
+
+<style>
+  /* ===== REPORTES: Colores de botones (solo en esta pestaña) ===== */
+
+/* GENERAR → azul */
+#gw-admin-tab-reportes #gwRepGenerar.button.button-primary,
+#gw-admin-tab-reportes #gw-r-generar.button.button-primary{
+  background: #1e88e5 !important;
+  border-color: #1e88e5 !important;
+  color: #fff !important;
+}
+#gw-admin-tab-reportes #gwRepGenerar.button.button-primary:hover,
+#gw-admin-tab-reportes #gw-r-generar.button.button-primary:hover{
+  background: #1976d2 !important;
+  border-color: #1976d2 !important;
+}
+#gw-admin-tab-reportes #gwRepGenerar.button.button-primary:active,
+#gw-admin-tab-reportes #gw-r-generar.button.button-primary:active{
+  background: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+#gw-admin-tab-reportes #gwRepGenerar.button.button-primary:focus,
+#gw-admin-tab-reportes #gw-r-generar.button.button-primary:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+}
+
+
+
+/* EXPORTAR PDF → rojo */
+#gw-admin-tab-reportes #gw-r-pdf.button{
+  background: #dc3545 !important;
+  border-color: #dc3545 !important;
+  color: #fff !important;
+}
+#gw-admin-tab-reportes #gw-r-pdf.button:hover{
+  background: #c82333 !important;
+  border-color: #bd2130 !important;
+}
+#gw-admin-tab-reportes #gw-r-pdf.button:active{
+  background: #a71e2a !important;
+  border-color: #a71e2a !important;
+}
+#gw-admin-tab-reportes #gw-r-pdf.button:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220,53,69,.35) !important;
+}
+
+</style>
 
             </div>
         </div>
