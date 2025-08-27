@@ -645,8 +645,61 @@ html, body {
     color: #64748b;
 }
 
-/* RESPONSIVO */
-@media (max-width: 1200px) {
+/* ========================================
+   PANTALLAS MEDIANAS - 1700px y menos
+   ======================================== */
+@media (max-width: 1700px) {
+    .gw-sidebar {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+}
+
+/* ========================================
+   TABLET GRANDE - 1025px a 1200px
+   ======================================== */
+@media (max-width: 1200px) and (min-width: 1025px) {
+    .gw-modern-wrapper {
+        padding: 24px;
+    }
+    
+    .gw-sidebar {
+        width: 360px;
+        min-width: 360px;
+        padding: 32px 24px;
+    }
+    
+    .gw-hero-logo2 img {
+        width: 16rem;
+    }
+    
+    .gw-main-content {
+        padding: 60px 40px;
+        overflow-y: auto
+    }
+    
+    .gw-form-header h1 {
+        font-size: 42px;
+    }
+    
+    .gw-form-header p {
+        font-size: 17px;
+    }
+    
+    .gw-session-confirmation .gw-session-card {
+        padding: 40px 15px;
+        max-width: 550px;
+    }
+    
+    .gw-charla-title {
+        font-size: 22px;
+    }
+}
+
+/* ========================================
+   TABLET - 768px a 1024px
+   ======================================== */
+@media (max-width: 1024px) and (min-width: 769px) {
     .gw-modern-wrapper {
         padding: 20px;
     }
@@ -654,45 +707,174 @@ html, body {
     .gw-sidebar {
         width: 340px;
         min-width: 340px;
-        padding: 32px;
+        padding: 28px 20px;
+    }
+    
+    .gw-hero-logo2 img {
+        width: 14rem;
+    }
+    
+    .gw-step-item {
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .gw-step-content h3 {
+        font-size: 15px;
+    }
+    
+    .gw-step-content p {
+        font-size: 13px;
     }
     
     .gw-main-content {
-        padding: 60px 40px;
+        padding: 50px 32px;
+        overflow-y: auto
+    }
+    
+    .gw-form-header h1 {
+        font-size: 36px;
+    }
+    
+    .gw-form-header p {
+        font-size: 16px;
+    }
+    
+    .gw-session-confirmation .gw-session-card {
+        padding: 30px 14px;
+        max-width: 500px;
+    }
+    
+    .gw-session-header h3 {
+        font-size: 18px;
+    }
+    
+    .gw-session-details {
+        padding: 16px;
+        gap: 14px 20px;
+    }
+    
+    .gw-charla-title {
+        font-size: 20px;
+    }
+    
+    .gw-charla-info {
+        padding: 20px;
     }
 }
 
-@media (max-width: 968px) {
+/* ========================================
+   MOBILE - 320px a 768px - SCROLL CORREGIDO
+   ======================================== */
+   @media (max-width: 768px) {
+    html, body {
+        overflow: hidden !important;
+        height: 100vh !important;
+        position: relative !important;
+    }
+    
     .gw-modern-wrapper {
-        padding: 16px;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        padding: 12px !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        overflow: hidden !important;
     }
     
     .gw-form-wrapper {
         flex-direction: column;
+        height: 100%;
         max-height: none;
+        width: 100%;
+        margin: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
     }
     
     .gw-sidebar {
         width: 100%;
         min-width: auto;
-        padding: 24px;
-        max-height: 280px;
-        overflow-y: auto;
+        padding: 20px 16px;
+        height: auto;
+        flex-shrink: 0;
+        border-radius: 16px 16px 0 0;
+        background: #d3d3d3;
+    }
+    
+    .gw-sidebar-header {
+        margin-bottom: 16px;
+        text-align: center;
+    }
+    
+    .gw-hero-logo2 {
+        text-align: center;
+        margin-bottom: 12px;
+    }
+    
+    .gw-hero-logo2 img {
+        width: 12rem;
+        max-width: 85%;
+        height: auto;
     }
     
     .gw-steps-container {
+        display: flex;
         flex-direction: row;
-        gap: 12px;
+        gap: 8px;
         overflow-x: auto;
+        overflow-y: hidden;
+        padding: 4px 0 12px 0;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    
+    .gw-steps-container::-webkit-scrollbar {
+        display: none;
     }
     
     .gw-step-item {
-        min-width: 200px;
-        padding: 16px;
+        min-width: 160px;
+        max-width: 160px;
+        flex-shrink: 0;
+        padding: 12px 8px;
+        gap: 10px;
+        margin: 0;
+        border-radius: 12px;
     }
     
     .gw-step-item:not(:last-child)::after {
         display: none;
+    }
+    
+    .gw-step-number {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .gw-step-content h3 {
+        font-size: 12px;
+        margin-bottom: 2px;
+        line-height: 1.2;
+    }
+    
+    .gw-step-content p {
+        font-size: 10px;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
     }
     
     .gw-sidebar-footer {
@@ -700,100 +882,374 @@ html, body {
     }
     
     .gw-main-content {
-        padding: 40px 24px;
+        flex: 1;
+        padding: 24px 16px;
+        border-radius: 0 0 16px 16px;
+        background: white;
+        overflow-y: auto;
+        overflow-x: hidden;
+        align-items: flex-start;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        height: 0; /* Fuerza el uso correcto de flexbox */
+    }
+    
+    .gw-form-container {
+        max-width: none;
+        width: 100%;
+    }
+    
+    .gw-form-header {
+        margin-bottom: 32px;
+        text-align: center;
     }
     
     .gw-form-header h1 {
         font-size: 28px;
-    }
-    
-    .gw-session-card {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-    }
-    
-    .gw-session-card .gw-btn-secondary {
-        align-self: flex-end;
-        width: 100%;
-    }
-    
-    .gw-confirmation-actions {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .gw-form-actions {
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .gw-session-details {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-}
-
-@media (max-width: 640px) {
-    .gw-modern-wrapper {
-        padding: 12px;
-    }
-    
-    .gw-form-wrapper {
-        border-radius: 16px;
-    }
-    
-    .gw-sidebar {
-        padding: 20px;
-        max-height: 240px;
-    }
-    
-    .gw-main-content {
-        padding: 32px 20px;
-    }
-    
-    .gw-form-header h1 {
-        font-size: 24px;
+        margin-bottom: 12px;
+        line-height: 1.2;
     }
     
     .gw-form-header p {
         font-size: 16px;
-    }
-    
-    .gw-step-item {
-        min-width: 180px;
-        padding: 12px;
+        line-height: 1.4;
     }
     
     .gw-btn-primary,
     .gw-btn-secondary {
         width: 100%;
+        min-width: auto;
+        padding: 14px 24px;
+        font-size: 15px;
+        border-radius: 10px;
     }
     
-    .gw-charla-title {
-        font-size: 20px;
+    .gw-btn-admin {
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 13px;
     }
     
-    .gw-success-registration {
-        padding: 32px 16px;
+    .gw-form-actions {
+        flex-direction: column;
+        gap: 12px;
+        padding-top: 24px;
+        margin-bottom: 20px; /* Espacio adicional para scroll */
     }
     
-    .gw-success-title {
-        font-size: 24px;
+    .gw-error-message,
+    .gw-success-message {
+        padding: 14px 16px;
+        margin-bottom: 24px;
+        font-size: 13px;
+        border-radius: 10px;
+    }
+    
+    /* Charlas Mobile */
+    .gw-session-confirmation {
+        margin-bottom: 24px;
     }
     
     .gw-session-confirmation .gw-session-card {
         padding: 20px 16px;
+        border-radius: 16px;
     }
     
     .gw-session-header {
         flex-direction: column;
         gap: 12px;
         text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .gw-session-header h3 {
+        font-size: 18px;
+    }
+    
+    .gw-session-icon {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto;
     }
     
     .gw-session-details {
         grid-template-columns: 1fr;
         gap: 12px;
+        padding: 16px;
+    }
+    
+    .gw-session-detail span:not(strong) {
+        font-size: 15px;
+    }
+    
+    .gw-charla-info {
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+    
+    .gw-charla-title {
+        font-size: 20px;
+        margin-bottom: 6px;
+    }
+    
+    .gw-charla-modalidad {
+        font-size: 15px;
+    }
+    
+    .gw-detail-item {
+        font-size: 15px;
+        margin-bottom: 6px;
+    }
+    
+    .gw-session-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px;
+    }
+    
+    .gw-session-card .gw-btn-secondary {
+        align-self: stretch;
+    }
+    
+    .gw-confirmation-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    
+    .gw-charla-note {
+        padding: 14px;
+        margin-top: 20px;
+        margin-bottom: 20px; /* Espacio adicional */
+    }
+    
+    .gw-charla-note p {
+        font-size: 13px;
+    }
+    
+    .gw-admin-controls {
+        margin-top: 24px;
+        margin-bottom: 20px; /* Espacio adicional */
+        padding-top: 20px;
+    }
+    
+    .gw-admin-controls small {
+        font-size: 11px;
+        margin-top: 6px;
+    }
+    
+    /* Success screen mobile */
+    .gw-success-registration {
+        padding: 32px 16px 40px 16px; /* Padding inferior adicional */
+    }
+    
+    .gw-success-title {
+        font-size: 24px;
+    }
+    
+    .gw-success-icon {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 20px;
+    }
+    
+    .gw-success-description {
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+}
+
+/* ========================================
+   MOBILE PEQUEÑO - menos de 480px
+   ======================================== */
+@media (max-width: 479px) {
+    .gw-modern-wrapper {
+        padding: 8px !important;
+    }
+    
+    .gw-form-wrapper {
+        min-height: calc(100vh - 16px);
+        border-radius: 12px;
+    }
+    
+    .gw-sidebar {
+        padding: 16px 12px;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .gw-hero-logo2 img {
+        width: 10rem;
+    }
+    
+    .gw-step-item {
+        min-width: 140px;
+        max-width: 140px;
+        padding: 8px 6px;
+    }
+    
+    .gw-step-number {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+    }
+    
+    .gw-step-content h3 {
+        font-size: 11px;
+        margin-bottom: 1px;
+    }
+    
+    .gw-step-content p {
+        font-size: 9px;
+    }
+    
+    .gw-main-content {
+        padding: 20px 12px;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .gw-form-header h1 {
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+    
+    .gw-form-header p {
+        font-size: 14px;
+    }
+    
+    .gw-form-header {
+        margin-bottom: 24px;
+    }
+    
+    .gw-btn-primary,
+    .gw-btn-secondary {
+        padding: 12px 20px;
+        font-size: 14px;
+        border-radius: 8px;
+    }
+    
+    .gw-btn-admin {
+        padding: 10px 16px;
+        font-size: 12px;
+    }
+    
+    .gw-form-actions {
+        padding-top: 20px;
+        gap: 10px;
+    }
+    
+    .gw-error-message,
+    .gw-success-message {
+        padding: 12px 14px;
+        margin-bottom: 20px;
+        font-size: 12px;
+    }
+    
+    /* Charlas Mobile Pequeño */
+    .gw-session-confirmation {
+        margin-bottom: 20px;
+    }
+    
+    .gw-session-confirmation .gw-session-card {
+        padding: 16px 12px;
+        border-radius: 12px;
+    }
+    
+    .gw-session-header h3 {
+        font-size: 16px;
+    }
+    
+    .gw-session-icon {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .gw-session-details {
+        padding: 12px;
+        gap: 10px;
+    }
+    
+    .gw-session-detail strong {
+        font-size: 12px;
+    }
+    
+    .gw-session-detail span:not(strong) {
+        font-size: 14px;
+    }
+    
+    .gw-charla-info {
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+    
+    .gw-charla-title {
+        font-size: 18px;
+    }
+    
+    .gw-charla-modalidad {
+        font-size: 14px;
+    }
+    
+    .gw-detail-item {
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+    
+    .gw-session-card {
+        padding: 12px;
+        gap: 12px;
+    }
+    
+    .gw-session-title {
+        font-size: 15px;
+        margin-bottom: 2px;
+    }
+    
+    .gw-session-details {
+        font-size: 13px;
+    }
+    
+    .gw-confirmation-actions {
+        margin-top: 16px;
+        gap: 10px;
+    }
+    
+    .gw-charla-note {
+        padding: 12px;
+        margin-top: 16px;
+    }
+    
+    .gw-charla-note p {
+        font-size: 12px;
+    }
+    
+    .gw-admin-controls {
+        margin-top: 20px;
+        padding-top: 16px;
+    }
+    
+    .gw-admin-controls small {
+        font-size: 10px;
+    }
+    
+    /* Success screen mobile pequeño */
+    .gw-success-registration {
+        padding: 24px 12px;
+    }
+    
+    .gw-success-title {
+        font-size: 20px;
+    }
+    
+    .gw-success-icon {
+        width: 56px;
+        height: 56px;
+        margin-bottom: 16px;
+    }
+    
+    .gw-success-description {
+        font-size: 13px;
+        margin-bottom: 20px;
     }
 }
