@@ -77,6 +77,50 @@ function gw_portal_voluntario_shortcode() {
 
     ob_start();
     echo '<div class="gw-voluntario-onboarding">';
+    // Botón global de Cerrar sesión (visible en TODO el flujo)
+    $logout_url = wp_logout_url( site_url('/index.php/portal-voluntario/') );
+    echo '<a class="gw-logout-btn" href="' . esc_url($logout_url) . '">Cerrar sesión</a>';
+    echo '<style>
+  .gw-logout-btn{
+      position:fixed !important;
+      top:14px !important;
+      right:18px !important;
+      z-index:100010 !important;
+      display:inline-block;
+      padding:10px 14px;
+      border-radius:10px;
+      font-weight:600;
+      text-decoration:none;
+      letter-spacing:.2px;
+      background:#ea6b6b;
+      color:#fff;
+      box-shadow:0 4px 10px rgba(0,0,0,.12);
+      opacity:.95;
+      transition:all .15s ease-in-out
+  }
+  .gw-logout-btn:hover{opacity:1;transform:translateY(-1px)}
+  /* Contenedor del portal */
+  .gw-form-wrapper{position:relative}
+  /* Si por algún motivo se agrega la clase is-inside, mantenemos el botón fijo igualmente */
+  .gw-logout-btn.is-inside{
+      position:fixed !important;
+      top:14px !important;
+      right:18px !important;
+      z-index:100010 !important;
+  }
+  /* Ajuste cuando el admin bar de WP está visible */
+  body.admin-bar .gw-logout-btn{top:46px !important}
+  @media (min-width:783px){body.admin-bar .gw-logout-btn{top:32px !important}}
+  @media (max-width:640px){
+      .gw-logout-btn{
+          top:12px !important;
+          right:12px !important;
+          padding:8px 12px;
+          font-size:14px;
+          border-radius:8px
+      }
+  }
+  </style>';
 
     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
     if ($current_step == 1) {
@@ -106,9 +150,9 @@ function gw_portal_voluntario_shortcode() {
     elseif ($current_step == 7) {
         echo gw_step_7_capacitacion($user_id);
     }
-    // ===== PASO 8: SUBIDA DE DOCUMENTOS Y SELECCIÓN DE ESCUELA =====
+    // ===== PASO 8: CONTROLADOR (selección escuela/horario -> página extra -> documentos) =====
     elseif ($current_step == 8) {
-        echo gw_step_8_documentos($user_id);
+        echo gw_step_8_controller($user_id);
     }
     // ===== FLUJO COMPLETADO =====
     else {
@@ -119,6 +163,130 @@ function gw_portal_voluntario_shortcode() {
 }
  
 // --- Lógica para saber en qué paso va el usuario ---
+
+/**
+ * Controla el flujo del paso 8.
+ * Si ya se seleccionó escuela/horario y el formulario extra aún no se ha completado,
+ * muestra la página extra. En caso contrario, delega al paso existente de documentos.
+ */
+function gw_step_8_controller($user_id) {
+    // Detecta si el voluntario ya seleccionó escuela/horario (ajusta las metas si usas otras)
+    $tiene_escuela  = get_user_meta($user_id, 'gw_escuela_id', true);
+    $tiene_horario  = get_user_meta($user_id, 'gw_horario', true) ?: get_user_meta($user_id, 'gw_horario_id', true);
+    $extra_completo = get_user_meta($user_id, 'gw_step8_extra_completo', true);
+
+    // Si ya eligió escuela y horario pero no ha llenado el intermedio, mostrarlo SIEMPRE
+    if ( $tiene_escuela && $tiene_horario && !$extra_completo ) {
+        return gw_step_8_extra_form($user_id);
+    }
+
+    // Si el plugin ya tiene implementado el paso 8 original, delegamos
+    if ( function_exists('gw_step_8_documentos') ) {
+        return gw_step_8_documentos($user_id);
+    }
+
+    // Fallback si por alguna razón no existe la función original
+    return '<div class="notice notice-warning"><p>No se encontró la vista de documentos. Contacta al administrador.</p></div>';
+}
+
+/**
+ * Página intermedia para jóvenes (slogan + formulario breve) entre selección de escuela/horario
+ * y la subida de documentos. Guarda los datos en user_meta y marca gw_step8_extra_completo.
+ */
+function gw_step_8_extra_form($user_id) {
+    $error = '';
+
+    // Procesamiento del formulario
+    if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_extra_nonce']) && wp_verify_nonce($_POST['gw_extra_nonce'], 'gw_step8_extra') ) {
+        $nombre     = sanitize_text_field( $_POST['gw_extra_nombre'] ?? '' );
+        $telefono   = sanitize_text_field( $_POST['gw_extra_telefono'] ?? '' );
+        $direccion  = sanitize_text_field( $_POST['gw_extra_direccion'] ?? '' );
+        $observacion= sanitize_textarea_field( $_POST['gw_extra_observacion'] ?? '' );
+
+        if ( !$nombre || !$telefono || !$direccion ) {
+            $error = 'Por favor completa nombre, teléfono y dirección.';
+        } else {
+            update_user_meta($user_id, 'gw_extra_nombre', $nombre);
+            update_user_meta($user_id, 'gw_extra_telefono', $telefono);
+            update_user_meta($user_id, 'gw_extra_direccion', $direccion);
+            update_user_meta($user_id, 'gw_extra_observacion', $observacion);
+            update_user_meta($user_id, 'gw_step8_extra_completo', 1);
+
+            // Redirigir de vuelta al portal para continuar con la subida de documentos
+            return '<meta http-equiv="refresh" content="0;url=' . esc_url( site_url('/index.php/portal-voluntario/') ) . '">';
+        }
+    }
+
+    // Valores por defecto / precarga
+    $user        = get_userdata($user_id);
+    $nombre_pref = get_user_meta($user_id, 'gw_nombre', true) ?: ($user ? $user->display_name : '');
+
+    $nombre     = isset($_POST['gw_extra_nombre']) ? sanitize_text_field($_POST['gw_extra_nombre']) : $nombre_pref;
+    $telefono   = isset($_POST['gw_extra_telefono']) ? sanitize_text_field($_POST['gw_extra_telefono']) : get_user_meta($user_id, 'gw_telefono', true);
+    $direccion  = isset($_POST['gw_extra_direccion']) ? sanitize_text_field($_POST['gw_extra_direccion']) : get_user_meta($user_id, 'gw_extra_direccion', true);
+    $observacion= isset($_POST['gw_extra_observacion']) ? sanitize_textarea_field($_POST['gw_extra_observacion']) : get_user_meta($user_id, 'gw_extra_observacion', true);
+
+    ob_start();
+    ?>
+    <style>
+    .gw-extra-wrapper{max-width:980px;margin:0 auto;padding:24px}
+    .gw-extra-hero{background:linear-gradient(135deg,#eef7ff 0,#f8fff0 100%);border:1px solid #e7f0ff;border-radius:14px;padding:28px 24px;margin-bottom:22px;display:flex;gap:18px;align-items:center}
+    .gw-extra-hero .gw-emoji{font-size:38px;line-height:1}
+    .gw-extra-hero h2{margin:0 0 6px 0;font-size:26px}
+    .gw-extra-hero p{margin:0;color:#3b4856}
+    .gw-extra-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .gw-extra-grid .full{grid-column:1/-1}
+    .gw-extra-card{background:#fff;border:1px solid #e7ecf1;border-radius:12px;padding:18px}
+    .gw-extra-card label{font-weight:600;display:block;margin-bottom:6px}
+    .gw-extra-card input,.gw-extra-card textarea{width:100%;border:1px solid #cfd6df;border-radius:10px;padding:10px 12px}
+    .gw-extra-actions{margin-top:18px;display:flex;gap:12px}
+    .gw-btn-primary{background:linear-gradient(135deg,#c4c33f 0,#a3a332 100%);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}
+    .gw-btn-secondary{background:#eef2f7;border:1px solid #d8e0ea;color:#2b3a4b;border-radius:10px;padding:10px 16px;font-weight:600;text-decoration:none}
+    .gw-error{background:#fff4f4;border:1px solid #ffcece;color:#9b2c2c;padding:10px 12px;border-radius:10px;margin-bottom:12px}
+    </style>
+
+    <div class="gw-extra-wrapper">
+        <div class="gw-extra-hero">
+            <div class="gw-emoji">🚀</div>
+            <div>
+                <h2>¡Sigue adelante! Tu energía puede cambiar vidas</h2>
+                <p>Antes de subir tus documentos, cuéntanos un poco más de ti. ¡Esto nos ayuda a acompañarte mejor!</p>
+            </div>
+        </div>
+
+        <?php if ($error): ?>
+            <div class="gw-error"><?php echo esc_html($error); ?></div>
+        <?php endif; ?>
+
+        <form method="post">
+            <?php wp_nonce_field('gw_step8_extra', 'gw_extra_nonce'); ?>
+            <div class="gw-extra-grid">
+                <div class="gw-extra-card">
+                    <label for="gw_extra_nombre">Nombre</label>
+                    <input type="text" id="gw_extra_nombre" name="gw_extra_nombre" value="<?php echo esc_attr($nombre); ?>" required>
+                </div>
+                <div class="gw-extra-card">
+                    <label for="gw_extra_telefono">Número de teléfono</label>
+                    <input type="text" id="gw_extra_telefono" name="gw_extra_telefono" value="<?php echo esc_attr($telefono); ?>" required>
+                </div>
+                <div class="gw-extra-card full">
+                    <label for="gw_extra_direccion">Dirección de residencia</label>
+                    <input type="text" id="gw_extra_direccion" name="gw_extra_direccion" value="<?php echo esc_attr($direccion); ?>" required>
+                </div>
+                <div class="gw-extra-card full">
+                    <label for="gw_extra_observacion">Observación (opcional)</label>
+                    <textarea id="gw_extra_observacion" name="gw_extra_observacion" rows="4" placeholder="Escribe aquí cualquier comentario que quieras compartir..."><?php echo esc_textarea($observacion); ?></textarea>
+                </div>
+            </div>
+            <div class="gw-extra-actions">
+                <a class="gw-btn-secondary" href="<?php echo esc_url( site_url('/index.php/portal-voluntario/') ); ?>">Regresar</a>
+                <button type="submit" class="gw-btn-primary">Guardar y continuar</button>
+            </div>
+        </form>
+    </div>
+    <?php
+    return ob_get_clean();
+}
 function gw_get_voluntario_step($user_id) {
     // Flujo de pasos:
     // 1: Registro

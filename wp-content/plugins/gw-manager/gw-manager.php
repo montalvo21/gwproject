@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/vendor/autoload.php';
+// Dompdf para exportar PDF
+use Dompdf\Dompdf;
+
 /**
  * Plugin Name: Glasswing Voluntariado
  * Description: Plugin personalizado para gestión de voluntariado (Países, Proyectos, Emparejamientos).
@@ -879,7 +882,7 @@ add_action('wp_ajax_gw_admin_reset_charlas', function() {
     delete_user_meta($user->ID, 'gw_charla_actual');
     // También puedes borrar otras metas relacionadas si aplica
     wp_die();
-});
+// Remove this extra closing brace if it does not match any opening brace
 // AJAX para borrar metas de step6 (capacitaciones)
 add_action('wp_ajax_gw_admin_reset_step6', function() {
     $user = wp_get_current_user();
@@ -893,6 +896,7 @@ add_action('wp_ajax_gw_admin_reset_step6_and_charlas', function() {
     delete_user_meta($user->ID, 'gw_step5');
     delete_user_meta($user->ID, 'gw_charla_actual');
     wp_die();
+});
 });
 
 // Shortcode: Progreso del voluntario
@@ -1394,6 +1398,153 @@ add_action('init', function() {
 
 
 // ====== MÓDULO GESTIÓN DE USUARIOS: helpers y AJAX ======
+// --- Helper: Recolectar capacitaciones de usuarios (para reportes, export, etc) ---
+if (!function_exists('gw_reports_collect_capacitaciones')) {
+function gw_reports_collect_capacitaciones($args) {
+    // --- Filtros recibidos ---
+    $pais_id      = intval($args['pais_id']      ?? 0);
+    $proyecto_id  = intval($args['proyecto_id']  ?? 0);
+    $cap_id_filt  = intval($args['cap_id']       ?? 0);
+    $estado_filt  = sanitize_text_field($args['estado']     ?? 'todos');   // activos|inactivos|todos
+    $asis_filt    = sanitize_text_field($args['asistencia'] ?? 'todas');   // asistio|no|todas|pendiente
+    $desde        = sanitize_text_field($args['desde'] ?? '');
+    $hasta        = sanitize_text_field($args['hasta'] ?? '');
+    $desde_ts     = $desde ? strtotime($desde . ' 00:00:00') : 0;
+    $hasta_ts     = $hasta ? strtotime($hasta . ' 23:59:59') : 0;
+
+    // --- Armar filtros de usuarios (meta_query + roles) ---
+    $mq = [];
+    if ($pais_id) {
+        $mq[] = ['key' => 'gw_pais_id', 'value' => $pais_id, 'compare' => '='];
+    }
+    if ($estado_filt === 'activos')   { $mq[] = ['key' => 'gw_active', 'value' => '1', 'compare' => '=']; }
+    if ($estado_filt === 'inactivos') { $mq[] = ['key' => 'gw_active', 'value' => '0', 'compare' => '=']; }
+
+    $user_args = [
+        'fields'    => ['ID','display_name','user_email','roles'],
+        'number'    => 9999,
+        'role__in'  => ['voluntario','coach','coordinador_pais','administrator'],
+    ];
+    if (!empty($mq)) {
+        $user_args['meta_query'] = $mq;
+    }
+
+    $users = get_users($user_args);
+    if (!$users) return [];
+
+    $rows = [];
+
+    // --- Lista de posibles metakeys históricas para retrocompatibilidad ---
+    $history_keys = [
+        // arreglos/arrays de historiales
+        'gw_caps_hist','gw_caps_history','gw_capacitaciones_historial',
+        'gw_cap_logs','gw_caps_log','gw_caps_registros',
+        'gw_capacitaciones','gw_cap_historial','gw_registros_capacitaciones',
+    ];
+
+    foreach ($users as $u) {
+        $uid        = (int) $u->ID;
+        $pais_title = get_the_title((int) get_user_meta($uid, 'gw_pais_id', true)) ?: '—';
+        $estado_u   = get_user_meta($uid, 'gw_active', true); if ($estado_u === '') $estado_u = '1';
+
+        // --- 1) Inscripción agendada actual (formato nuevo) ---
+        $items = [];
+        $ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+        if (is_array($ag) && !empty($ag['cap_id'])) {
+            $asis = get_user_meta($uid, 'gw_step7_completo', true) ? '1' : '';
+            $items[] = [
+                'cap_id'  => (int) $ag['cap_id'],
+                'fecha'   => isset($ag['fecha']) ? sanitize_text_field($ag['fecha']) : '',
+                'hora'    => isset($ag['hora'])  ? sanitize_text_field($ag['hora'])  : '',
+                'asistio' => $asis,
+            ];
+        }
+
+        // --- 2) Historiales guardados en diferentes metakeys ---
+        foreach ($history_keys as $k) {
+            $arr = get_user_meta($uid, $k, true);
+            if (is_array($arr) && $arr) {
+                foreach ($arr as $it) {
+                    if (!is_array($it)) continue;
+                    // Normalizar: admite cap_id, capacitacion_id o id
+                    $cid   = intval($it['cap_id'] ?? ($it['capacitacion_id'] ?? ($it['id'] ?? 0)));
+                    if (!$cid) continue;
+                    $fecha = isset($it['fecha']) ? sanitize_text_field($it['fecha']) : '';
+                    $hora  = isset($it['hora'])  ? sanitize_text_field($it['hora'])  : '';
+                    // alternativa: fecha_hora combinada
+                    if (!$fecha && !empty($it['fecha_hora'])) {
+                        $ts = strtotime($it['fecha_hora']);
+                        if ($ts) { $fecha = date('Y-m-d', $ts); $hora = date('H:i', $ts); }
+                    }
+                    // asistencia flexible
+                    $asis_raw = $it['asistio'] ?? ($it['asistencia'] ?? null);
+                    $asis = ($asis_raw === true || $asis_raw === 1 || $asis_raw === '1' || strtolower((string)$asis_raw) === 'si' || strtolower((string)$asis_raw) === 'asistio') ? '1'
+                            : (($asis_raw === null) ? '' : '0');
+                    $items[] = ['cap_id'=>$cid, 'fecha'=>$fecha, 'hora'=>$hora, 'asistio'=>$asis];
+                }
+            }
+        }
+
+        // --- 3) Fallback simple: metakeys sueltas ---
+        $single_cap = (int) get_user_meta($uid, 'gw_capacitacion_id', true);
+        if ($single_cap) {
+            $items[] = [
+                'cap_id'  => $single_cap,
+                'fecha'   => sanitize_text_field(get_user_meta($uid, 'gw_fecha', true)),
+                'hora'    => sanitize_text_field(get_user_meta($uid, 'gw_hora', true)),
+                'asistio' => (string) get_user_meta($uid, 'gw_asistio', true),
+            ];
+        }
+
+        if (!$items) continue;
+
+        // --- Deduplicar por cap_id|fecha|hora ---
+        $uniq = [];
+        foreach ($items as $it) {
+            $key = ((int)$it['cap_id']) . '|' . ($it['fecha'] ?? '') . '|' . ($it['hora'] ?? '');
+            $uniq[$key] = $it;
+        }
+        $items = array_values($uniq);
+
+        // --- Aplicar filtros y armar filas ---
+        foreach ($items as $it) {
+            $cid = (int) $it['cap_id'];
+            if (!$cid) continue;
+            if ($cap_id_filt && $cid !== $cap_id_filt) continue;
+
+            $proj_id  = (int) get_post_meta($cid, '_gw_proyecto_relacionado', true);
+            if ($proyecto_id && $proj_id !== $proyecto_id) continue;
+
+            $pais_cap = (int) get_post_meta($cid, '_gw_pais_relacionado', true);
+            if ($pais_id && $pais_cap && $pais_cap !== $pais_id) continue;
+
+            $fecha = $it['fecha']; $hora = $it['hora'];
+            $ts = strtotime(trim($fecha . ' ' . $hora));
+            if ($desde_ts && $ts && $ts < $desde_ts) continue;
+            if ($hasta_ts && $ts && $ts > $hasta_ts) continue;
+
+            $asis_bool = ($it['asistio'] === '1');
+            if ($asis_filt === 'asistio' && !$asis_bool) continue;
+            if ($asis_filt === 'no'       &&  $asis_bool) continue;
+            if ($asis_filt === 'pendiente' && $it['asistio'] !== '') continue; // sólo sin dato
+
+            $rows[] = [
+                'nombre'     => $u->display_name ?: $u->user_email,
+                'email'      => $u->user_email,
+                'pais'       => $pais_title,
+                'proyecto'   => $proj_id ? get_the_title($proj_id) : '—',
+                'cap'        => get_the_title($cid),
+                'fecha'      => $fecha ?: ($ts ? date_i18n('Y-m-d', $ts) : ''),
+                'hora'       => $hora  ?: ($ts ? date_i18n('H:i', $ts)   : ''),
+                'estado'     => ($estado_u === '1' ? 'Activo' : 'Inactivo'),
+                'asistencia' => ($asis_bool ? 'Asistió' : 'No asistió'),
+            ];
+        }
+    }
+
+    return $rows;
+}
+}
 
 // Guard para no registrar 2 veces
 if (!defined('GW_USERS_AJAX_BOUND')) {
@@ -5645,26 +5796,6 @@ add_action('wp_ajax_gw_debug_usuarios', function(){
     wp_send_json_success($debug_info);
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ======================================================
 // Helpers comunes
 // ======================================================
@@ -6513,6 +6644,52 @@ add_action('wp_enqueue_scripts', function () {
     if (is_page('panel-administrativo')) {
         wp_enqueue_script('jquery');
         wp_add_inline_script('jquery', 'window.ajaxurl = "'. esc_js( admin_url('admin-ajax.php') ) .'";', 'after');
+        $js = "(function($){
+          function gwRepFiltros(){
+            return {
+              action: 'gw_reports_fetch',
+              nonce:  '".wp_create_nonce('gw_reports')."',
+              tipo:   $('#gwRepTipo').val() || 'capacitacion',
+              pais_id: $('#gwRepPais').val() || '',
+              proyecto_id: $('#gwRepProyecto').val() || '',
+              cap_id: $('#gwRepCap').val() || '',
+              estado: ($('#gwRepEstado').val() || '').toLowerCase(),
+              asistencia: ($('#gwRepAsistencia').val() || 'todas').toLowerCase(),
+              desde:  $('#gwRepDesde').val() || '',
+              hasta:  $('#gwRepHasta').val() || ''
+            };
+          }
+        
+          function gwRepGenerar(){
+            var data = gwRepFiltros();
+            $.post(ajaxurl, data, function(html){
+              $('#gwRepResultados').html(html);
+            }).fail(function(xhr){
+              console.error('AJAX FAIL', xhr && xhr.responseText);
+            });
+          }
+        
+          $(document).on('click','#gwRepGenerar',function(e){ e.preventDefault(); gwRepGenerar(); });
+        
+          $(document).on('click','#gwRepExportCSV',function(e){
+            e.preventDefault();
+            var q = gwRepFiltros(); q.action = 'gw_reports_export';
+            window.location = ajaxurl + '?' + $.param(q);
+          });
+        
+          $(document).on('click','#gwRepExportPDF',function(e){
+            e.preventDefault();
+            var q = gwRepFiltros(); q.action = 'gw_reports_export'; q.format = 'pdf';
+            window.location = ajaxurl + '?' + $.param(q);
+          });
+        
+          $(document).on('click','.gwRepPag',function(e){
+            e.preventDefault();
+            var q = gwRepFiltros(); q.page = $(this).data('p') || 1;
+            $.post(ajaxurl, q, function(html){ $('#gwRepResultados').html(html); });
+          });
+        })(jQuery);";
+        wp_add_inline_script('jquery', $js, 'after');
     }
 });
 
@@ -7183,68 +7360,454 @@ function gw_reports_generate_handler(){
     wp_send_json_error(['msg' => 'No autorizado']);
   }
 
-  $pais       = isset($_POST['pais']) ? intval($_POST['pais']) : 0;
-  $proyecto   = isset($_POST['proyecto']) ? intval($_POST['proyecto']) : 0;
-  $cap        = isset($_POST['cap']) ? intval($_POST['cap']) : 0;
-  $estado     = isset($_POST['estado']) ? sanitize_text_field($_POST['estado']) : 'todos';        // todos | activos | inactivos
-  $asistencia = isset($_POST['asistencia']) ? sanitize_text_field($_POST['asistencia']) : 'todos'; // todos | asistio | pendiente
-  $desde      = isset($_POST['desde']) ? sanitize_text_field($_POST['desde']) : '';
-  $hasta      = isset($_POST['hasta']) ? sanitize_text_field($_POST['hasta']) : '';
+  $rows = gw_reports_collect_capacitaciones([
+    'pais_id'     => intval($_POST['pais'] ?? 0),
+    'proyecto_id' => intval($_POST['proyecto'] ?? 0),
+    'cap_id'      => intval($_POST['cap'] ?? 0),
+    'estado'      => sanitize_text_field($_POST['estado'] ?? 'todos'),     // activos|inactivos|todos
+    'asistencia'  => sanitize_text_field($_POST['asistencia'] ?? 'todas'), // asistio|no|todas|pendiente
+    'desde'       => sanitize_text_field($_POST['desde'] ?? ''),
+    'hasta'       => sanitize_text_field($_POST['hasta'] ?? ''),
+  ]);
 
-  $args = [
-    'role__in' => ['voluntario','coach','coordinador_pais'],
-    'fields'   => ['ID','display_name','user_email'],
-    'number'   => 9999,
-  ];
-  $meta_query = [];
+  wp_send_json_success(['rows' => $rows]);
+}
 
-  if ($pais) {
-    $meta_query[] = ['key' => 'gw_pais_id', 'value' => $pais, 'compare' => '='];
+// ===== Helpers para Reportes y Listados =====
+if (!function_exists('gw_reports_parse_date')) {
+  function gw_reports_parse_date($s){
+    $s = trim((string)$s);
+    if ($s === '') return 0;
+    // dd/mm/YYYY
+    if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}$/', $s)) {
+      list($d,$m,$y) = array_map('intval', explode('/', $s));
+      return mktime(0,0,0,$m,$d,$y);
+    }
+    // YYYY-mm-dd
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+      list($y,$m,$d) = array_map('intval', explode('-', $s));
+      return mktime(0,0,0,$m,$d,$y);
+    }
+    $ts = strtotime($s);
+    return $ts ? $ts : 0;
   }
-  if ($estado !== 'todos') {
-    $meta_query[] = ['key' => 'gw_active', 'value' => ($estado === 'activos' ? '1' : '0'), 'compare' => '='];
+}
+
+// ---- Helper: normaliza un item de historial ----
+if (!function_exists('gw_reports_normalize_hist_item')) {
+  function gw_reports_normalize_hist_item($it) {
+    $cap_id = intval($it['cap_id'] ?? ($it['capacitacion_id'] ?? ($it['id'] ?? 0)));
+    $fecha  = isset($it['fecha']) ? sanitize_text_field($it['fecha']) : '';
+    $hora   = isset($it['hora'])  ? sanitize_text_field($it['hora'])  : '';
+    if (!$fecha && !empty($it['fecha_hora'])) {
+      $ts = strtotime($it['fecha_hora']);
+      if ($ts) { $fecha = date('Y-m-d', $ts); $hora = date('H:i', $ts); }
+    }
+    // true/1/"si"/"asistio" => '1' | false/0/"no" => '0' | sin dato => ''
+    $asis = null;
+    if (isset($it['asistio']))        { $asis = $it['asistio']; }
+    elseif (isset($it['asistencia'])) { $asis = $it['asistencia']; }
+    $asis = ($asis === true || $asis === 1 || $asis === '1' || strtolower((string)$asis) === 'si' || strtolower((string)$asis) === 'asistio') ? '1'
+          : (($asis === null) ? '' : '0');
+    return ['cap_id'=>$cap_id, 'fecha'=>$fecha, 'hora'=>$hora, 'asistio'=>$asis];
   }
-  if (!empty($meta_query)) $args['meta_query'] = $meta_query;
+}
 
-  $users = get_users($args);
-  $rows = [];
+// ---- Recolector de filas para CAPACITACIONES (usado por Generar y Exportar) ----
+if (!function_exists('gw_reports_collect_capacitaciones')) {
+  function gw_reports_collect_capacitaciones($args) {
+    $pais_id      = intval($args['pais_id']      ?? 0);
+    $proyecto_id  = intval($args['proyecto_id']  ?? 0);
+    $cap_id_filt  = intval($args['cap_id']       ?? 0);
+    $estado_filt  = sanitize_text_field($args['estado']     ?? 'todos');   // activos|inactivos|todos
+    $asis_filt    = sanitize_text_field($args['asistencia'] ?? 'todas');   // asistio|no|todas|pendiente
+    $desde        = sanitize_text_field($args['desde'] ?? '');
+    $hasta        = sanitize_text_field($args['hasta'] ?? '');
+    $desde_ts     = $desde ? strtotime($desde.' 00:00:00') : 0;
+    $hasta_ts     = $hasta ? strtotime($hasta.' 23:59:59') : 0;
 
-  foreach ($users as $u) {
-    $uid    = $u->ID;
-    $pais_u = get_user_meta($uid, 'gw_pais_id', true);
+    // Query base de usuarios (principalmente voluntarios; puedes ampliar si quieres coach/coordinador)
+    $mq = [];
+    if ($pais_id)                   $mq[] = ['key'=>'gw_pais_id','value'=>$pais_id,'compare'=>'='];
+    if ($estado_filt==='activos')   $mq[] = ['key'=>'gw_active','value'=>'1','compare'=>'='];
+    if ($estado_filt==='inactivos') $mq[] = ['key'=>'gw_active','value'=>'0','compare'=>'='];
+
+    $users = get_users([
+      'fields'     => ['ID','display_name','user_email','roles'],
+      'meta_query' => $mq,
+      // incluimos voluntarios y demás (admin queda por si haces pruebas)
+      'role__in'   => ['voluntario','coach','coordinador_pais','administrator'],
+    ]);
+
+    $rows = [];
+    foreach ($users as $u) {
+      $uid        = $u->ID;
+      $pais_title = get_the_title((int) get_user_meta($uid,'gw_pais_id',true)) ?: '—';
+      $estado_u   = get_user_meta($uid,'gw_active',true); if ($estado_u==='') $estado_u='1';
+
+      // 1) historial (claves posibles)
+      $items = [];
+      // 0) Inscripción actual agendada (si existe)
+        $ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+          if (is_array($ag) && !empty($ag['cap_id'])) {
+            $items[] = gw_reports_normalize_hist_item([
+            'cap_id'  => $ag['cap_id'],
+            'fecha'   => $ag['fecha'] ?? '',
+            'hora'    => $ag['hora']  ?? '',
+            // si completó el paso 7 lo tomamos como que asistió
+            'asistio' => get_user_meta($uid, 'gw_step7_completo', true) ? '1' : '',
+          ]);     
+        } 
+      foreach (['gw_caps_historial','gw_capacitaciones','gw_capacitaciones_historial','gw_caps_registros'] as $k) {
+        $arr = get_user_meta($uid, $k, true);
+        if (is_array($arr) && $arr) {
+          foreach ($arr as $it) {
+            $norm = gw_reports_normalize_hist_item($it);
+            if ($norm['cap_id']) $items[] = $norm;
+          }
+        }
+      }
+      // 2) fallback “simple”
+      $single_cap = (int) get_user_meta($uid,'gw_capacitacion_id',true);
+      if ($single_cap) {
+        $items[] = [
+          'cap_id'  => $single_cap,
+          'fecha'   => sanitize_text_field(get_user_meta($uid,'gw_fecha',true)),
+          'hora'    => sanitize_text_field(get_user_meta($uid,'gw_hora',true)),
+          'asistio' => (string) get_user_meta($uid,'gw_asistio',true),
+        ];
+      }
+      if (!$items) continue;
+
+      foreach ($items as $it) {
+        $cid = (int) $it['cap_id'];
+        if (!$cid) continue;
+        if ($cap_id_filt && $cid !== $cap_id_filt) continue;
+
+        $proj_id  = (int) get_post_meta($cid,'_gw_proyecto_relacionado',true);
+        if ($proyecto_id && $proj_id !== $proyecto_id) continue;
+
+        $pais_cap = (int) get_post_meta($cid,'_gw_pais_relacionado',true);
+        if ($pais_id && $pais_cap && $pais_cap !== $pais_id) continue;
+
+        $fecha = $it['fecha']; $hora = $it['hora'];
+        $ts = strtotime(trim($fecha.' '.$hora));
+        if ($desde_ts && $ts && $ts < $desde_ts) continue;
+        if ($hasta_ts && $ts && $ts > $hasta_ts) continue;
+
+        // Filtro asistencia: acepta 'asistio', 'no', 'pendiente', 'todas'
+        // (si no hay dato, tratamos como pendiente)
+        $asis_bool = ($it['asistio']==='1');
+        if ($asis_filt==='asistio' && !$asis_bool) continue;
+        if (($asis_filt==='no' || $asis_filt==='no_asistio' || $asis_filt==='pendiente') && $asis_bool) continue;
+
+        $rows[] = [
+          'nombre'     => $u->display_name ?: $u->user_email,
+          'email'      => $u->user_email,
+          'pais'       => $pais_title,
+          'proyecto'   => $proj_id ? get_the_title($proj_id) : '—',
+          'cap'        => get_the_title($cid),
+          'fecha'      => $fecha ?: ($ts ? date_i18n('Y-m-d',$ts) : ''),
+          'hora'       => $hora  ?: ($ts ? date_i18n('H:i',$ts)   : ''),
+          'estado'     => ($estado_u==='1' ? 'Activo' : 'Inactivo'),
+          'asistencia' => ($asis_bool ? 'Asistió' : 'No asistió'),
+        ];
+      }
+    }
+    return $rows;
+  }
+}
+
+if (!function_exists('gw_reports_collect_cap_records')) {
+  /**
+   * Devuelve un arreglo de registros de capacitaciones de un usuario.
+   * Intenta varios metakeys posibles y hace fallback a la inscripción actual.
+   * Cada item: ['cap_id'=>int,'fecha'=>'Y-m-d'| 'd/m/Y','hora'=>'HH:MM','asistio'=>0/1]
+   */
+  function gw_reports_collect_cap_records($uid){
+    $out = [];
+
+    // 1) Nuevo formato: inscripción agendada actual
+    $ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+    if (is_array($ag) && !empty($ag['cap_id'])) {
+        $out[] = [
+            'cap_id'  => intval($ag['cap_id']),
+            'fecha'   => isset($ag['fecha']) ? (string)$ag['fecha'] : '',
+            'hora'    => isset($ag['hora'])  ? (string)$ag['hora']  : '',
+            'asistio' => get_user_meta($uid, 'gw_step7_completo', true) ? 1 : 0,
+        ];
+
+    // 2) Históricos conocidos (retrocompatibilidad)
+    $candidates = [
+      'gw_caps_hist','gw_caps_history','gw_capacitaciones_historial',
+      'gw_cap_logs','gw_caps_log','gw_caps_registros',
+      // otros nombres frecuentes en instalaciones previas
+      'gw_capacitaciones','gw_cap_historial','gw_registros_capacitaciones'
+    ];
+    foreach ($candidates as $k) {
+      $val = get_user_meta($uid, $k, true);
+      // Deduplicar items por cap_id|fecha|hora (dentro del usuario)
+        if ($items) {
+            $uniq = [];
+        foreach ($items as $it) {
+                $key = intval($it['cap_id']).'|'.($it['fecha'] ?? '').'|'.($it['hora'] ?? '');
+                $uniq[$key] = $it;
+              }
+                $items = array_values($uniq);
+        } 
+      if (is_array($val)) {
+        foreach ($val as $row) {
+          if (!is_array($row)) continue;
+          if (!isset($row['cap_id']) && !isset($row['capacitacion_id'])) continue;
+          $out[] = [
+            'cap_id'  => intval($row['cap_id'] ?? $row['capacitacion_id']),
+            'fecha'   => isset($row['fecha']) ? (string)$row['fecha'] : '',
+            'hora'    => isset($row['hora'])  ? (string)$row['hora']  : '',
+            'asistio' => isset($row['asistio']) ? intval($row['asistio']) : -1,
+          ];
+        }
+      }
+    }
+
+    // 3) Fallback antiguo simple (metakeys sueltas)
     $cap_id = get_user_meta($uid, 'gw_capacitacion_id', true);
     $fecha  = get_user_meta($uid, 'gw_fecha', true);
     $hora   = get_user_meta($uid, 'gw_hora', true);
-    $active = get_user_meta($uid, 'gw_active', true);
-    if ($active === '') $active = '1';
+    if ($cap_id && $fecha) {
+      $out[] = [
+        'cap_id'  => intval($cap_id),
+        'fecha'   => (string)$fecha,
+        'hora'    => (string)$hora,
+        'asistio' => get_user_meta($uid, 'gw_step7_completo', true) ? 1 : 0,
+      ];
+    }
 
-    // Filtros por capacitación/proyecto
-    if ($cap && intval($cap_id) !== $cap) { continue; }
-    $proy_of_cap = $cap_id ? intval(get_post_meta($cap_id, '_gw_proyecto_relacionado', true)) : 0;
-    if ($proyecto && $proy_of_cap !== $proyecto) { continue; }
+    // 4) Deduplicar por cap_id|fecha|hora
+    if ($out) {
+      $uniq = [];
+      foreach ($out as $r) {
+        $key = intval($r['cap_id']).'|'.($r['fecha'] ?? '').'|'.($r['hora'] ?? '');
+        $uniq[$key] = $r;
+      }
+      $out = array_values($uniq);
+    }
 
-    // Asistencia: usamos gw_step7_completo como referencia (completó capacitación)
-    $attended = get_user_meta($uid, 'gw_step7_completo', true) ? 'asistio' : 'pendiente';
-    if ($asistencia !== 'todos' && $attended !== $asistencia) { continue; }
+    return $out;
+}
+}}
 
-    // Rango de fechas (compara con la fecha guardada en usermeta)
-    if ($desde && $fecha && strcmp($fecha, $desde) < 0) { continue; }
-    if ($hasta && $fecha && strcmp($fecha, $hasta) > 0) { continue; }
-
-    $rows[] = [
-      'nombre'       => $u->display_name ? $u->display_name : $u->user_login,
-      'email'        => $u->user_email,
-      'pais'         => $pais_u ? get_the_title($pais_u) : '—',
-      'proyecto'     => $proy_of_cap ? (get_the_title($proy_of_cap) ?: '—') : '—',
-      'capacitacion' => $cap_id ? (get_the_title($cap_id) ?: '—') : '—',
-      'fecha'        => $fecha ?: '—',
-      'hora'         => $hora ?: '—',
-      'estado'       => ($active === '1') ? 'Activo' : 'Inactivo',
-      'asistencia'   => ($attended === 'asistio') ? 'Asistió' : 'Pendiente',
-    ];
+// ===== AJAX: generar tabla HTML de Reportes =====
+add_action('wp_ajax_gw_reports_fetch', 'gw_reports_fetch');
+add_action('wp_ajax_nopriv_gw_reports_fetch', 'gw_reports_fetch');
+function gw_reports_fetch(){
+  if ( !isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'gw_reports') ) {
+    wp_die('Nonce inválido');
+  }
+  if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) {
+    wp_send_json_error('No autorizado');
   }
 
-  wp_send_json_success(['rows' => $rows]);
+  $tipo     = isset($_POST['tipo'])     ? sanitize_text_field($_POST['tipo']) : 'capacitacion';
+  $pais_id  = isset($_POST['pais_id'])  ? intval($_POST['pais_id']) : 0;
+  $estado   = isset($_POST['estado'])   ? sanitize_text_field($_POST['estado']) : 'todos';
+  $asis_flt = isset($_POST['asistencia']) ? sanitize_text_field($_POST['asistencia']) : 'todas';
+  $cap_id_f = isset($_POST['cap_id'])   ? intval($_POST['cap_id']) : 0; // 0 = todas
+  $proj_id  = isset($_POST['proyecto_id']) ? intval($_POST['proyecto_id']) : 0;
+  $desde    = isset($_POST['desde'])    ? sanitize_text_field($_POST['desde']) : '';
+  $hasta    = isset($_POST['hasta'])    ? sanitize_text_field($_POST['hasta']) : '';
+
+  $from_ts = gw_reports_parse_date($desde);
+  $to_ts   = gw_reports_parse_date($hasta);
+  if ($to_ts) $to_ts += DAY_IN_SECONDS - 1; // inclusivo
+
+  // Filtra capacitaciones por país/proyecto si aplica
+  $cap_ids_scope = [];
+  if ($tipo === 'capacitacion') {
+    $args = [
+      'post_type'   => 'capacitacion',
+      'post_status' => 'publish',
+      'numberposts' => -1,
+    ];
+    $meta_query = [];
+    if ($pais_id)  $meta_query[] = ['key' => '_gw_pais_relacionado',  'value' => $pais_id, 'compare' => '='];
+    if ($proj_id)  $meta_query[] = ['key' => '_gw_proyecto_relacionado','value' => $proj_id, 'compare' => '='];
+    if (!empty($meta_query)) $args['meta_query'] = $meta_query;
+
+    $caps = get_posts($args);
+    foreach ($caps as $c) $cap_ids_scope[] = intval($c->ID);
+
+    // Si el filtro de "cap_id" viene explícito, limitar a ese
+    if ($cap_id_f) {
+      if (!in_array($cap_id_f, $cap_ids_scope, true)) {
+        // el cap no pertenece al país/proyecto -> no habrá resultados
+        $cap_ids_scope = [$cap_id_f];
+      } else {
+        $cap_ids_scope = [$cap_id_f];
+      }
+    }
+  }
+
+  // Usuarios a considerar
+  $user_args = [
+    'role__in' => ['voluntario','coach','coordinador_pais','administrator'], // por si quieres incluir staff en reportes
+    'fields'   => ['ID','user_email','display_name']
+  ];
+  if ($pais_id) {
+    $user_args['meta_key']   = 'gw_pais_id';
+    $user_args['meta_value'] = $pais_id;
+  }
+  $users = get_users($user_args);
+
+  ob_start();
+  ?>
+  <table class="widefat striped">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>País</th>
+        <th>Proyecto</th>
+        <th>Capacitación</th>
+        <th>Fecha</th>
+        <th>Hora</th>
+        <th>Estado</th>
+        <th>Asistencia</th>
+      </tr>
+    </thead>
+    <tbody>
+  <?php
+
+  $row_count = 0;
+  foreach ($users as $u) {
+    // Estado del usuario
+    $active = get_user_meta($u->ID, 'gw_active', true);
+    if ($active === '') $active = '1';
+    if ($estado === 'activos'   && $active !== '1') continue;
+    if ($estado === 'inactivos' && $active !== '0') continue;
+
+    $pais_titulo = '—';
+    $upais = get_user_meta($u->ID, 'gw_pais_id', true);
+    if ($upais) $pais_titulo = get_the_title($upais);
+
+    // Registros de capacitaciones
+    $records = gw_reports_collect_cap_records($u->ID);
+    if (!$records) continue;
+
+    foreach ($records as $rec) {
+      $cap_id = intval($rec['cap_id']);
+      if ($tipo === 'capacitacion') {
+        if (!empty($cap_ids_scope) && $cap_id && !in_array($cap_id, $cap_ids_scope, true)) {
+          continue; // fuera del alcance país/proyecto/capacitación
+        }
+      }
+
+      $cap_title = $cap_id ? get_the_title($cap_id) : '—';
+      $proj_t    = '—';
+      if ($cap_id) {
+        $pid = get_post_meta($cap_id, '_gw_proyecto_relacionado', true);
+        if ($proj_id && intval($pid) !== $proj_id) continue; // seguridad extra
+        $proj_t = $pid ? get_the_title($pid) : '—';
+      }
+
+      // Fecha/hora
+      $fh_ts = 0;
+      $f_raw = isset($rec['fecha']) ? $rec['fecha'] : '';
+      $h_raw = isset($rec['hora'])  ? $rec['hora']  : '';
+      if ($f_raw) {
+        // 'YYYY-mm-dd' o 'dd/mm/YYYY'
+        $base = gw_reports_parse_date($f_raw);
+        if ($base) {
+          if (preg_match('/^\d{1,2}:\d{2}/', $h_raw)) {
+            list($hh,$mm) = array_pad(explode(':', $h_raw), 2, 0);
+            $fh_ts = $base + (intval($hh)*3600 + intval($mm)*60);
+          } else {
+            $fh_ts = $base;
+          }
+        } else {
+          // Intento directo
+          $fh_ts = strtotime(trim($f_raw.' '.$h_raw));
+        }
+      }
+      if ($from_ts && $fh_ts && $fh_ts < $from_ts) continue;
+      if ($to_ts   && $fh_ts && $fh_ts > $to_ts) continue;
+
+      // Filtro asistencia
+      $asis = isset($rec['asistio']) ? intval($rec['asistio']) : -1; // -1 = desconocido
+      if     ($asis_flt === 'asistio'    && $asis !== 1)  continue;
+      elseif ($asis_flt === 'no_asistio' && $asis === 1) continue;
+
+      $row_count++;
+      ?>
+      <tr>
+        <td><?php echo esc_html($u->display_name ?: $u->user_email); ?></td>
+        <td><?php echo esc_html($u->user_email); ?></td>
+        <td><?php echo esc_html($pais_titulo); ?></td>
+        <td><?php echo esc_html($proj_t); ?></td>
+        <td><?php echo esc_html($cap_title); ?></td>
+        <td><?php echo $fh_ts ? esc_html(date_i18n('d/m/Y', $fh_ts)) : '—'; ?></td>
+        <td><?php echo $fh_ts ? esc_html(date_i18n('H:i', $fh_ts)) : '—'; ?></td>
+        <td><?php echo $active === '1' ? 'Activo' : 'Inactivo'; ?></td>
+        <td>
+          <?php
+            if ($asis === 1) echo 'Asistió';
+            elseif ($asis === 0) echo 'No asistió';
+            else echo '—';
+          ?>
+        </td>
+      </tr>
+      <?php
+    }
+  }
+
+  if ($row_count === 0) {
+    echo '<tr><td colspan="9">Sin resultados con los filtros seleccionados.</td></tr>';
+  }
+  ?>
+    </tbody>
+  </table>
+  <?php
+  echo ob_get_clean();
+  wp_die();
+}
+
+// ===== AJAX: exportar CSV =====
+add_action('wp_ajax_gw_reports_export', 'gw_reports_export');
+function gw_reports_export(){
+  if (!current_user_can('manage_options') && !current_user_can('coordinador_pais')) {
+    wp_die('No autorizado');
+  }
+
+  // Reusar el mismo fetch pero produciendo CSV
+  // Para simplificar, llamamos a gw_reports_fetch() capturando su salida HTML y lo convertimos a CSV básico.
+  // (Si ya tienes una lógica nativa para CSV, puedes sustituir esta parte.)
+  ob_start();
+  $_POST['page'] = 1;
+  gw_reports_fetch();
+  $html = ob_get_clean();
+
+  // Extraer filas del HTML
+  $dom = new DOMDocument();
+  libxml_use_internal_errors(true);
+  $dom->loadHTML('<?xml encoding="utf-8" ?>'.$html);
+  libxml_clear_errors();
+
+  $rows = $dom->getElementsByTagName('tr');
+
+  header('Content-Type: text/csv; charset=utf-8');
+  header('Content-Disposition: attachment; filename=reportes.csv');
+
+  $out = fopen('php://output', 'w');
+  foreach ($rows as $r) {
+    $cols = $r->getElementsByTagName('th');
+    if ($cols->length === 0) $cols = $r->getElementsByTagName('td');
+    $row = [];
+    foreach ($cols as $c) {
+      $row[] = trim($c->textContent);
+    }
+    if (!empty($row)) fputcsv($out, $row);
+  }
+  fclose($out);
+  exit;
 }
 
 // ====== MÓDULO REPORTES Y LISTADOS: AJAX PASO 8 (Capacitaciones + Charlas) ======
@@ -7460,20 +8023,15 @@ add_action('admin_post_gw_reportes_export', function(){
         }
         $html .= '</tbody></table>';
 
+        if ( ! class_exists('\Dompdf\Dompdf') ) {
+            wp_die('Exportar a PDF requiere Dompdf. Instálalo vía Composer o plugin y vuelve a intentar.');
+        }
+
         $dompdf = new \Dompdf\Dompdf();
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
-        $dompdf->stream($filename.'.pdf', ['Attachment' => true]);
+        $dompdf->stream($filename . '.pdf', ['Attachment' => true]);
         exit;
-    }
-
-    wp_die('Formato no soportado.');
+    } // fin if ($fmt === 'pdf')
 });
-
-
-
-
-
-
-
