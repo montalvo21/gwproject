@@ -79,48 +79,65 @@ function gw_portal_voluntario_shortcode() {
     echo '<div class="gw-voluntario-onboarding">';
     // Botón global de Cerrar sesión (visible en TODO el flujo)
     $logout_url = wp_logout_url( site_url('/index.php/portal-voluntario/') );
-    echo '<a class="gw-logout-btn" href="' . esc_url($logout_url) . '">Cerrar sesión</a>';
+    echo '<a class="gw-logout-btn" href="' . esc_url($logout_url) . '" aria-label="Cerrar sesión">'
+        . '<span class="gw-logout-text">Cerrar sesión</span>'
+        . '<svg class="gw-logout-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
+        . '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>'
+        . '<polyline points="16 17 21 12 16 7"/>'
+        . '<line x1="21" y1="12" x2="9" y2="12"/>'
+        . '</svg>'
+        . '</a>';
     echo '<style>
   .gw-logout-btn{
       position:fixed !important;
       top:14px !important;
       right:18px !important;
-      z-index:100010 !important;
-      display:inline-block;
-      padding:10px 14px;
-      border-radius:10px;
-      font-weight:600;
-      text-decoration:none;
-      letter-spacing:.2px;
-      background:#ea6b6b;
-      color:#fff;
-      box-shadow:0 4px 10px rgba(0,0,0,.12);
-      opacity:.95;
-      transition:all .15s ease-in-out
+      z-index:2147483647 !important; /* sobre overlays */
+      display:flex !important; align-items:center !important; gap:8px !important;
+      padding:10px 14px !important;
+      border-radius:10px !important;
+      font-weight:600 !important;
+      text-decoration:none !important;
+      letter-spacing:.2px !important;
+      background:#ea6b6b !important; color:#fff !important;
+      box-shadow:0 4px 10px rgba(0,0,0,.12) !important;
+      opacity:.98 !important;
+      visibility:visible !important; pointer-events:auto !important;
+      transition:all .15s ease-in-out !important;
   }
-  .gw-logout-btn:hover{opacity:1;transform:translateY(-1px)}
-  /* Contenedor del portal */
+  .gw-logout-btn:hover{opacity:1 !important;transform:translateY(-1px) !important}
+  .gw-logout-icon{display:inline-block !important; width:18px !important; height:18px !important}
   .gw-form-wrapper{position:relative}
-  /* Si por algún motivo se agrega la clase is-inside, mantenemos el botón fijo igualmente */
-  .gw-logout-btn.is-inside{
-      position:fixed !important;
-      top:14px !important;
-      right:18px !important;
-      z-index:100010 !important;
-  }
-  /* Ajuste cuando el admin bar de WP está visible */
   body.admin-bar .gw-logout-btn{top:46px !important}
   @media (min-width:783px){body.admin-bar .gw-logout-btn{top:32px !important}}
   @media (max-width:640px){
-      .gw-logout-btn{
-          top:12px !important;
-          right:12px !important;
-          padding:8px 12px;
-          font-size:14px;
-          border-radius:8px
-      }
+      .gw-logout-text{display:none !important}
+      .gw-logout-btn{ top:12px !important; right:12px !important; padding:10px !important; border-radius:999px !important }
   }
   </style>';
+    echo '<script>
+(function(){
+  try{
+    var btn=document.querySelector(\'.gw-logout-btn\');
+    if(!btn) return;
+    // Mover al final del body para evitar stacking contexts
+    if(btn.parentNode!==document.body){ document.body.appendChild(btn); }
+    // Forzar estilos críticos
+    btn.style.position=\'fixed\';
+    btn.style.zIndex=\'2147483647\';
+    btn.style.visibility=\'visible\';
+    btn.style.pointerEvents=\'auto\';
+    // Confirmación al hacer click (una sola vez)
+    if(!btn.dataset.bound){
+      btn.addEventListener(\'click\',function(e){
+        var ok = window.confirm(\'¿Seguro que deseas cerrar sesión? Tu progreso se guardará.\');
+        if(!ok){ e.preventDefault(); e.stopPropagation(); }
+      });
+      btn.dataset.bound=\'1\';
+    }
+  }catch(e){}
+})();
+</script>';
 
     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
     if ($current_step == 1) {

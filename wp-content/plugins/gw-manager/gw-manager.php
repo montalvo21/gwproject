@@ -11,6 +11,7 @@ use Dompdf\Dompdf;
  */
 
 if (!defined('ABSPATH')) exit;
+if (!defined('GW_ALLOW_INSTANT_RESET')) define('GW_ALLOW_INSTANT_RESET', true); // SOLO DEV: restablecer sin email
 
 // === ROLES DEL PROYECTO: registro y saneo ==============================
 // Se registran siempre en init para que estén disponibles en front/back.
@@ -245,6 +246,41 @@ function gw_manager_activate() {
         gw_manager_register_roles();
     }
 }
+
+// === AJAX: Generar link/QR para País (robusto) ===
+if (!function_exists('gw_ajax_generar_link_qr_pais')) {
+  function gw_ajax_generar_link_qr_pais(){
+    if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+    if (!( current_user_can('manage_options') || current_user_can('coordinador_pais') || current_user_can('coach') )) {
+      wp_send_json_error(['msg'=>'No autorizado']);
+    }
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if (!wp_verify_nonce($nonce, 'gw_paises_qr')) {
+      wp_send_json_error(['msg'=>'Nonce inválido/expirado']);
+    }
+    $pais_id = intval($_POST['pais_id'] ?? 0);
+    if (!$pais_id) wp_send_json_error(['msg'=>'ID de país requerido']);
+    $pais = get_post($pais_id);
+    if (!$pais || $pais->post_type !== 'pais') wp_send_json_error(['msg'=>'País no válido']);
+
+    // URL destino (ajusta a tu landing si corresponde)
+    $target = add_query_arg('gw_pais', $pais_id, home_url('/'));
+
+    // URLs de QR con múltiples proveedores (fallbacks)
+    $qr_google    = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&choe=UTF-8&chl=' . rawurlencode($target);
+    $qr_qrserver  = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . rawurlencode($target);
+    $qr_quickchart= 'https://quickchart.io/qr?size=300&text=' . rawurlencode($target);
+
+    wp_send_json_success([
+      'url'     => $target,
+      'qr'      => $qr_qrserver, // primario
+      'qr_alt'  => $qr_google,   // fallback 1
+      'qr_alt2' => $qr_quickchart, // fallback 2
+      'pais'    => get_the_title($pais_id),
+    ]);
+  }
+}
+add_action('wp_ajax_gw_generar_link_qr_pais', 'gw_ajax_generar_link_qr_pais');
 
 
 // === Ausencias: crear tabla y programar cron ===
@@ -529,8 +565,177 @@ if (!function_exists('gw_login_home_shortcode')) {
 
                         <!-- Enlace recuperar contraseña -->
                         <div style="margin-top:18px; text-align:center;">
-                            <a href="<?php echo wp_lostpassword_url(); ?>" class="gw-forgot-link">¿Olvidaste tu contraseña?</a>
+                            <a href="#" data-href="<?php echo esc_url( gw_get_password_reset_url() ); ?>" class="gw-forgot-link">¿Olvidaste tu contraseña?</a>
                         </div>
+                        <!-- Modal Restablecer contraseña -->
+<div id="gw-reset-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;"></div>
+<div id="gw-reset-modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+     width:520px;max-width:92vw;background:#fff;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28);z-index:100001;overflow:hidden;">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #e5e7eb;background:#f7fafd;">
+    <strong id="gw-reset-title">Restablecer contraseña</strong>
+    <button type="button" id="gw-reset-close" class="button">Cerrar</button>
+  </div>
+  <div id="gw-reset-body" style="padding:16px;">
+    <!-- Paso 1: solicitar enlace -->
+    <form id="gw-lostpass-form" method="post" autocomplete="off">
+      <p>Escribe tu correo o usuario. Te enviaremos un enlace para restablecerla.</p>
+      <p><input type="text" id="gw_lost_user" name="gw_user_login" placeholder="Correo o usuario" required style="width:100%"></p>
+      <input type="hidden" id="gw_lost_nonce" value="<?php echo esc_attr( wp_create_nonce('gw_lostpass_ajax') ); ?>">
+      <p><button type="submit" class="button button-primary" style="width:100%;">Enviar enlace</button></p>
+      <div id="gw-lostpass-msg" style="display:none;margin-top:8px;"></div>
+    </form>
+
+    <!-- Paso 2: definir nueva contraseña -->
+    <form id="gw-resetpass-form" method="post" style="display:none;" autocomplete="off">
+      <input type="hidden" id="gw_rp_login">
+      <input type="hidden" id="gw_rp_key">
+      <p><label>Nueva contraseña<br><input type="password" id="gw_rp_pass1" required style="width:100%"></label></p>
+      <p><label>Repite la contraseña<br><input type="password" id="gw_rp_pass2" required style="width:100%"></label></p>
+      <input type="hidden" id="gw_reset_nonce" value="<?php echo esc_attr( wp_create_nonce('gw_resetpass_ajax') ); ?>">
+      <p><button type="submit" class="button button-primary" style="width:100%;">Guardar contraseña</button></p>
+      <div id="gw-resetpass-msg" style="display:none;margin-top:8px;"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  if (typeof window.ajaxurl === 'undefined') {
+    window.ajaxurl = "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>";
+  }
+  function qs(k){ try{ return new URL(window.location.href).searchParams.get(k)||''; }catch(e){ return ''; } }
+
+  var $ol = document.getElementById('gw-reset-overlay');
+  var $md = document.getElementById('gw-reset-modal');
+  var $ttl = document.getElementById('gw-reset-title');
+  var $lost = document.getElementById('gw-lostpass-form');
+  var $lostMsg = document.getElementById('gw-lostpass-msg');
+  var $set  = document.getElementById('gw-resetpass-form');
+  var $setMsg = document.getElementById('gw-resetpass-msg');
+
+  function openModal(mode){
+    $ol.style.display = 'block';
+    $md.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    if (mode === 'set') {
+      $ttl.textContent = 'Define tu nueva contraseña';
+      $lost.style.display = 'none';
+      $set.style.display = 'block';
+    } else {
+      $ttl.textContent = 'Restablecer contraseña';
+      $lost.style.display = 'block';
+      $set.style.display = 'none';
+    }
+  }
+  function closeModal(){
+    $ol.style.display = 'none';
+    $md.style.display = 'none';
+    document.body.style.overflow = '';
+    $lostMsg.style.display = 'none'; $lostMsg.textContent = '';
+    $setMsg.style.display = 'none'; $setMsg.textContent = '';
+  }
+  document.getElementById('gw-reset-close').addEventListener('click', closeModal);
+  $ol.addEventListener('click', closeModal);
+
+  // Abrir al click en "¿Olvidaste tu contraseña?"
+  (function(){
+    var a = document.querySelector('.gw-forgot-link');
+    if (a){
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        openModal('request');
+      });
+    }
+  })();
+
+  // Si vienen rp_login/rp_key en la URL (desde el email), abrir modal en modo "set"
+  (function(){
+    var login = qs('rp_login') || qs('login');
+    var key   = qs('rp_key')   || qs('key');
+    if (login && key){
+      document.getElementById('gw_rp_login').value = login;
+      document.getElementById('gw_rp_key').value   = key;
+      openModal('set');
+    }
+  })();
+
+  // --- AJAX: solicitar (o habilitar) restablecimiento en el modal ---
+  $lost.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    $lostMsg.style.display = 'block';
+    $lostMsg.style.color = '#666';
+    $lostMsg.textContent = 'Procesando…';
+
+    var fd = new FormData();
+    fd.append('action','gw_lostpass_request');
+    fd.append('nonce', document.getElementById('gw_lost_nonce').value);
+    fd.append('user_login', document.getElementById('gw_lost_user').value);
+
+    fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:fd})
+    .then(r => r.json())
+    .then(function(resp){
+      if (resp && resp.success) {
+        // Modo instantáneo (DEV): pasar directo a establecer contraseña
+        if (resp.data && (resp.data.instant || resp.data.login)) {
+          document.getElementById('gw_rp_login').value = resp.data.login || document.getElementById('gw_lost_user').value;
+          document.getElementById('gw_rp_key').value   = resp.data.key || '';
+          $ttl.textContent = 'Define tu nueva contraseña';
+          $lost.style.display = 'none';
+          $set.style.display  = 'block';
+          try { document.getElementById('gw_rp_pass1').focus(); } catch(e) {}
+          $lostMsg.style.display = 'none';
+        } else {
+          // Producción: aviso genérico
+          $lostMsg.style.color = '#065f46';
+          $lostMsg.textContent = 'Si el correo/usuario existe, te enviamos un enlace para restablecer tu contraseña.';
+        }
+      } else {
+        $lostMsg.style.color = '#b91c1c';
+        $lostMsg.textContent = 'No se pudo procesar. Intenta de nuevo.';
+      }
+    })
+    .catch(function(){
+      $lostMsg.style.color = '#b91c1c';
+      $lostMsg.textContent = 'Error de red.';
+    });
+  });
+
+  // --- AJAX: guardar nueva contraseña (instantáneo o con key) ---
+  $set.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var p1 = document.getElementById('gw_rp_pass1').value;
+    var p2 = document.getElementById('gw_rp_pass2').value;
+    if (p1.length < 6){ $setMsg.style.display='block'; $setMsg.style.color='#b91c1c'; $setMsg.textContent='La contraseña debe tener al menos 6 caracteres.'; return; }
+    if (p1 !== p2){ $setMsg.style.display='block'; $setMsg.style.color='#b91c1c'; $setMsg.textContent='Las contraseñas no coinciden.'; return; }
+    $setMsg.style.display='block'; $setMsg.style.color='#666'; $setMsg.textContent='Guardando…';
+
+    var fd = new FormData();
+    fd.append('action','gw_resetpass_perform');
+    fd.append('nonce', document.getElementById('gw_reset_nonce').value);
+    fd.append('login', document.getElementById('gw_rp_login').value);
+    fd.append('key', document.getElementById('gw_rp_key').value);
+    fd.append('pass1', p1);
+    fd.append('pass2', p2);
+
+    fetch(ajaxurl, {method:'POST', credentials:'same-origin', body:fd})
+    .then(r => r.json())
+    .then(function(resp){
+      if (resp && resp.success && resp.data && resp.data.redirect){
+        $setMsg.style.color = '#065f46';
+        $setMsg.textContent = '¡Listo! Redirigiendo…';
+        setTimeout(function(){ window.location.href = resp.data.redirect; }, 600);
+      } else {
+        var msg = (resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar.';
+        $setMsg.style.color = '#b91c1c'; $setMsg.textContent = msg;
+      }
+    })
+    .catch(function(){
+      $setMsg.style.color = '#b91c1c';
+      $setMsg.textContent = 'Error de red.';
+    });
+  });
+})();
+</script>
 
                         <!-- Botón Continuar con Google -->
                         <?php echo gw_login_google_button_html(); ?>
@@ -737,6 +942,152 @@ if (!function_exists('gw_login_home_shortcode')) {
     }
 }
 
+// =========================
+// RESTABLECER CONTRASEÑA
+// Página: crea una página con el slug "restablecer-contrasena"
+// y coloca el shortcode [gw_password_reset]
+// =========================
+
+// AJAX: solicitar enlace de restablecimiento (no revela si el usuario existe)
+add_action('wp_ajax_nopriv_gw_lostpass_request', 'gw_ajax_lostpass_request');
+add_action('wp_ajax_gw_lostpass_request', 'gw_ajax_lostpass_request');
+
+function gw_ajax_lostpass_request(){
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_lostpass_ajax') ) {
+    wp_send_json_error(['msg'=>'Nonce inválido']);
+  }
+
+  $user_login = sanitize_text_field($_POST['user_login'] ?? '');
+  $payload = ['msg' => 'ok'];
+
+  if ($user_login !== '') {
+    // Acepta correo o usuario
+    $u = get_user_by('email', $user_login);
+    if (!$u) { $u = get_user_by('login', $user_login); }
+
+    if ($u) {
+      // Si está permitido el modo "instantáneo" (solo DEV), pasamos directo al paso de definir contraseña
+      if (defined('GW_ALLOW_INSTANT_RESET') && GW_ALLOW_INSTANT_RESET) {
+        $payload['instant'] = true;
+        $payload['login']   = $u->user_login;
+      } else {
+        // Producción: enviar correo estándar de WordPress
+        retrieve_password($u->user_login);
+      }
+    }
+  }
+
+  // Siempre success para no revelar si el usuario existe
+  wp_send_json_success($payload);
+}
+
+// AJAX: fijar nueva contraseña + login + redirección
+add_action('wp_ajax_nopriv_gw_resetpass_perform', 'gw_ajax_resetpass_perform');
+add_action('wp_ajax_gw_resetpass_perform', 'gw_ajax_resetpass_perform');
+function gw_ajax_resetpass_perform() {
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_resetpass_ajax') ) {
+    wp_send_json_error(['msg'=>'Nonce inválido']);
+  }
+
+  $login = sanitize_text_field($_POST['login'] ?? '');
+  $key   = sanitize_text_field($_POST['key']   ?? '');
+  $pass1 = (string) ($_POST['pass1'] ?? '');
+  $pass2 = (string) ($_POST['pass2'] ?? '');
+
+  if ($pass1 === '' || strlen($pass1) < 6) {
+    wp_send_json_error(['msg' => 'La contraseña debe tener al menos 6 caracteres.']);
+  }
+  if ($pass1 !== $pass2) {
+    wp_send_json_error(['msg' => 'Las contraseñas no coinciden.']);
+  }
+
+  // Modo instantáneo (solo DEV): no requiere key
+  if (defined('GW_ALLOW_INSTANT_RESET') && GW_ALLOW_INSTANT_RESET && $login && $key === '') {
+    $u = get_user_by('login', $login);
+    if ( ! $u ) { $u = get_user_by('email', $login); }
+    if ( ! $u ) { wp_send_json_error(['msg' => 'Usuario no válido.']); }
+
+    // Actualiza la contraseña
+    wp_set_password($pass1, $u->ID);
+
+    // Iniciar sesión automáticamente con la nueva contraseña
+    $creds = ['user_login' => $u->user_login, 'user_password' => $pass1, 'remember' => true];
+    $signon = wp_signon($creds, false);
+    if (is_wp_error($signon)) {
+      wp_send_json_error(['msg' => 'Contraseña actualizada, pero no se pudo iniciar sesión automáticamente.']);
+    }
+
+    // Redirección por rol
+    $redirect = site_url('/');
+    if (in_array('administrator', $signon->roles) || in_array('coach', $signon->roles) || in_array('coordinador_pais', $signon->roles)) {
+      $redirect = site_url('/index.php/panel-administrativo');
+    } elseif (in_array('voluntario', $signon->roles)) {
+      $active = get_user_meta($signon->ID, 'gw_active', true); if ($active === '') $active = '1';
+      $redirect = ($active === '0') ? site_url('/index.php/portal-voluntario?inactivo=1') : site_url('/index.php/portal-voluntario');
+    }
+    wp_send_json_success(['redirect' => $redirect]);
+  }
+
+  // Flujo estándar con clave (por si llega desde email)
+  if ($login && $key) {
+    $user = check_password_reset_key($key, $login);
+    if (is_wp_error($user)) {
+      wp_send_json_error(['msg' => $user->get_error_message()]);
+    }
+    reset_password($user, $pass1);
+    wp_set_auth_cookie($user->ID, true);
+    wp_set_current_user($user->ID);
+
+    $redirect = site_url('/');
+    if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
+      $redirect = site_url('/index.php/panel-administrativo');
+    } elseif (in_array('voluntario', $user->roles)) {
+      $active = get_user_meta($user->ID, 'gw_active', true); if ($active === '') $active = '1';
+      $redirect = ($active === '0') ? site_url('/index.php/portal-voluntario?inactivo=1') : site_url('/index.php/portal-voluntario');
+    }
+    wp_send_json_success(['redirect' => $redirect]);
+  }
+
+  // Si llega aquí, faltan datos
+  wp_send_json_error(['msg' => 'Datos incompletos.']);
+}
+
+// Obtener la URL de restablecimiento (página personalizada o wp-login.php)
+if ( ! function_exists('gw_get_password_reset_url') ) {
+  function gw_get_password_reset_url(){
+    // Siempre usar la home con una bandera para que el modal se abra
+    return add_query_arg('gw_reset', 1, site_url('/'));
+  }
+}
+
+// Forzar que WordPress use nuestra URL personalizada cuando otros llamen wp_lostpassword_url()
+add_filter('lostpassword_url', function($url, $redirect){
+  $p = get_page_by_path('restablecer-contrasena');
+  return $p ? get_permalink($p) : $url;
+}, 10, 2);
+
+// Enlace a la MISMA página (home/login) con los parámetros que el JS detecta
+add_filter('retrieve_password_message', function($message, $key, $user_login, $user_data){
+  $reset_url = add_query_arg([
+    'rp_login' => rawurlencode($user_login),
+    'rp_key'   => $key,
+    'gw_reset' => 1
+  ], site_url('/'));
+
+  $site_name = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+  $msg  = "Hola {$user_login},\n\n";
+  $msg .= "Recibimos una solicitud para restablecer tu contraseña en {$site_name}.\n";
+  $msg .= "Abre este enlace (se mostrará un modal para definir tu nueva contraseña):\n\n";
+  $msg .= $reset_url . "\n\n";
+  $msg .= "Si no solicitaste este cambio, puedes ignorar este mensaje.\n\n";
+  $msg .= "Saludos,\n{$site_name}\n";
+  return $msg;
+}, 10, 4);
+
+
+
 // Redirección automática después de login (credenciales normales)
 add_filter('login_redirect', 'gw_redireccionar_por_rol', 10, 3);
 function gw_redireccionar_por_rol($redirect_to, $request, $user) {
@@ -872,6 +1223,185 @@ add_action('wp_footer', function() {
         </script>
         <?php
     }
+});
+
+// === Panel Administrativo: handler para botón "Generar link/QR" (Gestión de Países) ===
+add_action('wp_footer', function(){
+  if (!is_user_logged_in()) return;
+  $u = wp_get_current_user();
+  if (!( in_array('administrator', $u->roles) || in_array('coach', $u->roles) || in_array('coordinador_pais', $u->roles) )) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req, 'panel-administrativo') === false) return; // sólo en el panel
+
+  $nonce = wp_create_nonce('gw_paises_qr');
+  $ajax  = admin_url('admin-ajax.php');
+  ?>
+  <script>
+  (function(){
+    var GW_PAISES_NONCE = '<?php echo esc_js($nonce); ?>';
+    var AJAXURL = '<?php echo esc_js($ajax); ?>';
+
+    // Utilidades
+    function $(sel, ctx){ return (ctx||document).querySelector(sel); }
+
+    // Inyectar atributos a botones por texto (fallback)
+    function tagQRButtons(){
+      var nodes = document.querySelectorAll('a,button');
+      Array.prototype.forEach.call(nodes, function(n){
+        var t = (n.textContent || '').trim().toLowerCase();
+        if (/generar\s*link\/?qr/.test(t)) {
+          n.setAttribute('data-gw-action','qr-pais');
+        }
+      });
+    }
+    tagQRButtons();
+    // Observar cambios dinámicos
+    var mo = new MutationObserver(tagQRButtons);
+    mo.observe(document.documentElement, {subtree:true, childList:true});
+
+    function ensureModal(){
+      var wrap = document.getElementById('gw-qr-modal');
+      var needBuild = false;
+
+      if (!wrap) {
+        needBuild = true;
+      } else {
+        // Verificar que existan todos los nodos requeridos; si falta alguno, reconstruir
+        var required = ['#gw-qr-title','#gw-qr-img','#gw-qr-link','#gw-qr-open','#gw-qr-download'];
+        for (var i=0;i<required.length;i++){
+          if (!wrap.querySelector(required[i])) { needBuild = true; break; }
+        }
+        if (needBuild) {
+          try { wrap.parentNode && wrap.parentNode.removeChild(wrap); } catch(e){}
+        }
+      }
+
+      if (needBuild) {
+        wrap = document.createElement('div');
+        wrap.id = 'gw-qr-modal';
+        wrap.innerHTML = '\
+          <div id="gw-qr-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;"></div>\
+          <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100001;background:#fff;\
+                      width:560px;max-width:92vw;border-radius:12px;box-shadow:0 18px 80px rgba(0,0,0,.3);overflow:hidden;">\
+            <div style="padding:12px 14px;background:#f7fafd;border-bottom:1px solid #e3e9f1;display:flex;justify-content:space-between;align-items:center;">\
+              <strong id="gw-qr-title">Generar link/QR</strong>\
+              <button id="gw-qr-close" class="button">Cerrar</button>\
+            </div>\
+            <div style="padding:18px;display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;">\
+              <img id="gw-qr-img" src="" alt="QR" style="width:260px;height:260px;border:1px solid #e3e9f1;border-radius:8px;"/>\
+              <div style="min-width:240px;max-width:100%;word-break:break-all;">\
+                <div style="font-size:12px;color:#667;">Enlace</div>\
+                <input id="gw-qr-link" type="text" readonly style="width:100%;padding:8px 10px;border:1px solid #d6dbe6;border-radius:8px;margin:6px 0;"/>\
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">\
+                  <a id="gw-qr-open" class="button button-primary" target="_blank" rel="noopener">Abrir</a>\
+                  <button id="gw-qr-copy" class="button">Copiar</button>\
+                  <a id="gw-qr-download" class="button" download>Descargar QR</a>\
+                </div>\
+              </div>\
+            </div>\
+          </div>';
+        document.body.appendChild(wrap);
+        wrap.addEventListener('click', function(e){
+          if (e.target.id==='gw-qr-overlay' || e.target.id==='gw-qr-close') wrap.remove();
+        });
+      }
+
+      return wrap;
+    }
+
+    function showQR(data){
+      var m = ensureModal();
+      m.querySelector('#gw-qr-title').textContent = 'Link/QR — ' + (data.pais || 'País');
+
+      var img = m.querySelector('#gw-qr-img');
+      var linkInput = m.querySelector('#gw-qr-link');
+      var openBtn   = m.querySelector('#gw-qr-open');
+      var dl        = m.querySelector('#gw-qr-download');
+
+      linkInput.value = data.url;
+      openBtn.href    = data.url;
+
+      // preparar fallbacks
+      var sources = [data.qr, data.qr_alt, data.qr_alt2].filter(Boolean);
+      var idx = 0;
+
+      function setSrc(i){
+        if (i >= sources.length) return; // no más fallbacks
+        img.onerror = function(){ setSrc(i+1); };
+        img.onload  = function(){ dl.href = img.src; };
+        img.src = sources[i];
+        // href de descarga provisional
+        dl.href = sources[i];
+      }
+
+      setSrc(0);
+    }
+
+    function getPaisId(btn){
+      if (!btn) return null;
+      // 0) Si el botón tiene href con gw_pais=ID (viejo flujo)
+      if (btn.href){
+        try{ var u = new URL(btn.href, location.origin); var v = u.searchParams.get('gw_pais'); if (v) return v; }catch(e){}
+      }
+      // 1) data-pais-id en el botón o contenedor
+      var id = btn.getAttribute('data-pais-id');
+      if (id) return id;
+      var row = btn.closest('[data-pais-id]');
+      if (row) return row.getAttribute('data-pais-id');
+      // 2) select/hidden en el módulo
+      var scope = btn.closest('.card,.panel,.box,.country,.gw-pais,.pais') || document;
+      var sel = scope.querySelector('select[name="pais_id"], #gw_pais_select, [name="gw_pais_id"]');
+      if (sel && sel.value) return sel.value;
+      var inp = scope.querySelector('input[name="pais_id"], input[name="gw_pais_id"], input[type="hidden"][name*="pais"]');
+      if (inp && inp.value) return inp.value;
+      return null;
+    }
+
+    // Delegación en captura para ganar prioridad sobre otros listeners
+    document.addEventListener('click', function(ev){
+      var el = ev.target.closest('a,button');
+      if (!el) return;
+      var isQR = el.matches('.gw-generar-qr,[data-gw-action="qr-pais"],#gw-generar-qr,button[data-action="generar-qr"],a[data-action="generar-qr"]');
+      if (!isQR) {
+        var t = (el.textContent||'').trim().toLowerCase();
+        isQR = /generar\s*link\/?qr/.test(t);
+      }
+      if (!isQR) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+
+      var paisId = getPaisId(el);
+      if (!paisId) { alert('Selecciona un país o usa el botón de su fila.'); return; }
+
+      var form = new URLSearchParams();
+      form.append('action','gw_generar_link_qr_pais');
+      form.append('pais_id', paisId);
+      form.append('nonce', GW_PAISES_NONCE);
+
+      fetch(AJAXURL, { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body: form.toString() })
+        .then(function(r){ return r.text(); })
+        .then(function(text){
+          var resp;
+          try { resp = JSON.parse(text); }
+          catch(e){ console.error('Respuesta no JSON', text); alert('Error del servidor: ' + text.slice(0,200)); return; }
+          if (!resp || !resp.success) { alert('Error: ' + (resp && resp.data && resp.data.msg ? resp.data.msg : 'No se pudo generar el QR')); return; }
+          showQR(resp.data || resp);
+        })
+        .catch(function(err){ console.error(err); alert('Error de red'); });
+    }, true);
+
+    // Copiar
+    document.addEventListener('click', function(ev){
+      if (ev.target && ev.target.id === 'gw-qr-copy'){
+        ev.preventDefault();
+        var inp = document.getElementById('gw-qr-link');
+        if (inp){ inp.select(); try{ document.execCommand('copy'); }catch(e){} }
+      }
+    });
+  })();
+  </script>
+  <?php
 });
 
 // AJAX para borrar metas de paso 5 (charlas)
@@ -1794,6 +2324,37 @@ function gw_ajax_toggle_active_handler(){
 
 
 
+// === AJAX: Generar link/QR para País ===
+if (!function_exists('gw_ajax_generar_link_qr_pais')) {
+  function gw_ajax_generar_link_qr_pais(){
+    if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+    if (!( current_user_can('manage_options') || current_user_can('coordinador_pais') || current_user_can('coach') )) {
+      wp_send_json_error(['msg'=>'No autorizado']);
+    }
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if (!wp_verify_nonce($nonce, 'gw_paises_qr')) {
+      wp_send_json_error(['msg'=>'Nonce inválido/expirado']);
+    }
+    $pais_id = intval($_POST['pais_id'] ?? 0);
+    if (!$pais_id) wp_send_json_error(['msg'=>'ID de país requerido']);
+    $p = get_post($pais_id);
+    if (!$p || $p->post_type !== 'pais') wp_send_json_error(['msg'=>'País no válido']);
+
+    // URL de destino: landing/login con preselección de país (usa la lógica existente que lee ?gw_pais=ID)
+    $base   = site_url('/');
+    $target = add_query_arg('gw_pais', $pais_id, $base);
+
+    // QR usando Google Chart (simple y confiable)
+    $qr_url = 'https://chart.googleapis.com/chart?chs=300x300&cht=qr&choe=UTF-8&chl=' . rawurlencode($target);
+
+    wp_send_json_success([
+      'url'  => $target,
+      'qr'   => $qr_url,
+      'pais' => get_the_title($pais_id),
+    ]);
+  }
+}
+add_action('wp_ajax_gw_generar_link_qr_pais', 'gw_ajax_generar_link_qr_pais');
 
 // --- INICIO BLOQUE METABOX CAPACITACION ---
 add_action('add_meta_boxes', function() {
