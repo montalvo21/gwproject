@@ -3557,6 +3557,205 @@ function gw_step_8_documentos($user_id) {
                             </div>
                         <?php endif; ?>
 
+
+                        <!-- Formulario de preguntas ClassWin (colocar ANTES del formulario de documentos) -->
+<!-- Formulario de preguntas ClassWin (colocar ANTES del formulario de documentos) -->
+<?php if ($escuela_id && $horario): ?>
+  <div class="gw-section gw-classwin-form-wrap">
+    <div class="gw-classwin-header">
+      <h2>Preguntas sobre Glasswing</h2>
+      <p>Responde las siguientes preguntas. (Preguntas de ejemplo con “lor en ipsu”)</p>
+    </div>
+
+    <form method="post" class="gw-classwin-form" id="gw-classwin-form">
+      <?php wp_nonce_field('gw_classwin_qa', 'gw_classwin_nonce'); ?>
+
+      <div class="gw-qa-grid">
+        <!-- Q1 -->
+        <div class="gw-qa-row">
+          <div>
+            <p class="gw-field-label">Pregunta 1: <span class="gw-required">*</span></p>
+            <p class="gw-question-text">Lor en ipsu dolor sit amet, ¿ejemplo de pregunta 1?</p>
+          </div>
+          <div>
+            <label class="gw-field-label" for="classwin_a1">
+              Respuesta 1 <span class="gw-required">*</span>
+            </label>
+            <textarea
+              id="classwin_a1"
+              name="classwin_a1"
+              class="gw-textarea"
+              placeholder="Escribe tu respuesta aquí..."
+              required
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Q2 -->
+        <div class="gw-qa-row">
+          <div>
+            <p class="gw-field-label">Pregunta 2: <span class="gw-required">*</span></p>
+            <p class="gw-question-text">Lor en ipsu dolor sit amet, ¿ejemplo de pregunta 2?</p>
+          </div>
+          <div>
+            <label class="gw-field-label" for="classwin_a2">
+              Respuesta 2 <span class="gw-required">*</span>
+            </label>
+            <textarea
+              id="classwin_a2"
+              name="classwin_a2"
+              class="gw-textarea"
+              placeholder="Escribe tu respuesta aquí..."
+              required
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Q3 -->
+        <div class="gw-qa-row">
+          <div>
+            <p class="gw-field-label">Pregunta 3: <span class="gw-required">*</span></p>
+            <p class="gw-question-text">Lor en ipsu dolor sit amet, ¿ejemplo de pregunta 3?</p>
+          </div>
+          <div>
+            <label class="gw-field-label" for="classwin_a3">
+              Respuesta 3 <span class="gw-required">*</span>
+            </label>
+            <textarea
+              id="classwin_a3"
+              name="classwin_a3"
+              class="gw-textarea"
+              placeholder="Escribe tu respuesta aquí..."
+              required
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="gw-form-actions">
+        <button type="submit" class="gw-btn-primary" id="gw-submit-classwin">
+          <span class="gw-btn-text">Guardar respuestas</span>
+          <span class="gw-btn-loading" style="display:none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Guardando...
+          </span>
+        </button>
+      </div>
+    </form>
+  </div>
+<?php endif; ?>
+
+
+<style>.gw-classwin-form-wrap {
+  background: #fff;
+  border: 1px solid #e9e9ef;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.06);
+  margin-bottom: 32px;
+}
+
+.gw-classwin-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #111827;
+}
+.gw-classwin-header p {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+
+.gw-qa-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gw-qa-row {
+  display: grid;
+  gap: 16px;
+  background: #fafafb;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+@media (min-width: 768px) {
+  .gw-qa-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.gw-field-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #111827;
+}
+.gw-required {
+  color: #dc2626;
+}
+
+.gw-input,
+.gw-textarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #111827;
+  background: #fff;
+  transition: border-color .2s, box-shadow .2s;
+}
+.gw-input::placeholder,
+.gw-textarea::placeholder {
+  color: #9ca3af;
+}
+.gw-input:focus,
+.gw-textarea:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.25);
+  outline: none;
+}
+
+.gw-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.gw-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.gw-btn-primary {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  background: #c0c34d;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.gw-btn-primary:hover {
+  background: #a2a63d;
+}
+.gw-btn-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+</style>
+
+
                         <!-- Formulario de documentos con estados individuales -->
                         <?php if ($escuela_id && $horario): ?>
                             <div class="gw-section">
