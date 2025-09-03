@@ -11,7 +11,9 @@ use Dompdf\Dompdf;
  */
 
 if (!defined('ABSPATH')) exit;
-if (!defined('GW_ALLOW_INSTANT_RESET')) define('GW_ALLOW_INSTANT_RESET', true); // SOLO DEV: restablecer sin email
+if (!defined('GW_ALLOW_INSTANT_RESET')) 
+//WARNING Antes de subir a dev/prod, cambia esa línea a false
+define('GW_ALLOW_INSTANT_RESET', true);
 
 // === ROLES DEL PROYECTO: registro y saneo ==============================
 // Se registran siempre en init para que estén disponibles en front/back.
@@ -1403,6 +1405,154 @@ add_action('wp_footer', function(){
   </script>
   <?php
 });
+
+// === Admin: restablecer contraseña de un usuario (solo Administrador) ===
+add_action('wp_ajax_gw_admin_set_user_password', 'gw_admin_set_user_password');
+function gw_admin_set_user_password(){
+  if ( ! is_user_logged_in() || ! current_user_can('manage_options') ) {
+    wp_send_json_error(['msg' => 'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_admin_set_pass') ) {
+    wp_send_json_error(['msg' => 'Nonce inválido/expirado']);
+  }
+  $user_id = intval($_POST['user_id'] ?? 0);
+  $pass    = (string) ($_POST['pass'] ?? '');
+  if ( $user_id <= 0 || $pass === '' ) {
+    wp_send_json_error(['msg' => 'Datos incompletos.']);
+  }
+  if ( strlen($pass) < 6 ) {
+    wp_send_json_error(['msg' => 'La contraseña debe tener al menos 6 caracteres.']);
+  }
+  // Actualiza la contraseña del usuario indicado
+  wp_set_password($pass, $user_id);
+  wp_send_json_success(['done' => 1]);
+}
+
+// === Panel Administrativo: inyectar campo "Nueva contraseña" en el modal Editar usuario ===
+// Lo imprimimos en HEAD y en FOOTER para garantizar carga.
+$gw_print_admin_pass_injector = function () {
+  if ( ! is_user_logged_in() ) return;
+  $u = wp_get_current_user();
+  if ( ! ( in_array('administrator', $u->roles) || current_user_can('manage_options') ) ) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if ( strpos($req, 'panel-administrativo') === false ) return;
+
+  $nonce = wp_create_nonce('gw_admin_set_pass');
+  $ajax  = admin_url('admin-ajax.php');
+  ?>
+  <script>
+  (function(){
+    // Visibilidad en consola para verificar que el script cargó
+    console.log('[GW] injector contraseña activo');
+
+    // Asegura ajaxurl y nonce disponibles
+    var AJAXURL = window.ajaxurl || '<?php echo esc_js($ajax); ?>';
+    var GW_ADMIN_SET_PASS_NONCE = '<?php echo esc_js($nonce); ?>';
+
+    // Último user_id detectado al pulsar "Editar"
+    var GW_LAST_UID = 0;
+
+    // 1) Al pulsar un botón/enlace que diga "Editar" (o "Edit") guardamos el posible user_id
+    document.addEventListener('click', function(ev){
+      var el = ev.target.closest('button, a');
+      if (!el) return;
+      var t = (el.textContent || '').trim().toLowerCase();
+      if (t === 'editar' || t === 'edit') {
+        // leer posibles atributos/data-*
+        var keys = ['data-user-id','data-id','data-uid','data-user'];
+        for (var i=0;i<keys.length;i++){
+          var v = el.getAttribute(keys[i]);
+          if (v) { GW_LAST_UID = parseInt(v, 10) || GW_LAST_UID; }
+        }
+        var row = el.closest('[data-user-id],[data-id]');
+        if (row) {
+          var v2 = row.getAttribute('data-user-id') || row.getAttribute('data-id');
+          if (v2) GW_LAST_UID = parseInt(v2, 10) || GW_LAST_UID;
+        }
+      }
+    }, true);
+
+    // 2) Inyecta el campo debajo del Email cuando el modal aparece
+    function injectPassField(ctx){
+      var rootList = (ctx ? [ctx] : Array.prototype.slice.call(document.querySelectorAll('.gw-user-edit-modal, .gw-user-modal, .modal, [role="dialog"], .swal2-container, .swal2-popup')));
+      rootList.forEach(function(root){
+        // Busca input de Email: type=email OR name que contenga "email"
+        var email = root.querySelector('input[type="email"], input[name*="email" i], input[id*="email" i]');
+        if (!email) return;
+        if (root.querySelector('#gwUserNewPass')) return; // ya agregado
+
+        var wrap = document.createElement('div');
+        wrap.className = 'gw-passreset-field';
+        wrap.innerHTML =
+          '<label style="display:block;margin-top:12px;">Nueva contraseña (opcional)</label>' +
+          '<input type="password" id="gwUserNewPass" placeholder="Dejar vacío para no cambiar" style="width:100%;margin-top:6px;">' +
+          '<small style="display:block;color:#6b7280;margin-top:6px;">Mínimo 6 caracteres. Se aplicará al guardar.</small>';
+        try { email.insertAdjacentElement('afterend', wrap); } catch(e){}
+      });
+    }
+    // Observa DOM para detectar el modal cuando se inserta
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && Array.prototype.forEach.call(m.addedNodes, function(n){
+          if (n.nodeType === 1) injectPassField(n);
+        });
+      });
+    });
+    mo.observe(document.documentElement, {subtree:true, childList:true});
+    // Intento inicial
+    injectPassField();
+
+    // 3) Al hacer clic en "Guardar" dentro del modal, si hay nueva contraseña => AJAX
+    document.addEventListener('click', function(ev){
+      var btn = ev.target.closest('button, input[type="submit"]');
+      if (!btn) return;
+      var txt = (btn.value || btn.textContent || '').trim().toLowerCase();
+      if (txt !== 'guardar' && txt !== 'save') return; // botón principal del modal
+
+      var modal = btn.closest('.gw-user-edit-modal, .gw-user-modal, .modal, [role="dialog"], .swal2-container, .swal2-popup') || document;
+      var passEl = modal.querySelector('#gwUserNewPass');
+      if (!passEl || !passEl.value) return; // nada que hacer
+
+      // Intentar obtener el ID del usuario desde el modal
+      var uid = 0;
+      var hid = modal.querySelector('input[type="hidden"][name*="user" i][name*="id" i], input[type="hidden"][id*="user" i][id*="id" i]');
+      if (hid) uid = parseInt(hid.value, 10) || 0;
+      if (!uid) {
+        var holder = modal.querySelector('[data-user-id]') || document.querySelector('tr.is-editing,[data-user-id]');
+        if (holder) uid = parseInt(holder.getAttribute('data-user-id'), 10) || 0;
+      }
+      if (!uid) { uid = GW_LAST_UID || 0; }
+      if (!uid) { console.warn('[GW] No se pudo detectar user_id para cambio de contraseña'); return; }
+
+      if (passEl.value.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+
+      var fd = new FormData();
+      fd.append('action', 'gw_admin_set_user_password');
+      fd.append('nonce', GW_ADMIN_SET_PASS_NONCE);
+      fd.append('user_id', uid);
+      fd.append('pass', passEl.value);
+
+      fetch(AJAXURL, { method:'POST', credentials:'same-origin', body: fd })
+      .then(function(r){ return r.json(); })
+      .then(function(resp){
+        if (resp && resp.success) {
+          passEl.value = ''; // limpia el campo
+          console.log('[GW] Contraseña actualizada para user_id', uid);
+        } else {
+          var msg = (resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar la contraseña.';
+          alert(msg);
+        }
+      })
+      .catch(function(){ alert('Error de red al actualizar la contraseña.'); });
+    }, true);
+  })();
+  </script>
+  <?php
+};
+// Imprimir en head y en footer (redundancia segura)
+add_action('wp_head',   $gw_print_admin_pass_injector, 99);
+add_action('wp_footer', $gw_print_admin_pass_injector, 1);
 
 // AJAX para borrar metas de paso 5 (charlas)
 add_action('wp_ajax_gw_admin_reset_charlas', function() {
