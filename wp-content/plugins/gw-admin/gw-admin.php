@@ -3739,7 +3739,7 @@ function gw_step_8_documentos($user_id) {
   border-radius: 12px;
   padding: 12px 18px;
   background: #c0c34d;
-  color: #1f2937;
+  color: white;
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
