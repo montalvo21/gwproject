@@ -1638,6 +1638,9 @@ function gw_step_5_charla($user_id) {
             'idx' => $charla_idx,
         ];
         update_user_meta($user_id, 'gw_charla_agendada', $agendada_data);
+        // Reinicia el flag de asistencia aprobada para la nueva charla
+        delete_user_meta($user_id, 'gw_charla_asistio');
+        delete_user_meta($user_id, 'gw_charla_asistio_' . intval($charla_id));
         
         $content = '
         <div class="gw-success-registration">
@@ -1692,27 +1695,70 @@ function gw_step_5_charla($user_id) {
                 </div>';
         }
         
-        $predicted_completadas = count($charlas_completadas) + 1;
-        $has_more = count($charlas_asignadas) > $predicted_completadas;
-        $button_label = $has_more ? 'Siguiente charla' : 'Ir a 
-        Selección de proyecto';
+        $cid_current = !empty($charla_agendada['charla_id']) ? intval($charla_agendada['charla_id']) : 0;
+        $already_completed_current = ($cid_current && in_array($cid_current, array_map('intval', (array)$charlas_completadas), true));
+        $predicted_completadas = count((array)$charlas_completadas) + ($already_completed_current ? 0 : 1);
+        $has_more = count((array)$charlas_asignadas) > $predicted_completadas;
+        $button_label = $has_more ? 'Siguiente charla' : 'Ir a Selección de proyecto';
         
         $content .= '
             </div>
         </div>
-        
-        <form method="post" class="gw-form">
-            ' . wp_nonce_field('gw_charla_asistencia', 'gw_charla_asistencia_nonce', true, false) . '
-            <div class="gw-form-actions">
-                <button type="submit" class="gw-btn-primary">
-                    ' . esc_html($button_label) . '
-                </button>
-            </div>
-        </form>
+        ';
 
-        <div class="gw-charla-note">
-            <p>Recuerda ir al enlace y marcar tu asistencia</p>
-        </div>';
+        // Bloqueo del avance hasta que el admin apruebe asistencia
+        // Acepta tanto meta global como meta por charla específica (gw_charla_asistio_{ID})
+        $approved_flag = get_user_meta($user_id, 'gw_charla_asistio', true);
+        $cid_current   = !empty($charla_agendada['charla_id']) ? intval($charla_agendada['charla_id']) : 0;
+        if (!$approved_flag && $cid_current) {
+            $approved_flag = get_user_meta($user_id, 'gw_charla_asistio_' . $cid_current, true);
+        }
+        // Aceptar varios formatos posibles de "aprobado"
+        $approved_bool = (
+            $approved_flag === 1 || $approved_flag === '1' || $approved_flag === true ||
+            (is_string($approved_flag) && in_array(strtolower($approved_flag), ['si','sí','asistio','aprobado','yes'], true))
+        );
+        // Si no hay flag explícito, considerar aprobado si la charla ya figura en el array de completadas
+        if (!$approved_bool && $cid_current) {
+            $approved_bool = in_array($cid_current, array_map('intval', (array)$charlas_completadas), true);
+        }
+
+        if ($approved_bool) {
+        // Aprobado: mostrar el formulario real que permite avanzar
+        $content .= '
+        <form method="post" class="gw-form">
+        ' . wp_nonce_field('gw_charla_asistencia', 'gw_charla_asistencia_nonce', true, false) . '
+        <div class="gw-form-actions">
+            <button type="submit" class="gw-btn-primary">' . esc_html($button_label) . '</button>
+        </div>
+         </form>
+    ';
+    } else {
+    // NO aprobado: botón gris e interceptar clic con mensaje
+    $content .= '
+    <div class="gw-form-actions">
+        <button type="button"
+                class="gw-btn-primary"
+                id="gw-next-charla-locked"
+                aria-disabled="true"
+                title="Tu asistencia debe ser aprobada por un administrador para continuar."
+                style="opacity:.5;cursor:not-allowed;">
+            ' . esc_html($button_label) . '
+        </button>
+    </div>
+    <p class="gw-charla-note">Tu asistencia debe ser aprobada por un administrador para continuar.</p>
+    <script>
+    (function(){
+        var b = document.getElementById("gw-next-charla-locked");
+        if(!b) return;
+        b.addEventListener("click", function(e){
+            e.preventDefault();
+            alert("Tu asistencia debe ser aprobada por un administrador para continuar.");
+        });
+    })();
+    </script>
+    ';
+}
 
         // Procesar volver atrás
         if (
@@ -1733,6 +1779,11 @@ function gw_step_5_charla($user_id) {
             && wp_verify_nonce($_POST['gw_charla_asistencia_nonce'], 'gw_charla_asistencia')
             && !isset($_POST['gw_volver_atras'])
         ) {
+            // Limpiar el flag para futuras charlas (evita que quede desbloqueado)
+            delete_user_meta($user_id, 'gw_charla_asistio');
+            if (!empty($charla_agendada['charla_id'])) {
+                delete_user_meta($user_id, 'gw_charla_asistio_' . intval($charla_agendada['charla_id']));
+            }
             $charlas_completadas[] = (int)$charla_agendada['charla_id'];
             update_user_meta($user_id, 'gw_charlas_completadas', array_unique($charlas_completadas));
             delete_user_meta($user_id, 'gw_charla_agendada');
@@ -2613,6 +2664,11 @@ function gw_get_session_timestamp($sesion) {
             'enlace'    => $enlace,
             'idx'       => $cap_idx,
         ]);
+        // Reinicia el flag de asistencia aprobada para la nueva capacitación
+        delete_user_meta($user_id, 'gw_cap_asistio');
+        if (!empty($cap_id)) {
+            delete_user_meta($user_id, 'gw_cap_asistio_' . intval($cap_id));
+        }
 
         $content = '<div class="gw-success-registration"><div class="gw-success-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></div><h2 class="gw-success-title">¡Te has registrado con éxito!</h2><p class="gw-success-description">Tu registro en la capacitación <strong>' . esc_html($capacitacion->post_title) . '</strong> ha sido confirmado.</p><div class="gw-loading-spinner"></div></div><meta http-equiv="refresh" content="3;url=' . esc_url(site_url('/index.php/portal-voluntario/')) . '">';
 
@@ -2625,28 +2681,116 @@ function gw_get_session_timestamp($sesion) {
         $has_more    = count($capacitaciones_asignadas) > $predicted;
         $button_text = $has_more ? 'Siguiente capacitación' : 'Ir a documentos y escuela';
 
+        // Procesar avance SOLO si el admin ya aprobó asistencia
         if (
-            $_SERVER['REQUEST_METHOD'] === 'POST' &&
-            isset($_POST['gw_capacitacion_asistencia_nonce']) &&
-            wp_verify_nonce($_POST['gw_capacitacion_asistencia_nonce'], 'gw_capacitacion_asistencia')
+            $_SERVER['REQUEST_METHOD'] === 'POST'
+            && isset($_POST['gw_capacitacion_asistencia_nonce'])
+            && wp_verify_nonce($_POST['gw_capacitacion_asistencia_nonce'], 'gw_capacitacion_asistencia')
         ) {
-            $capacitaciones_completadas[] = (int)$capacitacion_agendada['cap_id'];
-            update_user_meta($user_id, 'gw_capacitaciones_completadas', array_values(array_unique(array_map('intval', $capacitaciones_completadas))));
-            delete_user_meta($user_id, 'gw_capacitacion_agendada');
+            // Revisar flag de aprobación del admin
+            $cap_approved_flag = get_user_meta($user_id, 'gw_cap_asistio', true);
+            if (!$cap_approved_flag && !empty($capacitacion_agendada['cap_id'])) {
+                $cap_approved_flag = get_user_meta($user_id, 'gw_cap_asistio_' . intval($capacitacion_agendada['cap_id']), true);
+            }
+            $approved_cap_bool = ($cap_approved_flag === '1' || $cap_approved_flag === 1 || $cap_approved_flag === true);
 
-            $quedan = false; $done = array_map('intval', get_user_meta($user_id, 'gw_capacitaciones_completadas', true) ?: []);
-            foreach ($capacitaciones_asignadas as $cid) { if (!in_array((int)$cid, $done, true)) { $quedan = true; break; } }
+            if (!$approved_cap_bool) {
+                // Seguridad extra: no permitir avanzar por POST si no está aprobado
+                wp_die('Tu asistencia debe ser aprobada por un administrador para continuar.');
+            }
+
+            // Marcar esta capacitación como completada
+            $capacitaciones_completadas[] = (int)$capacitacion_agendada['cap_id'];
+            $capacitaciones_completadas = array_values(array_unique(array_map('intval', $capacitaciones_completadas)));
+            update_user_meta($user_id, 'gw_capacitaciones_completadas', $capacitaciones_completadas);
+
+            // Limpiar agenda actual y flags de asistencia
+            delete_user_meta($user_id, 'gw_capacitacion_agendada');
+            delete_user_meta($user_id, 'gw_cap_asistio');
+            if (!empty($capacitacion_agendada['cap_id'])) {
+                delete_user_meta($user_id, 'gw_cap_asistio_' . intval($capacitacion_agendada['cap_id']));
+            }
+
+            // ¿Quedan más?
+            $quedan = false;
+            $done = array_map('intval', get_user_meta($user_id, 'gw_capacitaciones_completadas', true) ?: []);
+            foreach ($capacitaciones_asignadas as $cid) {
+                if (!in_array((int)$cid, $done, true)) { $quedan = true; break; }
+            }
             if (!$quedan) update_user_meta($user_id, 'gw_step7_completo', 1);
 
-            if ($has_more) { wp_safe_redirect(site_url('/index.php/portal-voluntario/')); } else { wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso8_menu=1')); }
+            if ($has_more) {
+                wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
+            } else {
+                wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso8_menu=1'));
+            }
             exit;
         }
 
-        $enlace = !empty($capacitacion_agendada['enlace'])
+        // Comprobar si el admin ya aprobó la asistencia de esta capacitación
+        $cap_approved_flag = get_user_meta($user_id, 'gw_cap_asistio', true);
+        if (!$cap_approved_flag && !empty($capacitacion_agendada['cap_id'])) {
+            $cap_approved_flag = get_user_meta($user_id, 'gw_cap_asistio_' . intval($capacitacion_agendada['cap_id']), true);
+        }
+        $approved_cap_bool = ($cap_approved_flag === '1' || $cap_approved_flag === 1 || $cap_approved_flag === true);
+
+        $enlace_html = !empty($capacitacion_agendada['enlace'])
             ? '<a href="' . esc_url($capacitacion_agendada['enlace']) . '" target="_blank" rel="noopener">Unirse a la capacitación</a>'
             : '<span class="gw-text-muted">No hay enlace configurado</span>';
 
-        $content = '<div class="gw-charla-info"><div class="gw-charla-title">' . esc_html($capacitacion_agendada['cap_title']) . ' <span class="gw-charla-modalidad">(' . ucfirst($capacitacion_agendada['modalidad']) . ')</span></div><div class="gw-charla-details"><div class="gw-detail-item"><strong>Fecha:</strong> ' . date('d/m/Y', strtotime($capacitacion_agendada['fecha'])) . '</div><div class="gw-detail-item"><strong>Hora:</strong> ' . esc_html($capacitacion_agendada['hora']) . '</div>' . ($capacitacion_agendada['modalidad'] === 'presencial' ? '<div class="gw-detail-item"><strong>Lugar:</strong> ' . esc_html($capacitacion_agendada['lugar']) . '</div>' : '<div class="gw-detail-item"><strong>Enlace:</strong> ' . $enlace . '</div>') . '</div></div><form method="post" class="gw-form">' . wp_nonce_field('gw_capacitacion_asistencia', 'gw_capacitacion_asistencia_nonce', true, false) . '<div class="gw-form-actions"><button type="submit" class="gw-btn-primary">' . esc_html($button_text) . '</button></div></form><div class="gw-charla-note"><p>Recuerda ir al enlace y marcar tu asistencia.</p></div>';
+        if ($approved_cap_bool) {
+            // Botón habilitado (aprobado por admin)
+            $content = '
+<div class="gw-charla-info">
+  <div class="gw-charla-title">' . esc_html($capacitacion_agendada['cap_title']) . ' <span class="gw-charla-modalidad">(' . ucfirst($capacitacion_agendada['modalidad']) . ')</span></div>
+  <div class="gw-charla-details">
+    <div class="gw-detail-item"><strong>Fecha:</strong> ' . date('d/m/Y', strtotime($capacitacion_agendada['fecha'])) . '</div>
+    <div class="gw-detail-item"><strong>Hora:</strong> ' . esc_html($capacitacion_agendada['hora']) . '</div>' .
+    ($capacitacion_agendada['modalidad'] === 'presencial'
+      ? '<div class="gw-detail-item"><strong>Lugar:</strong> ' . esc_html($capacitacion_agendada['lugar']) . '</div>'
+      : '<div class="gw-detail-item"><strong>Enlace:</strong> ' . $enlace_html . '</div>') .
+  '</div>
+</div>
+<form method="post" class="gw-form">' .
+  wp_nonce_field('gw_capacitacion_asistencia', 'gw_capacitacion_asistencia_nonce', true, false) .
+  '<div class="gw-form-actions">
+    <button type="submit" class="gw-btn-primary">' . esc_html($button_text) . '</button>
+  </div>
+</form>
+<div class="gw-charla-note"><p>Recuerda ir al enlace y marcar tu asistencia.</p></div>';
+        } else {
+            // Botón bloqueado (no aprobado por admin)
+            $content = '
+<div class="gw-charla-info">
+  <div class="gw-charla-title">' . esc_html($capacitacion_agendada['cap_title']) . ' <span class="gw-charla-modalidad">(' . ucfirst($capacitacion_agendada['modalidad']) . ')</span></div>
+  <div class="gw-charla-details">
+    <div class="gw-detail-item"><strong>Fecha:</strong> ' . date('d/m/Y', strtotime($capacitacion_agendada['fecha'])) . '</div>
+    <div class="gw-detail-item"><strong>Hora:</strong> ' . esc_html($capacitacion_agendada['hora']) . '</div>' .
+    ($capacitacion_agendada['modalidad'] === 'presencial'
+      ? '<div class="gw-detail-item"><strong>Lugar:</strong> ' . esc_html($capacitacion_agendada['lugar']) . '</div>'
+      : '<div class="gw-detail-item"><strong>Enlace:</strong> ' . $enlace_html . '</div>') .
+  '</div>
+</div>
+<div class="gw-form-actions">
+  <button type="button"
+          class="gw-btn-primary"
+          id="gw-next-cap-locked"
+          aria-disabled="true"
+          title="Tu asistencia debe ser aprobada por un administrador para continuar."
+          style="opacity:.5;cursor:not-allowed;">' . esc_html($button_text) . '</button>
+</div>
+<p class="gw-charla-note">Tu asistencia debe ser aprobada por un administrador para continuar.</p>
+<script>
+  (function(){
+    var b = document.getElementById("gw-next-cap-locked");
+    if(!b) return;
+    b.addEventListener("click", function(e){
+      e.preventDefault();
+      alert("Tu asistencia debe ser aprobada por un administrador para continuar.");
+    });
+  })();
+</script>';
+        }
 
         return $render_layout('Capacitación registrada', 'Te recordamos que te registraste en la siguiente capacitación.', $content);
     }
@@ -2718,7 +2862,25 @@ function gw_format_time_remaining($seconds) {
     return $result;
 }
 
+
 if (!defined('ABSPATH')) exit; // Seguridad: salir si se accede directamente
+
+// ==== AJAX (frontend) para estado de asistencia: charla/cap ====
+// Se usa para bloquear el botón "Siguiente Charla / Siguiente Capacitación" hasta que el admin marque asistencia.
+add_action('wp_ajax_gw_asist_status', function(){
+    if ( !is_user_logged_in() ) {
+        wp_send_json_error(['msg' => 'nologin']);
+    }
+    $uid = get_current_user_id();
+    // Estas metas deben ser puestas en true/1 por el modal "Asistencias" en el panel (gw-manager)
+    $charla_aprobada = get_user_meta($uid, 'gw_charla_asistio', true) === '1';
+    $cap_aprobada    = get_user_meta($uid, 'gw_cap_asistio', true) === '1';
+
+    wp_send_json_success([
+        'charla' => $charla_aprobada,
+        'cap'    => $cap_aprobada,
+    ]);
+});
 
 // Registrar Custom Post Types
 add_action('init', function () {
@@ -4044,6 +4206,36 @@ function gw_step_8_documentos($user_id) {
         </div>
     </div>
     
+        
+        function logoutAndRedirect() {
+            window.location.href = '<?php echo home_url(); ?>?gw_logout=1';
+        }
+        
+        function startCountdown(seconds, callback) {
+            const countdownElement = document.getElementById('gw-countdown');
+            if (!countdownElement) return;
+            
+            let count = seconds;
+            countdownElement.textContent = count;
+            
+            const interval = setInterval(() => {
+                count--;
+                countdownElement.textContent = count;
+                
+                if (count <= 3) {
+                    countdownElement.style.color = '#ef4444';
+                    countdownElement.style.transform = 'scale(1.1)';
+                } else if (count <= 5) {
+                    countdownElement.style.color = '#f59e0b';
+                }
+                
+                if (count <= 0) {
+                    clearInterval(interval);
+                    if (callback) callback();
+                }
+            }, 1000);
+        }
+        
     <script>
     (function() {
         'use strict';
@@ -4217,6 +4409,74 @@ function gw_step_8_documentos($user_id) {
         });
         
         <?php endif; ?>
+
+        // === Gate de avance a "Siguiente Charla / Siguiente Capacitación" ===
+        // Deshabilita el botón hasta que el admin marque asistencia en el panel (modal "Asistencias").
+        (function(){
+            try {
+                var ajaxurlGate = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>';
+                var body = 'action=gw_asist_status';
+                fetch(ajaxurlGate, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: body
+                })
+                .then(function(r){ return r.json(); })
+                .then(function(resp){
+                    if (!resp || !resp.success) return;
+                    var st = resp.data || resp; // WP devuelve {success:true, data:{...}}
+                    gateNextButtons(st);
+                })
+                .catch(function(){ /* silencio en caso de error */ });
+            } catch(e) { /* noop */ }
+
+            function gateNextButtons(st){
+                if (!st) return;
+
+                function gate(matchRe, msg){
+                    // Busca enlaces/botones cuyo texto coincida (case-insensitive) con "Siguiente Charla" o "Siguiente Capacitaci..."
+                    var nodes = document.querySelectorAll('a,button');
+                    for (var i=0;i<nodes.length;i++){
+                        var el = nodes[i];
+                        var label = (el.textContent || '').trim();
+                        if (!label) continue;
+                        if (matchRe.test(label)){
+                            // Marcar como gated si no lo está ya
+                            if (el.getAttribute('data-gw-gated') === '1') continue;
+                            el.setAttribute('data-gw-gated','1');
+                            el.setAttribute('aria-disabled','true');
+                            el.disabled = true;
+                            // Si es <a>, quitar href para evitar navegación directa
+                            if (el.tagName === 'A' && el.hasAttribute('href')) {
+                                el.dataset.hrefBackup = el.getAttribute('href');
+                                el.removeAttribute('href');
+                            }
+                            // Mantener clickable para mostrar mensaje
+                            el.style.opacity = '0.6';
+                            el.style.cursor = 'not-allowed';
+                            el.title = msg;
+
+                            // Interceptar click para mostrar alerta clara
+                            el.addEventListener('click', function(ev){
+                                ev.preventDefault();
+                                alert(msg);
+                            });
+                        }
+                    }
+                }
+
+                // Si NO está aprobada charla, bloquear "Siguiente Charla"
+                if (st.charla !== true) {
+                    gate(/siguiente\s*charla/i, 'Tu asistencia a la charla debe ser aprobada por un administrador para continuar.');
+                }
+                // Si NO está aprobada capacitación, bloquear "Siguiente Capacitación"
+                if (st.cap !== true) {
+                    gate(/siguiente\s*capacitaci/i, 'Tu asistencia a la capacitación debe ser aprobada por un administrador para continuar.');
+                }
+            }
+        })();
+
     })();
     </script>
     

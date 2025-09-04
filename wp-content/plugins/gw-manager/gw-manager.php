@@ -1443,6 +1443,143 @@ add_action('wp_footer', function(){
   <?php
 });
 
+// === Panel Administrativo: botón/modal "Asistencias" en Gestión de usuarios ===
+add_action('wp_footer', function(){
+  if ( ! is_user_logged_in() ) return;
+  $u = wp_get_current_user();
+  if ( ! ( in_array('administrator',$u->roles) || current_user_can('manage_options') ) ) return;
+
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req, 'panel-administrativo') === false) return;
+
+  $nonce = wp_create_nonce('gw_asist_admin');
+  $ajax  = admin_url('admin-ajax.php');
+  ?>
+  <script>
+  (function(){
+    var AJAX  = '<?php echo esc_js($ajax); ?>';
+    var NONCE = '<?php echo esc_js($nonce); ?>';
+
+    function ensureAsistModal(){
+      var w = document.getElementById('gw-asist-wrap');
+      if (w) return w;
+      w = document.createElement('div');
+      w.id = 'gw-asist-wrap';
+      w.innerHTML =
+        '<div id="gw-asist-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;"></div>'+
+        '<div id="gw-asist-modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100001;background:#fff;width:820px;max-width:95vw;border-radius:12px;box-shadow:0 18px 70px rgba(0,0,0,.28);overflow:hidden;">'+
+          '<div style="padding:12px 14px;background:#f7fafd;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">'+
+            '<strong>Asistencias</strong>'+
+            '<button type="button" id="gw-asist-close" class="button">Cerrar</button>'+
+          '</div>'+
+          '<div id="gw-asist-body" style="padding:14px;max-height:70vh;overflow:auto;"></div>'+
+        '</div>';
+      document.body.appendChild(w);
+      w.addEventListener('click', function(e){
+        if (e.target.id === 'gw-asist-overlay' || e.target.id === 'gw-asist-close'){
+          document.getElementById('gw-asist-overlay').style.display='none';
+          document.getElementById('gw-asist-modal').style.display='none';
+        }
+      });
+      return w;
+    }
+
+    function openAsist(userId){
+      ensureAsistModal();
+      var ov = document.getElementById('gw-asist-overlay');
+      var md = document.getElementById('gw-asist-modal');
+      var bd = document.getElementById('gw-asist-body');
+      ov.style.display='block'; md.style.display='block';
+      bd.innerHTML = '<p>Cargando…</p>';
+
+      var fd = new FormData();
+      fd.append('action','gw_admin_asist_modal');
+      fd.append('nonce', NONCE);
+      fd.append('user_id', userId);
+      fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+      .then(r=>r.json()).then(function(resp){
+        if (resp && resp.success){
+          bd.innerHTML = resp.data.html || '';
+        } else {
+          bd.innerHTML = '<p style="color:#b91c1c">Error al cargar.</p>';
+        }
+      }).catch(function(){
+        bd.innerHTML = '<p style="color:#b91c1c">Error de red.</p>';
+      });
+    }
+
+    // Delegación clicks: marcar / revertir
+    document.addEventListener('click', function(ev){
+      var mk = ev.target.closest('.gwAsistMark, .gwAsistRevert');
+      if (!mk) return;
+      ev.preventDefault();
+      var uid  = mk.getAttribute('data-uid');
+      var kind = mk.getAttribute('data-kind');
+      var key  = mk.getAttribute('data-key') || '';
+      var act  = mk.classList.contains('gwAsistRevert') ? 'gw_admin_revert_attendance' : 'gw_admin_mark_attendance';
+
+      var fd = new FormData();
+      fd.append('action', act);
+      fd.append('nonce', NONCE);
+      fd.append('user_id', uid);
+      fd.append('kind', kind);
+      fd.append('key', key);
+
+      fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+      .then(r=>r.json()).then(function(resp){
+        if (resp && resp.success){
+          openAsist(uid); // recargar modal
+        } else {
+          alert((resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar.');
+        }
+      }).catch(function(){ alert('Error de red'); });
+    });
+
+    // Inyectar botón "Asistencias" en cada fila (columna Acciones)
+    function addAsistButtons(ctx){
+      var scope = ctx || document;
+      var rows = scope.querySelectorAll('table tr');
+      Array.prototype.forEach.call(rows, function(tr){
+        // Evitar inyectar dentro del propio modal de asistencias
+        if (tr.closest('#gw-asist-modal')) return;
+        var acciones = tr.querySelector('td:last-child, .acciones, [data-col="acciones"]') || tr;
+        if (!acciones) return;
+        if (acciones.querySelector('.gw-btn-asist')) return;
+
+        var uid = 0;
+        var holder = tr.querySelector('[data-user-id]');
+        if (holder) uid = parseInt(holder.getAttribute('data-user-id'), 10) || 0;
+        if (!uid) {
+          var btnEdit = acciones.querySelector('button, a');
+          if (btnEdit) {
+            var keys = ['data-user-id','data-id','data-uid','data-user'];
+            for (var i=0;i<keys.length;i++){ var v = btnEdit.getAttribute(keys[i]); if (v){ uid = parseInt(v,10)||0; break; } }
+          }
+        }
+        if (!uid) return;
+
+        var b = document.createElement('button');
+        b.className = 'button gw-btn-asist';
+        b.textContent = 'Asistencias';
+        b.style.marginLeft = '6px';
+        b.addEventListener('click', function(){ openAsist(uid); });
+        acciones.appendChild(b);
+      });
+    }
+    addAsistButtons();
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && Array.prototype.forEach.call(m.addedNodes, function(n){
+          if (n.nodeType === 1) addAsistButtons(n);
+        });
+      });
+    });
+    mo.observe(document.documentElement, {subtree:true, childList:true});
+  })();
+  </script>
+  <?php
+});
+
 // === Admin: restablecer contraseña de un usuario (solo Administrador) ===
 add_action('wp_ajax_gw_admin_set_user_password', 'gw_admin_set_user_password');
 function gw_admin_set_user_password(){
@@ -1590,6 +1727,202 @@ $gw_print_admin_pass_injector = function () {
 // Imprimir en head y en footer (redundancia segura)
 add_action('wp_head',   $gw_print_admin_pass_injector, 99);
 add_action('wp_footer', $gw_print_admin_pass_injector, 1);
+
+// === ADMIN: Asistencias (marcar asistencia manual) =====================
+
+// 1) Modal HTML (servidor): devuelve lista de charlas y capacitación del usuario
+add_action('wp_ajax_gw_admin_asist_modal', 'gw_admin_asist_modal');
+function gw_admin_asist_modal(){
+  if ( !is_user_logged_in() || !current_user_can('manage_options') ) {
+    wp_send_json_error(['msg' => 'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_asist_admin') ) {
+    wp_send_json_error(['msg' => 'Nonce inválido/expirado']);
+  }
+  $uid = intval($_POST['user_id'] ?? 0);
+  $u   = $uid ? get_user_by('id', $uid) : null;
+  if ( ! $u ) wp_send_json_error(['msg' => 'Usuario no encontrado']);
+
+  // CHARLAS
+  $charlas_asignadas = get_user_meta($uid, 'gw_charlas_asignadas', true);
+  if (!is_array($charlas_asignadas)) $charlas_asignadas = [];
+  $html  = '<div class="gw-asist-wrap">';
+  $html .= '<h3 style="margin:10px 0 6px;">Charlas</h3>';
+  if ($charlas_asignadas) {
+    // Intentar obtener la charla actualmente agendada para pintar su fecha/hora
+    $charla_ag = get_user_meta($uid, 'gw_charla_agendada', true);
+    $ag_id   = is_array($charla_ag) && !empty($charla_ag['charla_id']) ? intval($charla_ag['charla_id']) : 0;
+    $ag_fecha= is_array($charla_ag) ? (string)($charla_ag['fecha'] ?? '') : '';
+    $ag_hora = is_array($charla_ag) ? (string)($charla_ag['hora']  ?? '') : '';
+
+    $html .= '<table class="widefat striped"><thead><tr><th>Charla</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead><tbody>';
+    foreach ($charlas_asignadas as $i => $key) {
+      $charla_id = intval($key);
+      $title = get_the_title($charla_id);
+      if (!$title) $title = 'Charla';
+
+      // Estado de asistencia
+      $done   = get_user_meta($uid, 'gw_'.$key, true) ? 1 : 0;
+      $estado = $done ? 'Asistió' : 'Pendiente';
+
+      // Solo mostramos fecha/hora si esta charla es la actualmente agendada por el voluntario
+      $f = ($ag_id && $ag_id === $charla_id) ? $ag_fecha : '';
+      $h = ($ag_id && $ag_id === $charla_id) ? $ag_hora  : '';
+
+      $btn = $done
+        ? '<button class="button gwAsistRevert" data-kind="charla" data-key="'.esc_attr($key).'" data-uid="'.esc_attr($uid).'">Revertir</button>'
+        : '<button class="button button-primary gwAsistMark" data-kind="charla" data-key="'.esc_attr($key).'" data-uid="'.esc_attr($uid).'">Marcar sí asistió</button>';
+
+      $html .= '<tr>' .
+               '<td>'.esc_html($title).'</td>' .
+               '<td>'.esc_html($f ?: '—').'</td>' .
+               '<td>'.esc_html($h ?: '—').'</td>' .
+               '<td>'.esc_html($estado).'</td>' .
+               '<td>'.$btn.'</td>' .
+               '</tr>';
+    }
+    $html .= '</tbody></table>';
+  } else {
+    $html .= '<p style="color:#666">Sin charlas asignadas.</p>';
+  }
+
+  // CAPACITACIÓN
+  $html .= '<h3 style="margin:18px 0 6px;">Capacitación</h3>';
+  $ag   = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+  $cap_id = 0; $fecha = ''; $hora = '';
+  if (is_array($ag) && !empty($ag['cap_id'])) {
+    $cap_id = intval($ag['cap_id']); $fecha = (string)($ag['fecha'] ?? ''); $hora = (string)($ag['hora'] ?? '');
+  } else {
+    $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
+    $fecha  = (string)get_user_meta($uid, 'gw_fecha', true);
+    $hora   = (string)get_user_meta($uid, 'gw_hora', true);
+  }
+  if ($cap_id) {
+    $title = get_the_title($cap_id) ?: 'Capacitación';
+    $done7 = get_user_meta($uid, 'gw_step7_completo', true) ? 1 : 0;
+    $estado = $done7 ? 'Asistió' : 'Pendiente';
+    $btn = $done7
+      ? '<button class="button gwAsistRevert" data-kind="cap" data-uid="'.esc_attr($uid).'">Revertir</button>'
+      : '<button class="button button-primary gwAsistMark" data-kind="cap" data-uid="'.esc_attr($uid).'">Marcar sí asistió</button>';
+    $html .= '<table class="widefat striped"><thead><tr><th>Capacitación</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead>'.
+             '<tbody><tr>'.
+             '<td>'.esc_html($title).'</td>'.
+             '<td>'.esc_html($fecha ?: '—').'</td>'.
+             '<td>'.esc_html($hora  ?: '—').'</td>'.
+             '<td>'.esc_html($estado).'</td>'.
+             '<td>'.$btn.'</td>'.
+             '</tr></tbody></table>';
+  } else {
+    $html .= '<p style="color:#666">Sin capacitación agendada.</p>';
+  }
+
+  $html .= '</div>';
+  wp_send_json_success(['html' => $html]);
+}
+
+// 2) Marcar/Revertir asistencia (servidor)
+add_action('wp_ajax_gw_admin_mark_attendance', 'gw_admin_mark_attendance');
+add_action('wp_ajax_gw_admin_revert_attendance', 'gw_admin_revert_attendance');
+
+function gw_admin_mark_attendance(){
+  if ( !is_user_logged_in() || !current_user_can('manage_options') ) {
+    wp_send_json_error(['msg'=>'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_asist_admin') ) {
+    wp_send_json_error(['msg'=>'Nonce inválido/expirado']);
+  }
+
+  $uid  = intval($_POST['user_id'] ?? 0);
+  $kind = sanitize_text_field($_POST['kind'] ?? ''); // 'charla' | 'cap'
+  $key  = sanitize_text_field($_POST['key']  ?? ''); // clave de charla
+
+  if (!$uid || !($kind==='charla' || $kind==='cap')) {
+    wp_send_json_error(['msg'=>'Parámetros inválidos']);
+  }
+
+  if ($kind === 'charla') {
+    if ($key === '') { wp_send_json_error(['msg'=>'Falta clave de charla']); }
+
+    // 1) Legacy (lo que pinta “Asistió” en el modal)
+    update_user_meta($uid, 'gw_' . $key, 1);
+
+    // 2) Flags que desbloquean el botón en el flujo del voluntario
+    update_user_meta($uid, 'gw_charla_asistio', '1');
+    update_user_meta($uid, 'gw_charla_asistio_' . $key, '1');
+
+    wp_send_json_success(['done'=>1]);
+  }
+
+  // === Capacitación ===
+  // Completa el paso 7 y deja rastro equivalente
+  update_user_meta($uid, 'gw_step7_completo', 1);
+  update_user_meta($uid, 'gw_cap_asistio', '1');
+
+  // Además, flag por capacitación concreta si hay id
+  $cap_ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+  $cap_id = 0;
+  if (is_array($cap_ag) && !empty($cap_ag['cap_id'])) {
+    $cap_id = intval($cap_ag['cap_id']);
+  }
+  if (!$cap_id) {
+    $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
+  }
+  if ($cap_id) {
+    update_user_meta($uid, 'gw_cap_asistio_' . $cap_id, '1');
+  }
+
+  wp_send_json_success(['done'=>1]);
+}
+
+function gw_admin_revert_attendance(){
+  if ( !is_user_logged_in() || !current_user_can('manage_options') ) {
+    wp_send_json_error(['msg'=>'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_asist_admin') ) {
+    wp_send_json_error(['msg'=>'Nonce inválido/expirado']);
+  }
+
+  $uid  = intval($_POST['user_id'] ?? 0);
+  $kind = sanitize_text_field($_POST['kind'] ?? ''); // 'charla' | 'cap'
+  $key  = sanitize_text_field($_POST['key']  ?? '');
+
+  if (!$uid || !($kind==='charla' || $kind==='cap')) {
+    wp_send_json_error(['msg'=>'Parámetros inválidos']);
+  }
+
+  if ($kind === 'charla') {
+    if ($key === '') { wp_send_json_error(['msg'=>'Falta clave de charla']); }
+
+    // Legacy
+    delete_user_meta($uid, 'gw_' . $key);
+    // Flags de flujo
+    delete_user_meta($uid, 'gw_charla_asistio');
+    delete_user_meta($uid, 'gw_charla_asistio_' . $key);
+
+    wp_send_json_success(['done'=>1]);
+  }
+
+  // === Capacitación ===
+  delete_user_meta($uid, 'gw_step7_completo');
+  delete_user_meta($uid, 'gw_cap_asistio');
+
+  $cap_ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+  $cap_id = 0;
+  if (is_array($cap_ag) && !empty($cap_ag['cap_id'])) {
+    $cap_id = intval($cap_ag['cap_id']);
+  }
+  if (!$cap_id) {
+    $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
+  }
+  if ($cap_id) {
+    delete_user_meta($uid, 'gw_cap_asistio_' . $cap_id);
+  }
+
+  wp_send_json_success(['done'=>1]);
+}
 
 // AJAX para borrar metas de paso 5 (charlas)
 add_action('wp_ajax_gw_admin_reset_charlas', function() {
