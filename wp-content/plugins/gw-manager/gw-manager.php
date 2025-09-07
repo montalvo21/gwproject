@@ -1614,6 +1614,17 @@ $gw_print_admin_pass_injector = function () {
 
   $nonce = wp_create_nonce('gw_admin_set_pass');
   $ajax  = admin_url('admin-ajax.php');
+
+  // Lista de países para poblar el selector en el modal Editar
+  $paises_posts = get_posts([
+    'post_type'   => 'pais',
+    'numberposts' => -1,
+    'orderby'     => 'title',
+    'order'       => 'ASC',
+  ]);
+  $paises_for_js = array_map(function($p){
+    return [ 'id' => intval($p->ID), 'title' => $p->post_title ];
+  }, $paises_posts);
   ?>
   <script>
   (function(){
@@ -1623,6 +1634,8 @@ $gw_print_admin_pass_injector = function () {
     // Asegura ajaxurl y nonce disponibles
     var AJAXURL = window.ajaxurl || '<?php echo esc_js($ajax); ?>';
     var GW_ADMIN_SET_PASS_NONCE = '<?php echo esc_js($nonce); ?>';
+    var GW_PAISES = <?php echo wp_json_encode( $paises_for_js ); ?>;
+    window.GW_PAISES = GW_PAISES;
 
     // Último user_id detectado al pulsar "Editar"
     var GW_LAST_UID = 0;
@@ -1649,33 +1662,108 @@ $gw_print_admin_pass_injector = function () {
 
     // 2) Inyecta el campo debajo del Email cuando el modal aparece
     function injectPassField(ctx){
-      var rootList = (ctx ? [ctx] : Array.prototype.slice.call(document.querySelectorAll('.gw-user-edit-modal, .gw-user-modal, .modal, [role="dialog"], .swal2-container, .swal2-popup')));
-      rootList.forEach(function(root){
-        // Busca input de Email: type=email OR name que contenga "email"
+      var roots = ctx ? [ctx] : Array.prototype.slice.call(document.querySelectorAll('.gw-user-edit-modal, .gw-user-modal, .modal, [role="dialog"], .swal2-container, .swal2-popup'));
+      roots.forEach(function(root){
+        // Ubica el campo Email en el modal existente
         var email = root.querySelector('input[type="email"], input[name*="email" i], input[id*="email" i]');
         if (!email) return;
-        if (root.querySelector('#gwUserNewPass')) return; // ya agregado
 
-        var wrap = document.createElement('div');
-        wrap.className = 'gw-passreset-field';
-        wrap.innerHTML =
-          '<label style="display:block;margin-top:12px;">Nueva contraseña (opcional)</label>' +
-          '<input type="password" id="gwUserNewPass" placeholder="Dejar vacío para no cambiar" style="width:100%;margin-top:6px;">' +
-          '<small style="display:block;color:#6b7280;margin-top:6px;">Mínimo 6 caracteres. Se aplicará al guardar.</small>';
-        try { email.insertAdjacentElement('afterend', wrap); } catch(e){}
+        // Si ya insertamos los campos, no repetir
+        if (!root.querySelector('#gwUserNewPass')) {
+          var wrap = document.createElement('div');
+          wrap.className = 'gw-passreset-field';
+          wrap.innerHTML =
+            '<label style="display:block;margin-top:12px;">Nueva contraseña</label>'+
+            '<input type="password" id="gwUserNewPass" placeholder="Dejar vacío para no cambiar" style="width:100%;margin-top:6px;">'+
+            '<small style="display:block;color:#6b7280;margin-top:6px;">Mínimo 6 caracteres. Frendly Reminder El cambio de contraseña aplica para usuario NO gmail</small>'+
+            '<label style="display:block;margin-top:12px;">Confirmar contraseña</label>'+
+            '<input type="password" id="gwUserNewPass2" placeholder="Repite la nueva contraseña" style="width:100%;margin-top:6px;">';
+          try{ email.insertAdjacentElement('afterend', wrap); }catch(e){}
+        }
+
+        // Mejoras en el selector de País: quita (ID) y proporciona <select>
+        enhancePaisField(root);
+      });
+    }
+
+    function enhancePaisField(root){
+      root = root || document;
+
+      // 1) Quitar "(ID)" de la etiqueta, si existe
+      try {
+        var labels = Array.prototype.slice.call(root.querySelectorAll('label'));
+        labels.forEach(function(lb){
+          var t = (lb.textContent || '').trim();
+          if (/pa[íi]s\b/i.test(t) && /\(id\)/i.test(t)) {
+            lb.textContent = t.replace(/\s*\(id\)\s*/i, '');
+          }
+        });
+      } catch(e){}
+
+      // 2) Localizar el input real del país (numérico o texto)
+      var candidates = root.querySelectorAll(
+        'input[name*="pais" i], input[id*="pais" i], input[name*="gw_pais" i]'
+      );
+      if (!candidates.length) return;
+
+      Array.prototype.forEach.call(candidates, function(hiddenInput){
+        // evitar repetir
+        if (hiddenInput.dataset.gwPaisEnhanced === '1') return;
+
+        // solo si es un input visible de texto/número (no select ya existente)
+        var type = (hiddenInput.getAttribute('type') || '').toLowerCase();
+        if (type && type !== 'text' && type !== 'number') return;
+
+        // Crear <select> con todos los países
+        var sel = document.createElement('select');
+        sel.className = 'gwUserPaisSelect';
+        sel.style.width = '100%';
+
+        var currentVal = String(parseInt(hiddenInput.value, 10) || '');
+
+        // Placeholder
+        var def = document.createElement('option');
+        def.value = '';
+        def.textContent = 'Selecciona un país';
+        sel.appendChild(def);
+
+        // Poblar opciones
+        (window.GW_PAISES || []).forEach(function(p){
+          var opt = document.createElement('option');
+          opt.value = String(p.id);
+          opt.textContent = p.title || ('País ' + p.id);
+          if (String(p.id) === currentVal) opt.selected = true;
+          sel.appendChild(opt);
+        });
+
+        // Mantener sincronía con el input original para que el backend no cambie
+        sel.addEventListener('change', function(){
+          hiddenInput.value = this.value;
+        });
+
+        // Ocultar el input original y marcarlo como mejorado
+        hiddenInput.style.display = 'none';
+        hiddenInput.dataset.gwPaisEnhanced = '1';
+
+        // Insertar el <select> antes del input original
+        try { hiddenInput.parentNode.insertBefore(sel, hiddenInput); } catch(e){}
       });
     }
     // Observa DOM para detectar el modal cuando se inserta
     var mo = new MutationObserver(function(muts){
       muts.forEach(function(m){
         m.addedNodes && Array.prototype.forEach.call(m.addedNodes, function(n){
-          if (n.nodeType === 1) injectPassField(n);
+          if (n.nodeType === 1){
+            injectPassField(n);
+            enhancePaisField(n);
+          }
         });
       });
     });
     mo.observe(document.documentElement, {subtree:true, childList:true});
     // Intento inicial
     injectPassField();
+    enhancePaisField(document);
 
     // 3) Al hacer clic en "Guardar" dentro del modal, si hay nueva contraseña => AJAX
     document.addEventListener('click', function(ev){
@@ -1686,7 +1774,10 @@ $gw_print_admin_pass_injector = function () {
 
       var modal = btn.closest('.gw-user-edit-modal, .gw-user-modal, .modal, [role="dialog"], .swal2-container, .swal2-popup') || document;
       var passEl = modal.querySelector('#gwUserNewPass');
-      if (!passEl || !passEl.value) return; // nada que hacer
+      if (!passEl || !passEl.value) return; // no hay cambio de contraseña
+      var pass2 = modal.querySelector('#gwUserNewPass2');
+      if (passEl.value.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+      if (pass2 && pass2.value !== passEl.value) { alert('Las contraseñas no coinciden.'); return; }
 
       // Intentar obtener el ID del usuario desde el modal
       var uid = 0;
@@ -1699,8 +1790,6 @@ $gw_print_admin_pass_injector = function () {
       if (!uid) { uid = GW_LAST_UID || 0; }
       if (!uid) { console.warn('[GW] No se pudo detectar user_id para cambio de contraseña'); return; }
 
-      if (passEl.value.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
-
       var fd = new FormData();
       fd.append('action', 'gw_admin_set_user_password');
       fd.append('nonce', GW_ADMIN_SET_PASS_NONCE);
@@ -1712,6 +1801,7 @@ $gw_print_admin_pass_injector = function () {
       .then(function(resp){
         if (resp && resp.success) {
           passEl.value = ''; // limpia el campo
+          if (pass2) pass2.value = '';
           console.log('[GW] Contraseña actualizada para user_id', uid);
         } else {
           var msg = (resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar la contraseña.';
@@ -1727,6 +1817,162 @@ $gw_print_admin_pass_injector = function () {
 // Imprimir en head y en footer (redundancia segura)
 add_action('wp_head',   $gw_print_admin_pass_injector, 99);
 add_action('wp_footer', $gw_print_admin_pass_injector, 1);
+
+// === Fallback JS globals for Gestión de usuarios buttons (Editar/Desactivar/Historial) ===
+// If older inline onclicks call window.gwUserEdit / gwUserToggle / gwUserHistory but those
+// functions are not present (due to scope/IIFE changes), provide robust global implementations.
+add_action('wp_head', function(){
+  if ( ! is_user_logged_in() ) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  // Only inject on the admin panel page
+  if (strpos($req, 'panel-administrativo') === false) return;
+
+  $ajax  = admin_url('admin-ajax.php');
+  $nonce = wp_create_nonce('gw_admin_users');
+  ?>
+  <script>
+  (function(){
+    var AJAX  = "<?php echo esc_js($ajax); ?>";
+    var NONCE = "<?php echo esc_js($nonce); ?>";
+
+    function ensureSimpleModal(){
+      var ov = document.getElementById('gw-simple-overlay');
+      var md = document.getElementById('gw-simple-modal');
+      if (ov && md) return md;
+
+      ov = document.createElement('div');
+      ov.id = 'gw-simple-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99998;display:none;';
+      document.body.appendChild(ov);
+
+      md = document.createElement('div');
+      md.id = 'gw-simple-modal';
+      md.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;max-width:92vw;background:#fff;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.25);z-index:99999;display:none;overflow:hidden;';
+      md.innerHTML =
+        '<div style="padding:12px 14px;background:#f7fafd;border-bottom:1px solid #e3e3e3;display:flex;justify-content:space-between;align-items:center;">' +
+          '<strong id="gw-simple-title">Modal</strong>' +
+          '<button type="button" class="button" id="gw-simple-close">Cerrar</button>' +
+        '</div>' +
+        '<div id="gw-simple-body" style="padding:14px;max-height:70vh;overflow:auto;"></div>';
+      document.body.appendChild(md);
+
+      function closeModal(){
+        ov.style.display = 'none';
+        md.style.display = 'none';
+        var b = document.getElementById('gw-simple-body');
+        if (b) b.innerHTML = '';
+      }
+      ov.addEventListener('click', closeModal);
+      document.getElementById('gw-simple-close').addEventListener('click', closeModal);
+      window.gwSimpleClose = closeModal;
+
+      return md;
+    }
+    function openModal(title){
+      ensureSimpleModal();
+      document.getElementById('gw-simple-title').textContent = title || 'Modal';
+      document.getElementById('gw-simple-overlay').style.display = 'block';
+      document.getElementById('gw-simple-modal').style.display = 'block';
+    }
+    function post(payload){
+      var fd = new FormData();
+      for (var k in payload) if (Object.prototype.hasOwnProperty.call(payload,k)) fd.append(k, payload[k]);
+      return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd}).then(function(r){ return r.json(); });
+    }
+
+    // ---------- Toggle activo/inactivo ----------
+    if (typeof window.gwUserToggle !== 'function') {
+      window.gwUserToggle = function(uid){
+        post({action:'gw_admin_toggle_active', nonce: NONCE, user_id: uid})
+        .then(function(resp){
+          if (resp && resp.success) {
+            var row = document.getElementById('gw-user-row-'+uid);
+            if (row) {
+              var tmp = document.createElement('tbody');
+              tmp.innerHTML = resp.data.row_html;
+              if (tmp.firstElementChild) row.parentNode.replaceChild(tmp.firstElementChild, row);
+            }
+          } else {
+            alert((resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar.');
+          }
+        }).catch(function(){ alert('Error de red'); });
+      };
+    }
+
+    // ---------- Historial ----------
+    if (typeof window.gwUserHistory !== 'function') {
+      window.gwUserHistory = function(uid){
+        openModal('Historial');
+        var body = document.getElementById('gw-simple-body');
+        body.innerHTML = '<p>Cargando…</p>';
+        post({action:'gw_admin_get_user', nonce: NONCE, user_id: uid})
+        .then(function(resp){
+          if (!resp || !resp.success) { body.innerHTML = '<p>Error al cargar.</p>'; return; }
+          var logs = resp.data.logs || [];
+          if (!logs.length) { body.innerHTML = '<p>Sin actividades registradas.</p>'; return; }
+          var html = '<table class="widefat striped"><thead><tr><th>Fecha</th><th>Admin</th><th>Acción</th></tr></thead><tbody>';
+          for (var i=0;i<logs.length;i++){
+            var l = logs[i] || {};
+            html += '<tr><td>'+(l.time||'')+'</td><td>'+(l.admin||'')+'</td><td>'+(l.msg||'')+'</td></tr>';
+          }
+          html += '</tbody></table>';
+          body.innerHTML = html;
+        }).catch(function(){ body.innerHTML = '<p>Error de red.</p>'; });
+      };
+    }
+
+    // ---------- Editar ----------
+    if (typeof window.gwUserEdit !== 'function') {
+      window.gwUserEdit = function(uid){
+        openModal('Editar usuario');
+        var body = document.getElementById('gw-simple-body');
+        body.innerHTML = '<p>Cargando…</p>';
+        post({action:'gw_admin_get_user', nonce: NONCE, user_id: uid})
+        .then(function(resp){
+          if (!resp || !resp.success){ body.innerHTML = '<p>Error al cargar.</p>'; return; }
+          var u = resp.data.user || {};
+          var roles = ['administrator','coordinador_pais','coach','voluntario'];
+          var labels = {administrator:'Administrador', coordinador_pais:'Coordinador de país', coach:'Coach', voluntario:'Voluntario'};
+          var opts = roles.map(function(r){ return '<option value="'+r+'"'+(r===u.role?' selected':'')+'>'+ (labels[r]||r) +'</option>'; }).join('');
+          body.innerHTML =
+            '<form id="gw-simple-edit-form" class="gw-form">' +
+              '<input type="hidden" name="user_id" value="'+(u.ID||uid)+'">' +
+              '<p><label>Nombre a mostrar</label><br><input type="text" name="display_name" value="'+(u.display_name||'')+'" style="width:100%"></p>' +
+              '<p><label>Email</label><br><input type="email" name="user_email" value="'+(u.user_email||'')+'" style="width:100%"></p>' +
+              '<p><label>Rol</label><br><select name="role" style="width:100%">'+opts+'</select></p>' +
+              '<p><label>País</label><br><input type="number" name="pais_id" value="'+(u.pais_id||'')+'" style="width:100%"></p>' +
+              '<div class="gw-form-actions" style="margin-top:10px;"><button type="submit" class="button button-primary">Guardar</button></div>' +
+            '</form>';
+
+          var f = document.getElementById('gw-simple-edit-form');
+          f.addEventListener('submit', function(e){
+            e.preventDefault();
+            var fd = new FormData(f);
+            fd.append('action','gw_admin_save_user');
+            fd.append('nonce', NONCE);
+            fetch(AJAX, {method:'POST', credentials:'same-origin', body: fd})
+            .then(function(r){ return r.json(); })
+            .then(function(r2){
+              if (r2 && r2.success) {
+                var row = document.getElementById('gw-user-row-'+uid);
+                if (row) {
+                  var tmp = document.createElement('tbody');
+                  tmp.innerHTML = r2.data.row_html;
+                  if (tmp.firstElementChild) row.parentNode.replaceChild(tmp.firstElementChild, row);
+                }
+                if (typeof window.gwSimpleClose === 'function') window.gwSimpleClose();
+              } else {
+                alert((r2 && r2.data && r2.data.msg) ? r2.data.msg : 'No se pudo guardar.');
+              }
+            }).catch(function(){ alert('Error de red'); });
+          });
+        }).catch(function(){ body.innerHTML = '<p>Error de red.</p>'; });
+      };
+    }
+  })();
+  </script>
+  <?php
+}, 100);
 
 // === ADMIN: Asistencias (marcar asistencia manual) =====================
 
@@ -5176,13 +5422,78 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     <div class="gw-form-header">
                         <h1>Progreso del voluntario</h1>
                         <p>Monitorea el progreso de los voluntarios.</p>
+                        <div class="gw-prog-filters" id="gw-prog-filters" style="margin:8px 0 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                          <input id="gw-prog-search" type="search" placeholder="Buscar por nombre o email..." style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:260px;" />
+                          <select id="gw-prog-pais" style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:200px;">
+                            <option value="">Todos los países</option>
+                            <?php
+                              $gw_prog_paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+                              foreach ($gw_prog_paises as $p) {
+                                echo '<option value="'.(int)$p->ID.'" data-text="'.esc_attr($p->post_title).'">'.esc_html($p->post_title).'</option>';
+                              }
+                            ?>
+                          </select>
+                          <button type="button" class="button" id="gw-prog-clear">Limpiar</button>
+                        </div>
                     </div>
 
                     <?php
-                    // Mostrar el shortcode de progreso del voluntario (admin)
-                    echo do_shortcode('[gw_progreso_voluntario]');
+                    // Mostrar el shortcode dentro de un contenedor para permitir filtrado en vivo
+                    echo '<div id="gw-progress-list">' . do_shortcode('[gw_progreso_voluntario]') . '</div>';
                     ?>
 
+                    <script>
+                    (function(){
+                      var search = document.getElementById('gw-prog-search');
+                      var sel    = document.getElementById('gw-prog-pais');
+                      var clearB = document.getElementById('gw-prog-clear');
+                      var list   = document.getElementById('gw-progress-list');
+                      if(!list) return;
+
+                      function norm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
+                      function filter(){
+                        var q = norm(search ? search.value : '');
+                        var paisId   = sel ? sel.value : '';
+                        var paisText = '';
+                        if (sel && sel.selectedIndex >= 0) {
+                          paisText = norm(sel.options[sel.selectedIndex].getAttribute('data-text') || sel.options[sel.selectedIndex].text);
+                        }
+                        // Detectar filas de tabla de la vista de progreso
+                        var rows = list.querySelectorAll('tbody tr');
+                        if (!rows.length) {
+                          // Fallback: por si el shortcode usa otro layout (cards)
+                          rows = list.querySelectorAll('.gw-vol-row');
+                        }
+                        rows.forEach(function(tr){
+                          var t = norm(tr.textContent);
+                          var okSearch = !q || t.indexOf(q) !== -1;
+                          var okPais   = true;
+                          if (paisId) {
+                            // Preferir data-pais-id si existe; sino, buscar por texto del país
+                            var pid = tr.getAttribute('data-pais-id') || (tr.dataset ? tr.dataset.paisId : '');
+                            if (pid) {
+                              okPais = String(pid) === String(paisId);
+                            } else {
+                              okPais = t.indexOf(paisText) !== -1;
+                            }
+                          }
+                          tr.style.display = (okSearch && okPais) ? '' : 'none';
+                        });
+                      }
+
+                      function debounce(fn,ms){ var to; return function(){ clearTimeout(to); var a=arguments; to=setTimeout(function(){ fn.apply(null,a); }, ms||180); }; }
+                      var doFilter = debounce(filter, 120);
+
+                      if (search) search.addEventListener('input', doFilter);
+                      if (sel)    sel.addEventListener('change', filter);
+                      if (clearB) clearB.addEventListener('click', function(){ if (search) search.value=''; if (sel) sel.value=''; filter(); });
+
+                      // Reaplicar filtro si el listado se re-renderiza dinámicamente
+                      var mo = new MutationObserver(function(){ filter(); });
+                      mo.observe(list, {childList:true, subtree:true});
+                    })();
+                    </script>
                 </div>
 
                 <!-- TAB AUSENCIAS -->
