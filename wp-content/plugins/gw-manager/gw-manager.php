@@ -1580,6 +1580,242 @@ add_action('wp_footer', function(){
   <?php
 });
 
+// ===============================
+// Notificaciones (campana y feed)
+// ===============================
+
+// Estructura de almacenamiento: opción con los últimos N eventos.
+if (!function_exists('gw_notif_log')) {
+  function gw_notif_log($type, $user_id, $related_id = 0, $title = '', $text = ''){
+    $type = sanitize_key($type);
+    $user_id = intval($user_id);
+    $related_id = intval($related_id);
+    $title = sanitize_text_field($title);
+    $text  = wp_kses_post($text);
+
+    $log = get_option('gw_notifications_log', []);
+    if (!is_array($log)) $log = [];
+    $next_id = intval( get_option('gw_notifications_next_id', 1) );
+
+    $log[] = [
+      'id'   => $next_id,
+      'ts'   => current_time('timestamp'),
+      'type' => $type,
+      'uid'  => $user_id,
+      'rid'  => $related_id,
+      'title'=> $title,
+      'text' => $text,
+    ];
+
+    // Limitar tamaño del feed
+    if (count($log) > 300) { $log = array_slice($log, -300); }
+
+    update_option('gw_notifications_log', $log, false);
+    update_option('gw_notifications_next_id', $next_id + 1, false);
+
+    return $next_id;
+  }
+}
+
+if (!function_exists('gw_notif_max_id')) {
+  function gw_notif_max_id(){
+    return intval( get_option('gw_notifications_next_id', 1) ) - 1;
+  }
+}
+
+if (!function_exists('gw_notif_fetch')) {
+  function gw_notif_fetch($since_id = 0, $limit = 40){
+    $since_id = intval($since_id);
+    $limit = max(1, min(80, intval($limit)));
+    $log = get_option('gw_notifications_log', []);
+    if (!is_array($log)) $log = [];
+
+    // Tomar los últimos $limit y filtrar por since_id
+    $log = array_values($log);
+    $out = [];
+    for ($i = count($log)-1; $i >= 0 && count($out) < $limit; $i--) {
+      $ev = $log[$i];
+      if (intval($ev['id']) <= $since_id) break;
+      $u = get_user_by('id', intval($ev['uid']));
+      $name = $u ? ($u->display_name ?: $u->user_login) : 'Usuario';
+      $ev['user_name'] = $name;
+      $ev['time_h'] = date_i18n('Y-m-d H:i', intval($ev['ts']));
+      $out[] = $ev;
+    }
+    // devolver en orden cron desc
+    return $out;
+  }
+}
+
+// Hooks automáticos cuando cambian metas clave del usuario
+if (!function_exists('gw_notif_on_user_meta')) {
+  function gw_notif_on_user_meta($meta_id, $user_id, $meta_key, $_meta_value){
+    $key = (string)$meta_key;
+    $val = maybe_unserialize($_meta_value);
+    if (!is_array($val)) {
+      $val = get_user_meta($user_id, $meta_key, true);
+      if (!is_array($val)) $val = [];
+    }
+
+    // 1) Inscripción a charla
+    if ($key === 'gw_charla_agendada' && !empty($val)) {
+      $title = isset($val['charla_title']) ? $val['charla_title'] : ( isset($val['charla']) ? $val['charla'] : 'Charla' );
+      $fecha = isset($val['fecha']) ? $val['fecha'] : '';
+      $hora  = isset($val['hora'])  ? $val['hora']  : '';
+      $rid   = isset($val['charla_id']) ? intval($val['charla_id']) : 0;
+      gw_notif_log('charla', $user_id, $rid, 'Nueva inscripción a charla', $title.' — '.$fecha.' '.$hora);
+      return;
+    }
+
+    // 2) Inscripción a capacitación
+    if ($key === 'gw_capacitacion_agendada' && !empty($val)) {
+      $title = isset($val['cap_title']) ? $val['cap_title'] : ( isset($val['capacitacion']) ? $val['capacitacion'] : 'Capacitación' );
+      $fecha = isset($val['fecha']) ? $val['fecha'] : '';
+      $hora  = isset($val['hora'])  ? $val['hora']  : '';
+      $rid   = isset($val['cap_id']) ? intval($val['cap_id']) : 0;
+      gw_notif_log('cap', $user_id, $rid, 'Nueva inscripción a capacitación', $title.' — '.$fecha.' '.$hora);
+      return;
+    }
+
+    // 3) Envío de documentos (último paso)
+    $doc_keys = [
+      'gw_docs_entregados','gw_docs_subidos','gw_docs_enviados','gw_docs_finalizados','gw_documentos_subidos','gw_docs_status'
+    ];
+    if (in_array($key, $doc_keys, true)) {
+      $status_txt = is_string($_meta_value) ? sanitize_text_field($_meta_value) : '';
+      if (is_array($val) && isset($val['status'])) { $status_txt = sanitize_text_field($val['status']); }
+      gw_notif_log('docs', $user_id, 0, 'Documentos enviados', ($status_txt ? ('Estado: '.$status_txt) : 'Documentos listos para revisión'));
+      return;
+    }
+  }
+}
+add_action('added_user_meta',  'gw_notif_on_user_meta', 10, 4);
+add_action('updated_user_meta', 'gw_notif_on_user_meta', 10, 4);
+
+// ====== AJAX: obtener y marcar como leídas ======
+add_action('wp_ajax_gw_notif_fetch', function(){
+  if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+  $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') || current_user_can('coach') || current_user_can('coordinador_pais') )) {
+    wp_send_json_error(['msg'=>'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if (!wp_verify_nonce($nonce, 'gw_notif')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $last_seen = intval( get_user_meta($u->ID, 'gw_notif_last_seen', true) );
+  $list = gw_notif_fetch(0, 25); // últimos
+  $max_id = gw_notif_max_id();
+  $unread = max(0, $max_id - $last_seen);
+
+  wp_send_json_success([
+    'items'  => $list,
+    'unread' => $unread,
+    'max_id' => $max_id,
+  ]);
+});
+
+add_action('wp_ajax_gw_notif_mark_seen', function(){
+  if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+  $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') || current_user_can('coach') || current_user_can('coordinador_pais') )) {
+    wp_send_json_error(['msg'=>'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if (!wp_verify_nonce($nonce, 'gw_notif')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $max_id = gw_notif_max_id();
+  update_user_meta($u->ID, 'gw_notif_last_seen', $max_id);
+  wp_send_json_success(['unread'=>0]);
+});
+
+// ====== UI: campana fija en panel administrativo ======
+add_action('wp_footer', function(){
+  if (!is_user_logged_in()) return;
+  $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') || current_user_can('coach') || current_user_can('coordinador_pais') )) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req, 'panel-administrativo') === false) return;
+  $ajax  = admin_url('admin-ajax.php');
+  $nonce = wp_create_nonce('gw_notif');
+  ?>
+  <style>
+    #gw-notif-btn{position:fixed;top:18px;right:18px;z-index:100005;background:#fff;border:1px solid #d9e1ef;border-radius:999px;padding:8px 12px;display:flex;gap:8px;align-items:center;box-shadow:0 8px 22px rgba(0,0,0,.08)}
+    #gw-notif-btn .badge{min-width:18px;height:18px;border-radius:10px;background:#dc2626;color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+    #gw-notif-panel{position:fixed;top:58px;right:18px;width:360px;max-width:92vw;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.15);z-index:100004;display:none;overflow:hidden}
+    #gw-notif-panel header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f7fafd;border-bottom:1px solid #e2e8f0}
+    #gw-notif-list{max-height:60vh;overflow:auto}
+    #gw-notif-list .item{padding:10px 12px;border-bottom:1px solid #f1f5f9}
+    #gw-notif-list .meta{font-size:12px;color:#64748b}
+  </style>
+  <div id="gw-notif-btn" title="Notificaciones">
+    <span>🔔</span>
+    <span class="badge" id="gw-notif-badge" style="display:none">0</span>
+  </div>
+  <div id="gw-notif-panel" role="dialog" aria-label="Notificaciones">
+    <header>
+      <strong>Notificaciones</strong>
+      <div>
+        <button id="gw-notif-mark" class="button button-small">Marcar todo como leído</button>
+        <button id="gw-notif-close" class="button button-small">Cerrar</button>
+      </div>
+    </header>
+    <div id="gw-notif-list"><div class="item">Cargando…</div></div>
+  </div>
+  <script>
+  (function(){
+    var AJAX = '<?php echo esc_js($ajax); ?>';
+    var NONCE= '<?php echo esc_js($nonce); ?>';
+    var btn = document.getElementById('gw-notif-btn');
+    var panel = document.getElementById('gw-notif-panel');
+    var badge = document.getElementById('gw-notif-badge');
+    var list = document.getElementById('gw-notif-list');
+
+    function fetchNotifs(){
+      var fd = new FormData(); fd.append('action','gw_notif_fetch'); fd.append('nonce', NONCE);
+      return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+      .then(r=>r.json()).then(function(resp){
+        if (!resp || !resp.success) return;
+        var items = resp.data.items || [];
+        var unread = resp.data.unread || 0;
+        // badge
+        if (unread > 0){ badge.style.display='inline-flex'; badge.textContent = unread; }
+        else { badge.style.display='none'; }
+        // render
+        if (!items.length){ list.innerHTML = '<div class="item">Sin notificaciones recientes.</div>'; return; }
+        var html='';
+        items.forEach(function(it){
+          var label = (it.type==='charla'?'🗣️ Charla':(it.type==='cap'?'🎓 Capacitación':(it.type==='docs'?'📄 Documentos':'🔔 Evento')));
+          html += '<div class="item">'
+                + '<div><strong>'+label+'</strong> — '+ (it.title||'') +'</div>'
+                + '<div>'+ (it.user_name||'') + (it.text?(' · '+it.text):'') +'</div>'
+                + '<div class="meta">'+ it.time_h +'</div>'
+                + '</div>';
+        });
+        list.innerHTML = html;
+      });
+    }
+
+    function markAll(){
+      var fd = new FormData(); fd.append('action','gw_notif_mark_seen'); fd.append('nonce', NONCE);
+      fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+      .then(r=>r.json()).then(function(){ fetchNotifs(); });
+    }
+
+    btn.addEventListener('click', function(){
+      panel.style.display = (panel.style.display==='block'?'none':'block');
+      if (panel.style.display==='block') fetchNotifs();
+    });
+    document.getElementById('gw-notif-close').addEventListener('click', function(){ panel.style.display='none'; });
+    document.getElementById('gw-notif-mark').addEventListener('click', function(){ markAll(); });
+
+    // Polling ligero
+    setInterval(fetchNotifs, 30000);
+    fetchNotifs();
+  })();
+  </script>
+  <?php
+});
+
 // === Admin: restablecer contraseña de un usuario (solo Administrador) ===
 add_action('wp_ajax_gw_admin_set_user_password', 'gw_admin_set_user_password');
 function gw_admin_set_user_password(){
