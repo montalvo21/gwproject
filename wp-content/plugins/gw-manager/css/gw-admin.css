@@ -914,41 +914,44 @@ label {
   }
 }
 
-/* ========================================
-   MOBILE - 320px a 768px
-   ======================================== */
 @media (max-width: 768px) {
   html, body {
-    overflow: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     height: auto !important;
-    min-height: 100vh !important;
-    position: relative !important;
+    min-height: 100% !important;
+    position: static !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
   
   .gw-modern-wrapper {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
     bottom: auto !important;
     width: 100% !important;
     height: auto !important;
-    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    min-height: 100svh !important;
     padding: 12px !important;
     align-items: stretch !important;
     justify-content: stretch !important;
     overflow: visible !important;
+    display: flex !important;
   }
   
   .gw-form-wrapper {
     flex-direction: column;
     height: auto;
     max-height: none;
-    min-height: calc(100vh - 24px);
+    min-height: calc(100dvh - 24px);
     width: 100%;
     margin: 0;
     border-radius: 16px;
     overflow: visible;
+    display: flex;
   }
   
   .gw-sidebar {
@@ -1039,7 +1042,7 @@ label {
     padding: 24px 16px;
     border-radius: 0 0 16px 16px;
     background: white;
-    overflow-y: auto;
+    overflow: visible;
     align-items: flex-start;
   }
   
@@ -1068,7 +1071,6 @@ label {
     margin: 20px 0 12px 0;
   }
   
-  /* Formularios mobile */
   input[type="text"],
   input[type="email"],
   input[type="number"],
@@ -1078,10 +1080,9 @@ label {
   select,
   textarea {
     padding: 10px 12px;
-    font-size: 16px; /* Para evitar zoom en iOS */
+    font-size: 16px;
   }
   
-  /* Botones mobile */
   .button,
   button[type="submit"],
   button[type="button"] {
@@ -1098,7 +1099,6 @@ label {
     margin: 2px 4px 2px 0;
   }
   
-  /* Tablas responsive */
   .gw-users-responsive {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -1114,7 +1114,6 @@ label {
     padding: 8px 6px;
   }
   
-  /* Toolbar responsive */
   .gw-users-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -1128,7 +1127,6 @@ label {
     font-size: 16px;
   }
   
-  /* Wizard responsive */
   .gw-wizard-steps {
     flex-direction: column;
     gap: 8px;
@@ -1171,14 +1169,12 @@ label {
     width: auto;
   }
   
-  /* Modales responsive */
   #gw-qr-modal > div {
     max-width: 90%;
     margin: 10% auto;
     padding: 20px 16px;
   }
   
-  /* Página sin permisos responsive */
   .gw-no-permissions {
     padding: 20px;
   }
@@ -1200,16 +1196,13 @@ label {
   }
 }
 
-/* ========================================
-   MOBILE PEQUEÑO - menos de 480px
-   ======================================== */
 @media (max-width: 479px) {
   .gw-modern-wrapper {
     padding: 8px !important;
   }
   
   .gw-form-wrapper {
-    min-height: calc(100vh - 16px);
+    min-height: calc(100dvh - 16px);
     border-radius: 12px;
   }
   
@@ -1296,4 +1289,9 @@ label {
   .gw-no-permissions p {
     font-size: 14px;
   }
+}
+
+@supports (-webkit-touch-callout: none) {
+  :root, html { height: -webkit-fill-available; }
+  .gw-modern-wrapper { min-height: -webkit-fill-available !important; }
 }

@@ -145,7 +145,7 @@ html, body {
   }
 
 .gw-step-item.active {
-    background: linear-gradient(135deg, #c4c33f 100%);
+    background: linear-gradient(135deg, #c4c33f 0%, #c4c33f 100%);
     color: white;
     box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
 }
@@ -331,7 +331,7 @@ html, body {
     justify-content: center;
     gap: 8px;
     padding: 16px 32px;
-    background: linear-gradient(135deg, #c4c33f 100%);
+    background: linear-gradient(135deg, #c4c33f 0%, #c4c33f 100%);
     color: white;
     border: none;
     border-radius: 12px;

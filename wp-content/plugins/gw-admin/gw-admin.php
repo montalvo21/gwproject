@@ -78,7 +78,7 @@ function gw_portal_voluntario_shortcode() {
     ob_start();
     echo '<div class="gw-voluntario-onboarding">';
     // Botón global de Cerrar sesión (visible en TODO el flujo)
-    $logout_url = wp_logout_url( site_url('/index.php/portal-voluntario/') );
+    $logout_url = wp_logout_url( site_url('/')); 
     echo '<a class="gw-logout-btn" href="' . esc_url($logout_url) . '" aria-label="Cerrar sesión">'
         . '<span class="gw-logout-text">Cerrar sesión</span>'
         . '<svg class="gw-logout-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
