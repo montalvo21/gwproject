@@ -6965,6 +6965,69 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   </script>
 </div>
 
+                <!-- TAB AUSENCIAS DETECTADAS (BOTÓN 8) -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-ausencias-detectadas" style="display:none;">                <div class="gw-form-header">
+                    <h1>Seguimiento de ausencias</h1>
+                    <p>Detecta inasistencias, programa recordatorios y gestiona el estado de los voluntarios.</p>
+                </div>
+                <?php $abs = gw_abs_get_settings(); $nonce_abs = wp_create_nonce('gw_abs_admin'); ?>
+
+                <div style="display:flex;gap:24px;flex-wrap:wrap;">
+                    <!-- Ajustes -->
+                    <form id="gw-abs-settings" style="flex:1 1 360px;max-width:560px;border:1px solid #e1e8f0;border-radius:10px;padding:14px;background:#fff;">
+                    <h3 style="margin-top:0;">Ajustes de recordatorios</h3>
+                    <label>Máximo de correos (0–10)</label>
+                    <input type="number" name="reminder_count" value="<?php echo esc_attr($abs['reminder_count']); ?>" min="0" max="10" style="width:120px;">
+                    <label style="display:block;margin-top:8px;">Intervalo entre correos (horas)</label>
+                    <input type="number" name="reminder_interval_hours" value="<?php echo esc_attr($abs['reminder_interval_hours']); ?>" min="1" style="width:120px;">
+                    <label style="display:block;margin-top:8px;">Margen de gracia tras hora de inicio (minutos)</label>
+                    <input type="number" name="grace_minutes" value="<?php echo esc_attr($abs['grace_minutes']); ?>" min="0" style="width:120px;">
+                    <label style="display:block;margin-top:12px;">Asunto (recordatorio)</label>
+                    <input type="text" name="subject" value="<?php echo esc_attr($abs['subject']); ?>" style="width:100%;">
+                    <label style="display:block;margin-top:8px;">Cuerpo (recordatorio)</label>
+                    <textarea name="body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['body']); ?></textarea>
+                    <label style="display:block;margin-top:12px;">Asunto (desactivación)</label>
+                    <input type="text" name="deact_subject" value="<?php echo esc_attr($abs['deact_subject']); ?>" style="width:100%;">
+                    <label style="display:block;margin-top:8px;">Cuerpo (desactivación)</label>
+                    <textarea name="deact_body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['deact_body']); ?></textarea>
+                    <div style="margin-top:12px;">
+                        <button type="submit" class="button button-primary">Guardar ajustes</button>
+                        <span id="gw-abs-save-ok" style="display:none;margin-left:10px;color:#1e7e34;">Guardado</span>
+                    </div>
+                    </form>
+
+                    <!-- Listado -->
+                    <div class="gw-abs-list" style="flex:1 1 520px;min-width:420px;">                    
+                    <h3 style="margin-top:0;">Ausencias detectadas</h3>
+                    <?php
+                    global $wpdb; $table = $wpdb->prefix.'gw_ausencias';
+                    $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
+                    if (!$rows) {
+                        echo '<p>No hay ausencias registradas.</p>';
+                    } else {
+                        echo '<table class="widefat striped"><thead><tr><th>Usuario</th><th>Capacitación</th><th>Fecha/Hora</th><th>Estado</th><th>Recordatorios</th><th>Acciones</th></tr></thead><tbody>';
+                        foreach ($rows as $r) {
+                        $u = get_user_by('id', intval($r['user_id']));
+                        $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
+                        echo '<tr data-aid="'.intval($r['id']).'">';
+                        echo '<td>'. esc_html($u ? ($u->display_name ?: $u->user_email) : ('#'.$r['user_id'])) .'</td>';
+                        echo '<td>'. esc_html($cap_title) .'</td>';
+                        echo '<td>'. esc_html($r['fecha']) .'</td>';
+                        echo '<td>'. esc_html($r['status']) .'</td>';
+                        echo '<td>'. intval($r['reminders_sent']) .'</td>';
+                        echo '<td>'
+                            .'<button type="button" class="button button-small gw-abs-resolver" data-id="'.intval($r['id']).'">Marcar resuelto</button> '
+                            .'<button type="button" class="button button-small gw-abs-reactivar" data-uid="'.intval($r['user_id']).'">Reactivar usuario</button> '
+                            .'<button type="button" class="button button-small gw-abs-ocultar" data-id="'.intval($r['id']).'">Ocultar</button>'
+                            .'</td>';
+                        echo '</tr>';
+                        }
+                        echo '</tbody></table>';
+                    }
+                    ?>
+                    </div>
+                </div>
+                
                 <script>
                 (function(){
                     var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
