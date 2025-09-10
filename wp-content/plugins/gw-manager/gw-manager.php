@@ -635,6 +635,48 @@ input::placeholder {
 #gw-reset-modal[style*="display: flex"] {
    animation: slideUp 0.4s ease-out;
 }
+
+/* === Ausencias: estilos para ambos tabs === */
+#gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
+    gap: 24px;
+    align-items: flex-start;
+    margin-top: 18px;
+}
+#gw-admin-tab-ausencias .widefat td,
+#gw-admin-tab-ausencias-detectadas .widefat td{
+    font-size: 15px;
+    padding: 7px 10px;
+}
+#gw-admin-tab-ausencias .widefat th,
+#gw-admin-tab-ausencias-detectadas .widefat th{
+    font-size: 15px;
+    background: #f8fafc;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver,
+#gw-admin-tab-ausencias-detectadas .button.button-small.gw-abs-resolver{
+    background: #48bb78;
+    border-color: #38a169;
+    color: #fff;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-reactivar,
+#gw-admin-tab-ausencias-detectadas .button.button-small.gw-abs-reactivar{
+    background: #3182ce;
+    border-color: #2b6cb0;
+    color: #fff;
+}
+#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar,
+#gw-admin-tab-ausencias-detectadas .button.button-small.gw-abs-ocultar{
+    background: #e53e3e;
+    border-color: #c53030;
+    color: #fff;
+}
+/* Tab 7: solo AJUSTES (oculta el listado) */
+#gw-admin-tab-ausencias .gw-abs-list { display: none; }
+
+/* Tab 8: solo LISTADO (oculta el formulario de ajustes) */
+#gw-admin-tab-ausencias-detectadas #gw-abs-settings { display: none; }
 </style>
 
 <script>
@@ -1526,13 +1568,22 @@ add_action('wp_footer', function(){
       fd.append('key', key);
 
       fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
-      .then(r=>r.json()).then(function(resp){
-        if (resp && resp.success){
-          openAsist(uid); // recargar modal
-        } else {
-          alert((resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar.');
+  .then(r=>r.json()).then(function(resp){
+    if (resp && resp.success){
+      // Actualizar badge de la campanita si el servidor devuelve el contador
+      try {
+        var b = document.getElementById('gw-notif-badge');
+        if (b && resp.data && typeof resp.data.badge !== 'undefined') {
+          var n = parseInt(resp.data.badge, 10) || 0;
+          if (n > 0) { b.style.display = 'inline-flex'; b.textContent = n; }
+          else { b.style.display = 'none'; }
         }
-      }).catch(function(){ alert('Error de red'); });
+      } catch(e){}
+      openAsist(uid); // recargar modal
+    } else {
+      alert((resp && resp.data && resp.data.msg) ? resp.data.msg : 'No se pudo actualizar.');
+    }
+  }).catch(function(){ alert('Error de red'); });
     });
 
     // Inyectar botón "Asistencias" en cada fila (columna Acciones)
@@ -1621,6 +1672,37 @@ if (!function_exists('gw_notif_max_id')) {
   function gw_notif_max_id(){
     return intval( get_option('gw_notifications_next_id', 1) ) - 1;
   }
+  if (!function_exists('gw_notif_mark_done')) {
+    function gw_notif_mark_done($type, $uid, $rid){
+      $type = sanitize_key($type);
+      $uid  = intval($uid);
+      $rid  = intval($rid);
+      $done = get_option('gw_notifications_done', []);
+      if (!is_array($done)) $done = [];
+      $key = "{$type}:{$uid}:{$rid}";
+      if (!in_array($key, $done, true)) {
+        $done[] = $key;
+        update_option('gw_notifications_done', $done, false);
+      }
+    }
+  }
+  
+  if (!function_exists('gw_notif_pending_count')) {
+    function gw_notif_pending_count(){
+      $log  = get_option('gw_notifications_log', []);
+      if (!is_array($log)) $log = [];
+      $done = get_option('gw_notifications_done', []);
+      if (!is_array($done)) $done = [];
+      $pending = 0;
+      foreach ($log as $ev) {
+        $type = isset($ev['type']) ? $ev['type'] : '';
+        if ($type !== 'charla' && $type !== 'cap') continue;
+        $key = $type . ':' . intval($ev['uid']) . ':' . intval($ev['rid']);
+        if (!in_array($key, $done, true)) $pending++;
+      }
+      return $pending;
+    }
+  }
 }
 
 if (!function_exists('gw_notif_fetch')) {
@@ -1703,15 +1785,17 @@ add_action('wp_ajax_gw_notif_fetch', function(){
   if (!wp_verify_nonce($nonce, 'gw_notif')) wp_send_json_error(['msg'=>'Nonce inválido']);
 
   $last_seen = intval( get_user_meta($u->ID, 'gw_notif_last_seen', true) );
-  $list = gw_notif_fetch(0, 25); // últimos
-  $max_id = gw_notif_max_id();
-  $unread = max(0, $max_id - $last_seen);
+$list   = gw_notif_fetch(0, 25); // últimos
+$max_id = gw_notif_max_id();
+$unread = max(0, $max_id - $last_seen);
+$badge  = gw_notif_pending_count(); // << lo importante
 
-  wp_send_json_success([
-    'items'  => $list,
-    'unread' => $unread,
-    'max_id' => $max_id,
-  ]);
+wp_send_json_success([
+  'items'  => $list,
+  'unread' => $unread,
+  'badge'  => $badge,
+  'max_id' => $max_id,
+]);
 });
 
 add_action('wp_ajax_gw_notif_mark_seen', function(){
@@ -1776,9 +1860,9 @@ add_action('wp_footer', function(){
       .then(r=>r.json()).then(function(resp){
         if (!resp || !resp.success) return;
         var items = resp.data.items || [];
-        var unread = resp.data.unread || 0;
-        // badge
-        if (unread > 0){ badge.style.display='inline-flex'; badge.textContent = unread; }
+        var count = (typeof resp.data.badge !== 'undefined') ? parseInt(resp.data.badge, 10) : (resp.data.unread || 0);
+        // badge = pendientes por resolver (charla/cap no aprobadas)
+        if (count > 0){ badge.style.display='inline-flex'; badge.textContent = count; }
         else { badge.style.display='none'; }
         // render
         if (!items.length){ list.innerHTML = '<div class="item">Sin notificaciones recientes.</div>'; return; }
@@ -2238,6 +2322,21 @@ function gw_admin_asist_modal(){
     $ag_fecha= is_array($charla_ag) ? (string)($charla_ag['fecha'] ?? '') : '';
     $ag_hora = is_array($charla_ag) ? (string)($charla_ag['hora']  ?? '') : '';
 
+    // Cargar historial para fechas/horas de charlas ya aprobadas
+    $char_hist = get_user_meta($uid, 'gw_charlas_historial', true);
+    $char_last = [];
+    if (is_array($char_hist)) {
+    foreach ($char_hist as $row) {
+    $cid = intval($row['charla_id'] ?? 0);
+    if ($cid) {
+      $char_last[$cid] = [
+        'fecha' => (string)($row['fecha'] ?? ''),
+        'hora'  => (string)($row['hora']  ?? ''),
+      ];
+    }
+  }
+}
+
     $html .= '<table class="widefat striped"><thead><tr><th>Charla</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead><tbody>';
     foreach ($charlas_asignadas as $i => $key) {
       $charla_id = intval($key);
@@ -2249,8 +2348,8 @@ function gw_admin_asist_modal(){
       $estado = $done ? 'Asistió' : 'Pendiente';
 
       // Solo mostramos fecha/hora si esta charla es la actualmente agendada por el voluntario
-      $f = ($ag_id && $ag_id === $charla_id) ? $ag_fecha : '';
-      $h = ($ag_id && $ag_id === $charla_id) ? $ag_hora  : '';
+      $f = ($ag_id && $ag_id === $charla_id) ? $ag_fecha : (isset($char_last[$charla_id]) ? $char_last[$charla_id]['fecha'] : '');
+      $h = ($ag_id && $ag_id === $charla_id) ? $ag_hora  : (isset($char_last[$charla_id]) ? $char_last[$charla_id]['hora']  : '');
 
       $btn = $done
         ? '<button class="button gwAsistRevert" data-kind="charla" data-key="'.esc_attr($key).'" data-uid="'.esc_attr($uid).'">Revertir</button>'
@@ -2270,37 +2369,58 @@ function gw_admin_asist_modal(){
   }
 
   // CAPACITACIÓN
-  $html .= '<h3 style="margin:18px 0 6px;">Capacitación</h3>';
-  $ag   = get_user_meta($uid, 'gw_capacitacion_agendada', true);
-  $cap_id = 0; $fecha = ''; $hora = '';
-  if (is_array($ag) && !empty($ag['cap_id'])) {
-    $cap_id = intval($ag['cap_id']); $fecha = (string)($ag['fecha'] ?? ''); $hora = (string)($ag['hora'] ?? '');
-  } else {
-    $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
-    $fecha  = (string)get_user_meta($uid, 'gw_fecha', true);
-    $hora   = (string)get_user_meta($uid, 'gw_hora', true);
-  }
-  if ($cap_id) {
-    $title = get_the_title($cap_id) ?: 'Capacitación';
-    $done7 = get_user_meta($uid, 'gw_step7_completo', true) ? 1 : 0;
-    $estado = $done7 ? 'Asistió' : 'Pendiente';
-    $btn = $done7
-      ? '<button class="button gwAsistRevert" data-kind="cap" data-uid="'.esc_attr($uid).'">Revertir</button>'
-      : '<button class="button button-primary gwAsistMark" data-kind="cap" data-uid="'.esc_attr($uid).'">Marcar sí asistió</button>';
-    $html .= '<table class="widefat striped"><thead><tr><th>Capacitación</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead>'.
-             '<tbody><tr>'.
-             '<td>'.esc_html($title).'</td>'.
-             '<td>'.esc_html($fecha ?: '—').'</td>'.
-             '<td>'.esc_html($hora  ?: '—').'</td>'.
-             '<td>'.esc_html($estado).'</td>'.
-             '<td>'.$btn.'</td>'.
-             '</tr></tbody></table>';
-  } else {
-    $html .= '<p style="color:#666">Sin capacitación agendada.</p>';
+$html .= '<h3 style="margin:18px 0 6px;">Capacitación</h3>';
+$ag   = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+$cap_id = 0; 
+$fecha = ''; 
+$hora = '';
+if (is_array($ag) && !empty($ag['cap_id'])) {
+  $cap_id = intval($ag['cap_id']); 
+  $fecha  = (string)($ag['fecha'] ?? ''); 
+  $hora   = (string)($ag['hora'] ?? '');
+} else {
+  $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
+  $fecha  = (string)get_user_meta($uid, 'gw_fecha', true);
+  $hora   = (string)get_user_meta($uid, 'gw_hora', true);
+}
+
+if ($cap_id) {
+  $title  = get_the_title($cap_id) ?: 'Capacitación';
+  $done7  = get_user_meta($uid, 'gw_step7_completo', true) ? 1 : 0;
+  $estado = $done7 ? 'Asistió' : 'Pendiente';
+  $btn    = $done7
+    ? '<button class="button gwAsistRevert" data-kind="cap" data-uid="'.esc_attr($uid).'">Revertir</button>'
+    : '<button class="button button-primary gwAsistMark" data-kind="cap" data-uid="'.esc_attr($uid).'">Marcar sí asistió</button>';
+
+  // === PASO 4: Fallback a historial si no hay fecha/hora visibles ===
+  $cap_hist = get_user_meta($uid, 'gw_capacitaciones_historial', true);
+  if (!$fecha && is_array($cap_hist)) {
+    foreach (array_reverse($cap_hist) as $row) {
+      $rcid = intval($row['cap_id'] ?? 0);
+      if ($rcid && $rcid === $cap_id) {
+        $fecha = (string)($row['fecha'] ?? '');
+        $hora  = (string)($row['hora']  ?? '');
+        break;
+      }
+    }
   }
 
-  $html .= '</div>';
-  wp_send_json_success(['html' => $html]);
+  // Tabla
+  $html .= '<table class="widefat striped"><thead><tr><th>Capacitación</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead>'.
+           '<tbody><tr>'.
+           '<td>'.esc_html($title).'</td>'.
+           '<td>'.esc_html($fecha ?: '—').'</td>'.
+           '<td>'.esc_html($hora  ?: '—').'</td>'.
+           '<td>'.esc_html($estado).'</td>'.
+           '<td>'.$btn.'</td>'.
+           '</tr></tbody></table>';
+
+} else {
+  $html .= '<p style="color:#666">Sin capacitación agendada.</p>';
+}
+
+$html .= '</div>';
+wp_send_json_success(['html' => $html]);
 }
 
 // 2) Marcar/Revertir asistencia (servidor)
@@ -2325,37 +2445,81 @@ function gw_admin_mark_attendance(){
   }
 
   if ($kind === 'charla') {
+    // 0) Validación
     if ($key === '') { wp_send_json_error(['msg'=>'Falta clave de charla']); }
-
-    // 1) Legacy (lo que pinta “Asistió” en el modal)
+  
+    // 1) Guardar en historial la charla agendada ANTES de liberar
+    $ag = get_user_meta($uid, 'gw_charla_agendada', true);
+    if (is_array($ag) && !empty($ag)) {
+      $hist = get_user_meta($uid, 'gw_charlas_historial', true);
+      if (!is_array($hist)) $hist = [];
+      $hist[] = [
+        'charla_id'    => intval($ag['charla_id'] ?? 0),
+        'charla_title' => (string)($ag['charla_title'] ?? get_the_title(intval($ag['charla_id'] ?? 0))),
+        'fecha'        => (string)($ag['fecha'] ?? ''),
+        'hora'         => (string)($ag['hora']  ?? ''),
+        'asistio'      => 1,
+        'ts'           => current_time('timestamp'),
+      ];
+      update_user_meta($uid, 'gw_charlas_historial', $hist);
+    }
+  
+    // 2) Legacy y flags que desbloquean el flujo
     update_user_meta($uid, 'gw_' . $key, 1);
-
-    // 2) Flags que desbloquean el botón en el flujo del voluntario
     update_user_meta($uid, 'gw_charla_asistio', '1');
     update_user_meta($uid, 'gw_charla_asistio_' . $key, '1');
-
-    wp_send_json_success(['done'=>1]);
+  
+    // 3) Notificación resuelta => baja el badge
+    if (function_exists('gw_notif_mark_done')) {
+      $rid = intval($key); // si tu "key" es numérica, esto la usa como rid
+      gw_notif_mark_done('charla', $uid, $rid);
+    }
+    $badge = function_exists('gw_notif_pending_count') ? gw_notif_pending_count() : 0;
+  
+    wp_send_json_success(['done'=>1, 'badge'=>$badge]);
   }
 
   // === Capacitación ===
-  // Completa el paso 7 y deja rastro equivalente
-  update_user_meta($uid, 'gw_step7_completo', 1);
-  update_user_meta($uid, 'gw_cap_asistio', '1');
+// 1) Guardar en historial la capacitación agendada ANTES de liberar
+$ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+if (is_array($ag) && !empty($ag)) {
+  $hist = get_user_meta($uid, 'gw_capacitaciones_historial', true);
+  if (!is_array($hist)) $hist = [];
+  $hist[] = [
+    'cap_id'    => intval($ag['cap_id'] ?? 0),
+    'cap_title' => (string)($ag['cap_title'] ?? get_the_title(intval($ag['cap_id'] ?? 0))),
+    'fecha'     => (string)($ag['fecha'] ?? ''),
+    'hora'      => (string)($ag['hora']  ?? ''),
+    'asistio'   => 1,
+    'ts'        => current_time('timestamp'),
+  ];
+  update_user_meta($uid, 'gw_capacitaciones_historial', $hist);
+}
 
-  // Además, flag por capacitación concreta si hay id
-  $cap_ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
-  $cap_id = 0;
-  if (is_array($cap_ag) && !empty($cap_ag['cap_id'])) {
-    $cap_id = intval($cap_ag['cap_id']);
-  }
-  if (!$cap_id) {
-    $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
-  }
-  if ($cap_id) {
-    update_user_meta($uid, 'gw_cap_asistio_' . $cap_id, '1');
-  }
+// 2) Completar paso 7 y flags
+update_user_meta($uid, 'gw_step7_completo', 1);
+update_user_meta($uid, 'gw_cap_asistio', '1');
 
-  wp_send_json_success(['done'=>1]);
+// 3) Flag por cap_id concreto si existe
+$cap_ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+$cap_id = 0;
+if (is_array($cap_ag) && !empty($cap_ag['cap_id'])) {
+  $cap_id = intval($cap_ag['cap_id']);
+}
+if (!$cap_id) {
+  $cap_id = intval(get_user_meta($uid, 'gw_capacitacion_id', true));
+}
+if ($cap_id) {
+  update_user_meta($uid, 'gw_cap_asistio_' . $cap_id, '1');
+}
+
+// 4) Notificación resuelta => baja el badge
+if ($cap_id && function_exists('gw_notif_mark_done')) {
+  gw_notif_mark_done('cap', $uid, intval($cap_id));
+}
+$badge = function_exists('gw_notif_pending_count') ? gw_notif_pending_count() : 0;
+
+wp_send_json_success(['done'=>1, 'badge'=>$badge]);
 }
 
 function gw_admin_revert_attendance(){
@@ -3324,7 +3488,60 @@ function gw_ajax_toggle_active_handler(){
 }
 // ====== FIN MÓDULO GESTIÓN DE USUARIOS ======
 
+// --- Tabs Ausencias: control de visibilidad entre Tab 7 (ajustes) y Tab 8 (detectadas)
+add_action('wp_footer', function(){
+  if ( ! is_user_logged_in() ) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req, 'panel-administrativo') === false) return; // sólo en panel
 
+  ?>
+  <script>
+  (function(){
+    function applyVisibility(tab){
+      // Formulario de ajustes
+      var settings = document.getElementById('gw-abs-settings');
+      // Listados de ausencias (pueden existir varias tablas con esta clase)
+      var lists = document.querySelectorAll('.gw-abs-list');
+
+      if (!settings && (!lists || !lists.length)) return;
+
+      if (tab === 'ausencias'){ // Módulo 7: solo AJUSTES
+        if (settings) settings.style.display = '';
+        if (lists) lists.forEach(function(el){ el.style.display = 'none'; });
+      } else if (tab === 'ausencias_detectadas'){ // Módulo 8: solo LISTADO
+        if (settings) settings.style.display = 'none';
+        if (lists) lists.forEach(function(el){ el.style.display = ''; });
+      }
+    }
+
+    // Al cargar, intenta detectar el tab activo; si no, muestra ajustes (7)
+    document.addEventListener('DOMContentLoaded', function(){
+      var active = document.querySelector('.gw-step-item.gw-admin-tab-btn.active');
+      var tab = active ? (active.getAttribute('data-tab') || 'ausencias') : 'ausencias';
+      applyVisibility(tab);
+    });
+
+    // Cada click en un botón de tab aplica la visibilidad
+    document.addEventListener('click', function(e){
+      var btn = e.target.closest('.gw-step-item.gw-admin-tab-btn');
+      if (!btn) return;
+      var tab = btn.getAttribute('data-tab') || '';
+      if (!tab) return;
+      // si tu UI re-renderiza, un microdelay asegura que los nodos existan
+      setTimeout(function(){ applyVisibility(tab); }, 0);
+    });
+
+    // Por si el DOM re-renderiza dinámicamente, re-aplicar
+    var mo = new MutationObserver(function(){
+      var active = document.querySelector('.gw-step-item.gw-admin-tab-btn.active');
+      var tab = active ? (active.getAttribute('data-tab') || 'ausencias') : 'ausencias';
+      applyVisibility(tab);
+    });
+    mo.observe(document.documentElement, {childList:true, subtree:true});
+  })();
+  </script>
+  <?php
+}, 109);
 
 // === AJAX: Generar link/QR para País ===
 if (!function_exists('gw_ajax_generar_link_qr_pais')) {
@@ -3694,8 +3911,8 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     </div>
                 </div>
 
-                                <!-- Botón 9 -->
-                     <div class="gw-step-item gw-admin-tab-btn" data-tab="ausencias">
+                    <!-- Botón 8 -->
+                    <div class="gw-step-item gw-admin-tab-btn" data-tab="ausencia_detectadas">
                     <div class="gw-step-number">8</div>
                     <div class="gw-step-content">
                         <h3>Ausencias Detectadas </h3>
@@ -3703,7 +3920,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     </div>
                 </div>
 
-                <!-- Botón 8 -->
+                <!-- Botón 9 -->
                 <div class="gw-step-item gw-admin-tab-btn" data-tab="reportes">
                     <div class="gw-step-number">9</div>
                     <div class="gw-step-content">
@@ -5732,70 +5949,6 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     </script>
                 </div>
 
-                <!-- TAB AUSENCIAS -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
-                <div class="gw-form-header">
-                    <h1>Seguimiento de ausencias</h1>
-                    <p>Detecta inasistencias, programa recordatorios y gestiona el estado de los voluntarios.</p>
-                </div>
-                <?php $abs = gw_abs_get_settings(); $nonce_abs = wp_create_nonce('gw_abs_admin'); ?>
-
-                <div style="display:flex;gap:24px;flex-wrap:wrap;">
-                    <!-- Ajustes -->
-                    <form id="gw-abs-settings" style="flex:1 1 360px;max-width:560px;border:1px solid #e1e8f0;border-radius:10px;padding:14px;background:#fff;">
-                    <h3 style="margin-top:0;">Ajustes de recordatorios</h3>
-                    <label>Máximo de correos (0–10)</label>
-                    <input type="number" name="reminder_count" value="<?php echo esc_attr($abs['reminder_count']); ?>" min="0" max="10" style="width:120px;">
-                    <label style="display:block;margin-top:8px;">Intervalo entre correos (horas)</label>
-                    <input type="number" name="reminder_interval_hours" value="<?php echo esc_attr($abs['reminder_interval_hours']); ?>" min="1" style="width:120px;">
-                    <label style="display:block;margin-top:8px;">Margen de gracia tras hora de inicio (minutos)</label>
-                    <input type="number" name="grace_minutes" value="<?php echo esc_attr($abs['grace_minutes']); ?>" min="0" style="width:120px;">
-                    <label style="display:block;margin-top:12px;">Asunto (recordatorio)</label>
-                    <input type="text" name="subject" value="<?php echo esc_attr($abs['subject']); ?>" style="width:100%;">
-                    <label style="display:block;margin-top:8px;">Cuerpo (recordatorio)</label>
-                    <textarea name="body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['body']); ?></textarea>
-                    <label style="display:block;margin-top:12px;">Asunto (desactivación)</label>
-                    <input type="text" name="deact_subject" value="<?php echo esc_attr($abs['deact_subject']); ?>" style="width:100%;">
-                    <label style="display:block;margin-top:8px;">Cuerpo (desactivación)</label>
-                    <textarea name="deact_body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['deact_body']); ?></textarea>
-                    <div style="margin-top:12px;">
-                        <button type="submit" class="button button-primary">Guardar ajustes</button>
-                        <span id="gw-abs-save-ok" style="display:none;margin-left:10px;color:#1e7e34;">Guardado</span>
-                    </div>
-                    </form>
-
-                    <!-- Listado -->
-                    <div style="flex:1 1 520px;min-width:420px;">
-                    <h3 style="margin-top:0;">Ausencias detectadas</h3>
-                    <?php
-                    global $wpdb; $table = $wpdb->prefix.'gw_ausencias';
-                    $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
-                    if (!$rows) {
-                        echo '<p>No hay ausencias registradas.</p>';
-                    } else {
-                        echo '<table class="widefat striped"><thead><tr><th>Usuario</th><th>Capacitación</th><th>Fecha/Hora</th><th>Estado</th><th>Recordatorios</th><th>Acciones</th></tr></thead><tbody>';
-                        foreach ($rows as $r) {
-                        $u = get_user_by('id', intval($r['user_id']));
-                        $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
-                        echo '<tr data-aid="'.intval($r['id']).'">';
-                        echo '<td>'. esc_html($u ? ($u->display_name ?: $u->user_email) : ('#'.$r['user_id'])) .'</td>';
-                        echo '<td>'. esc_html($cap_title) .'</td>';
-                        echo '<td>'. esc_html($r['fecha']) .'</td>';
-                        echo '<td>'. esc_html($r['status']) .'</td>';
-                        echo '<td>'. intval($r['reminders_sent']) .'</td>';
-                        echo '<td>'
-                            .'<button type="button" class="button button-small gw-abs-resolver" data-id="'.intval($r['id']).'">Marcar resuelto</button> '
-                            .'<button type="button" class="button button-small gw-abs-reactivar" data-uid="'.intval($r['user_id']).'">Reactivar usuario</button> '
-                            .'<button type="button" class="button button-small gw-abs-ocultar" data-id="'.intval($r['id']).'">Ocultar</button>'
-                            .'</td>';
-                        echo '</tr>';
-                        }
-                        echo '</tbody></table>';
-                    }
-                    ?>
-                    </div>
-                </div>
-
                 <script>
                 (function(){
                     var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
@@ -5849,19 +6002,25 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 /* ===== AUSENCIAS (solo desktop): evitar corte a la derecha ===== */
 @media (min-width: 1100px){
   /* wrapper flex de la sección */
-  #gw-admin-tab-ausencias > div[style*="display:flex"]{
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+  #gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
     align-items: flex-start;
     gap: 24px;
   }
+}
 
   /* panel de ajustes a la izquierda (ancho fijo razonable) */
-  #gw-admin-tab-ausencias #gw-abs-settings{
+  #gw-admin-tab-ausencias #gw-abs-settings
+#gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]
+#gw-admin-tab-ausencias .widefat ...
+#gw-admin-tab-ausencias .button.button-small.gw-abs-...{
     flex: 0 0 520px;
     max-width: 560px;
   }
 
   /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
-  #gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]{
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
     flex: 1 1 auto;
     min-width: 0 !important;          /* clave para que no se corte */
     overflow-x: auto;                  /* scroll solo si no cabe */
@@ -5869,7 +6028,8 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   }
 
   /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
-  #gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
     width: 100%;
     min-width: 980px;                  /* ajusta si lo ves necesario */
     table-layout: auto;
@@ -5938,17 +6098,17 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 
 
 
-                <!-- TAB AUSENCIAS detectadas -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
-                <div class="gw-form-header">
-                    <h1>Ausencias Detectadas </h1>
-                    <p>Detecta inasistencias.</p>
-                </div>
-                <?php $abs = gw_abs_get_settings(); $nonce_abs = wp_create_nonce('gw_abs_admin'); ?>
+                <!-- TAB 7: SEGUIMIENTO DE AUSENCIAS (AJUSTES) -->
+                  <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
+                  <div class="gw-form-header">
+                    <h1>Seguimiento de ausencias</h1>
+                  <p>Detecta inasistencias, programa recordatorios y gestiona el estado de los voluntarios.</p>
+                  </div>
+                  <?php $abs = gw_abs_get_settings(); $nonce_abs = wp_create_nonce('gw_abs_admin'); ?>
 
-                <div style="display:flex;gap:24px;flex-wrap:wrap;">
-                    <!-- Ajustes -->
-                    <form id="gw-abs-settings" style="flex:1 1 360px;max-width:560px;border:1px solid #e1e8f0;border-radius:10px;padding:14px;background:#fff;">
+                  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        <!-- Ajustes -->
+        <form id="gw-abs-settings" style="flex:1 1 360px;max-width:560px;border:1px solid #e1e8f0;border-radius:10px;padding:14px;background:#fff;">
                     <h3 style="margin-top:0;">Ajustes de recordatorios</h3>
                     <label>Máximo de correos (0–10)</label>
                     <input type="number" name="reminder_count" value="<?php echo esc_attr($abs['reminder_count']); ?>" min="0" max="10" style="width:120px;">
@@ -5967,40 +6127,47 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     <div style="margin-top:12px;">
                         <button type="submit" class="button button-primary">Guardar ajustes</button>
                         <span id="gw-abs-save-ok" style="display:none;margin-left:10px;color:#1e7e34;">Guardado</span>
-                    </div>
                     </form>
+                  </div>
+                  </div>
 
-                    <!-- Listado -->
-                    <div style="flex:1 1 520px;min-width:420px;">
-                    <h3 style="margin-top:0;">Ausencias detectadas</h3>
-                    <?php
-                    global $wpdb; $table = $wpdb->prefix.'gw_ausencias';
-                    $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
-                    if (!$rows) {
-                        echo '<p>No hay ausencias registradas.</p>';
-                    } else {
-                        echo '<table class="widefat striped"><thead><tr><th>Usuario</th><th>Capacitación</th><th>Fecha/Hora</th><th>Estado</th><th>Recordatorios</th><th>Acciones</th></tr></thead><tbody>';
-                        foreach ($rows as $r) {
-                        $u = get_user_by('id', intval($r['user_id']));
-                        $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
-                        echo '<tr data-aid="'.intval($r['id']).'">';
-                        echo '<td>'. esc_html($u ? ($u->display_name ?: $u->user_email) : ('#'.$r['user_id'])) .'</td>';
-                        echo '<td>'. esc_html($cap_title) .'</td>';
-                        echo '<td>'. esc_html($r['fecha']) .'</td>';
-                        echo '<td>'. esc_html($r['status']) .'</td>';
-                        echo '<td>'. intval($r['reminders_sent']) .'</td>';
-                        echo '<td>'
-                            .'<button type="button" class="button button-small gw-abs-resolver" data-id="'.intval($r['id']).'">Marcar resuelto</button> '
-                            .'<button type="button" class="button button-small gw-abs-reactivar" data-uid="'.intval($r['user_id']).'">Reactivar usuario</button> '
-                            .'<button type="button" class="button button-small gw-abs-ocultar" data-id="'.intval($r['id']).'">Ocultar</button>'
-                            .'</td>';
-                        echo '</tr>';
-                        }
-                        echo '</tbody></table>';
-                    }
-                    ?>
+                    <!-- TAB 8: AUSENCIAS DETECTADAS (LISTADO) -->
+                    <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias_detectadas" style="display:none;">
+                    <div class="gw-form-header">
+                    <h1>Ausencias detectadas</h1>
+                    <p>Control de ausencias de voluntarios.</p>
                     </div>
-                </div>
+
+                    <div class="gw-abs-list" style="flex:1 1 520px;min-width:420px;">
+                    <h3 style="margin-top:0;">Ausencias detectadas</h3>
+                <?php
+                global $wpdb; $table = $wpdb->prefix.'gw_ausencias';
+                $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
+            if (!$rows) {
+          echo '<p>No hay ausencias registradas.</p>';
+        } else {
+          echo '<table class="widefat striped"><thead><tr><th>Usuario</th><th>Capacitación</th><th>Fecha/Hora</th><th>Estado</th><th>Recordatorios</th><th>Acciones</th></tr></thead><tbody>';
+          foreach ($rows as $r) {
+              $u = get_user_by('id', intval($r['user_id']));
+              $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
+              echo '<tr data-aid="'.intval($r['id']).'">';
+              echo '<td>'. esc_html($u ? ($u->display_name ?: $u->user_email) : ('#'.$r['user_id'])) .'</td>';
+              echo '<td>'. esc_html($cap_title) .'</td>';
+              echo '<td>'. esc_html($r['fecha']) .'</td>';
+              echo '<td>'. esc_html($r['status']) .'</td>';
+              echo '<td>'. intval($r['reminders_sent']) .'</td>';
+              echo '<td>'
+                    .'<button type="button" class="button button-small gw-abs-resolver" data-id="'.intval($r['id']).'">Marcar resuelto</button> '
+                    .'<button type="button" class="button button-small gw-abs-reactivar" data-uid="'.intval($r['user_id']).'">Reactivar usuario</button> '
+                    .'<button type="button" class="button button-small gw-abs-ocultar" data-id="'.intval($r['id']).'">Ocultar</button>'
+                  .'</td>';
+              echo '</tr>';
+          }
+          echo '</tbody></table>';
+      }
+    ?>
+  </div>
+</div>
 
                 <script>
                 (function(){
@@ -6055,19 +6222,24 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 /* ===== AUSENCIAS (solo desktop): evitar corte a la derecha ===== */
 @media (min-width: 1100px){
   /* wrapper flex de la sección */
-  #gw-admin-tab-ausencias > div[style*="display:flex"]{
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
     align-items: flex-start;
     gap: 24px;
   }
 
   /* panel de ajustes a la izquierda (ancho fijo razonable) */
-  #gw-admin-tab-ausencias #gw-abs-settings{
+  #gw-admin-tab-ausencias #gw-abs-settings
+#gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]
+#gw-admin-tab-ausencias .widefat ...
+#gw-admin-tab-ausencias .button.button-small.gw-abs-...{
     flex: 0 0 520px;
     max-width: 560px;
   }
 
   /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
-  #gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]{
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
     flex: 1 1 auto;
     min-width: 0 !important;          /* clave para que no se corte */
     overflow-x: auto;                  /* scroll solo si no cabe */
@@ -6075,7 +6247,8 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   }
 
   /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
-  #gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
     width: 100%;
     min-width: 980px;                  /* ajusta si lo ves necesario */
     table-layout: auto;
