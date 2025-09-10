@@ -423,142 +423,416 @@
     .gw-attendance-section { flex-direction: row; align-items: center; }
   }
   
-  /* MOBILE - 320px a 768px (scroll corregido) */
-  @media (max-width: 768px) {
-    html, body { overflow: hidden !important; height: 100vh !important; position: relative !important; }
-  
-    .gw-modern-wrapper {
-      position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
-      padding: 12px !important; align-items: stretch !important; justify-content: stretch !important; overflow: hidden !important;
-    }
-  
-    .gw-form-wrapper {
-      flex-direction: column; height: 100%; max-height: none; width: 100%;
-      margin: 0; border-radius: 16px; overflow: hidden; display: flex;
-    }
-  
-    .gw-sidebar {
-      width: 100%; min-width: auto; padding: 20px 16px; height: auto; flex-shrink: 0;
-      border-radius: 16px 16px 0 0; background: #d3d3d3;
-    }
-  
-    .gw-sidebar-header { margin-bottom: 16px; text-align: center; }
-    .gw-hero-logo2 { text-align: center; margin-bottom: 12px; }
-    .gw-hero-logo2 img { width: 12rem; max-width: 85%; height: auto; }
-  
-    .gw-steps-container {
-      display: flex; flex-direction: row; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 4px 0 12px 0;
-      -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;
-    }
-    .gw-steps-container::-webkit-scrollbar { display: none; }
-  
-    .gw-step-item { min-width: 160px; max-width: 160px; flex-shrink: 0; padding: 12px 8px; gap: 10px; margin: 0; border-radius: 12px; }
-    .gw-step-item:not(:last-child)::after { display: none; }
-    .gw-step-number { width: 28px; height: 28px; font-size: 12px; font-weight: 600; }
-    .gw-step-content h3 { font-size: 12px; margin-bottom: 2px; line-height: 1.2; }
-    .gw-step-content p {
-      font-size: 10px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    }
-  
-    .gw-sidebar-footer { display: none; }
-  
-    .gw-main-content {
-      flex: 1; padding: 24px 16px; border-radius: 0 0 16px 16px; background: white;
-      overflow-y: auto; overflow-x: hidden; align-items: flex-start; justify-content: flex-start;
-      -webkit-overflow-scrolling: touch; height: 0; /* fuerza flexbox a calcular correctamente */
-    }
-  
-    .gw-form-container { max-width: none; width: 100%; }
-    .gw-form-header { margin-bottom: 32px; text-align: center; }
-    .gw-form-header h1 { font-size: 28px; margin-bottom: 12px; line-height: 1.2; }
-    .gw-form-header p { font-size: 16px; line-height: 1.4; }
-  
-    .gw-btn-primary, .gw-btn-secondary, .gw-btn-danger {
-      width: 100%; min-width: auto; padding: 14px 24px; font-size: 15px; border-radius: 10px;
-    }
-    .gw-btn-admin { width: 100%; padding: 12px 20px; font-size: 13px; }
-  
-    .gw-form-actions { flex-direction: column; gap: 12px; padding-top: 24px; margin-bottom: 20px; }
-  
-    .gw-error-message, .gw-success-message { padding: 14px 16px; margin-bottom: 24px; font-size: 13px; border-radius: 10px; }
-  
-    /* Tarjetas y secciones */
-    .gw-training-card, .gw-session-card { padding: 16px; }
-    .gw-session-header { flex-direction: column; gap: 8px; text-align: center; }
-    .gw-training-header { flex-direction: column; text-align: center; gap: 12px; }
-    .gw-no-trainings, .gw-no-sessions, .gw-completion-message { padding: 32px 16px; }
-  
-    .gw-reminder-card {
-      padding: 20px; flex-direction: column; text-align: center; gap: 16px;
-    }
-  
-    .gw-training-actions,
-    .gw-confirmation-actions,
-    .gw-completion-actions,
-    .gw-attendance-section { flex-direction: column; align-items: stretch; gap: 12px; }
-  
-    .gw-training-actions button { min-width: auto; width: 100%; }
-  
-    .gw-admin-controls { position: static; text-align: center; margin-top: 20px; opacity: 1; }
-  
-    /* Éxito */
-    .gw-success-registration { padding: 32px 16px; }
-    .gw-success-title { font-size: 24px; }
-    .gw-success-icon { width: 64px; height: 64px; }
-    .gw-success-icon svg { width: 32px; height: 32px; }
+ /* MOBILE - 320px a 768px (scroll corregido) */
+@media (max-width: 768px) {
+  html, body { 
+    overflow: hidden !important; 
+    height: 100vh !important; 
+    width: 100vw !important;
+    position: relative !important; 
+  }
+
+  .gw-modern-wrapper {
+    position: fixed !important; 
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important; 
+    height: 100vh !important;
+    padding: 12px !important; 
+    align-items: stretch !important; 
+    justify-content: stretch !important; 
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .gw-form-wrapper {
+    flex-direction: column; 
+    height: 100%; 
+    max-height: none; 
+    width: 100%;
+    margin: 0; 
+    border-radius: 16px; 
+    overflow: hidden; 
+    display: flex;
+    flex: 1;
+  }
+
+  .gw-sidebar {
+    width: 100%; 
+    min-width: auto; 
+    padding: 20px 16px; 
+    height: auto; 
+    flex-shrink: 0;
+    border-radius: 16px 16px 0 0; 
+    background: #d3d3d3;
+  }
+
+  .gw-sidebar-header { 
+    margin-bottom: 16px; 
+    text-align: center; 
   }
   
-  /* MOBILE PEQUEÑO - menos de 480px */
-  @media (max-width: 479px) {
-    .gw-modern-wrapper { padding: 8px !important; }
-  
-    .gw-form-wrapper { min-height: calc(100vh - 16px); border-radius: 12px; }
-  
-    .gw-sidebar { padding: 16px 12px; border-radius: 12px 12px 0 0; }
-  
-    .gw-hero-logo2 img { width: 10rem; }
-  
-    .gw-step-item { min-width: 140px; max-width: 140px; padding: 8px 6px; }
-    .gw-step-number { width: 24px; height: 24px; font-size: 11px; }
-    .gw-step-content h3 { font-size: 11px; margin-bottom: 1px; }
-    .gw-step-content p { font-size: 9px; }
-  
-    .gw-main-content { padding: 20px 12px; border-radius: 0 0 12px 12px; }
-  
-    .gw-form-header { margin-bottom: 24px; }
-    .gw-form-header h1 { font-size: 24px; margin-bottom: 8px; }
-    .gw-form-header p { font-size: 14px; }
-  
-    .gw-btn-primary, .gw-btn-secondary, .gw-btn-danger { padding: 12px 20px; font-size: 14px; border-radius: 8px; }
-    .gw-btn-admin { padding: 10px 16px; font-size: 12px; }
-  
-    .gw-form-actions { padding-top: 20px; gap: 10px; }
-  
-    .gw-error-message, .gw-success-message { padding: 12px 14px; margin-bottom: 20px; font-size: 12px; }
-  
-    .gw-session-confirmation { margin-bottom: 20px; }
-    .gw-session-confirmation .gw-session-card { padding: 16px 12px; border-radius: 12px; }
-  
-    .gw-session-header h3 { font-size: 16px; }
-    .gw-session-icon { width: 36px; height: 36px; }
-  
-    .gw-session-details { padding: 12px; gap: 10px; }
-    .gw-session-detail strong { font-size: 12px; }
-    .gw-session-detail span:not(strong) { font-size: 14px; }
-  
-    .gw-training-card { padding: 16px 12px; }
-    .gw-session-card { padding: 12px; gap: 12px; }
-    .gw-session-title { font-size: 15px; margin-bottom: 2px; }
-  
-    .gw-confirmation-actions { margin-top: 16px; gap: 10px; }
-  
-    .gw-reminder-card { padding: 16px; }
-  
-    /* Éxito */
-    .gw-success-registration { padding: 24px 12px; }
-    .gw-success-title { font-size: 20px; }
-    .gw-success-icon { width: 56px; height: 56px; margin-bottom: 16px; }
-    .gw-success-description { font-size: 13px; margin-bottom: 20px; }
+  .gw-hero-logo2 { 
+    text-align: center; 
+    margin-bottom: 12px; 
   }
+  
+  .gw-hero-logo2 img { 
+    width: 12rem; 
+    max-width: 85%; 
+    height: auto; 
+  }
+
+  .gw-steps-container {
+    display: flex; 
+    flex-direction: row; 
+    gap: 8px; 
+    overflow-x: auto; 
+    overflow-y: hidden; 
+    padding: 4px 0 12px 0;
+    -webkit-overflow-scrolling: touch; 
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+  }
+  
+  .gw-steps-container::-webkit-scrollbar { 
+    display: none; 
+  }
+
+  .gw-step-item { 
+    min-width: 160px; 
+    max-width: 160px; 
+    flex-shrink: 0; 
+    padding: 12px 8px; 
+    gap: 10px; 
+    margin: 0; 
+    border-radius: 12px; 
+  }
+  
+  .gw-step-item:not(:last-child)::after { 
+    display: none; 
+  }
+  
+  .gw-step-number { 
+    width: 28px; 
+    height: 28px; 
+    font-size: 12px; 
+    font-weight: 600; 
+  }
+  
+  .gw-step-content h3 { 
+    font-size: 12px; 
+    margin-bottom: 2px; 
+    line-height: 1.2; 
+  }
+  
+  .gw-step-content p {
+    font-size: 10px; 
+    line-height: 1.2; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+    display: -webkit-box; 
+    -webkit-line-clamp: 2; 
+    -webkit-box-orient: vertical;
+  }
+
+  .gw-sidebar-footer { 
+    display: none; 
+  }
+
+  .gw-main-content {
+    flex: 1; 
+    padding: 24px 16px; 
+    border-radius: 0 0 16px 16px; 
+    background: white;
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    align-items: flex-start; 
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch; 
+    display: flex;
+    flex-direction: column;
+  }
+
+  .gw-form-container { 
+    max-width: none; 
+    width: 100%; 
+    padding-bottom: 40px;
+  }
+  
+  .gw-form-header { 
+    margin-bottom: 32px; 
+    text-align: center; 
+  }
+  
+  .gw-form-header h1 { 
+    font-size: 28px; 
+    margin-bottom: 12px; 
+    line-height: 1.2; 
+  }
+  
+  .gw-form-header p { 
+    font-size: 16px; 
+    line-height: 1.4; 
+  }
+
+  .gw-btn-primary, .gw-btn-secondary, .gw-btn-danger {
+    width: 100%; 
+    min-width: auto; 
+    padding: 14px 24px; 
+    font-size: 15px; 
+    border-radius: 10px;
+  }
+  
+  .gw-btn-admin { 
+    width: 100%; 
+    padding: 12px 20px; 
+    font-size: 13px; 
+  }
+
+  .gw-form-actions { 
+    flex-direction: column; 
+    gap: 12px; 
+    padding-top: 24px; 
+    margin-bottom: 20px; 
+    display: flex;
+  }
+
+  .gw-error-message, .gw-success-message { 
+    padding: 14px 16px; 
+    margin-bottom: 24px; 
+    font-size: 13px; 
+    border-radius: 10px; 
+  }
+
+  /* Tarjetas y secciones */
+  .gw-training-card, .gw-session-card { 
+    padding: 16px; 
+  }
+  
+  .gw-session-header { 
+    flex-direction: column; 
+    gap: 8px; 
+    text-align: center; 
+    display: flex;
+  }
+  
+  .gw-training-header { 
+    flex-direction: column; 
+    text-align: center; 
+    gap: 12px; 
+    display: flex;
+  }
+  
+  .gw-no-trainings, .gw-no-sessions, .gw-completion-message { 
+    padding: 32px 16px; 
+  }
+
+  .gw-reminder-card {
+    padding: 20px; 
+    flex-direction: column; 
+    text-align: center; 
+    gap: 16px;
+    display: flex;
+  }
+
+  .gw-training-actions,
+  .gw-confirmation-actions,
+  .gw-completion-actions,
+  .gw-attendance-section { 
+    flex-direction: column; 
+    align-items: stretch; 
+    gap: 12px; 
+    display: flex;
+  }
+
+  .gw-training-actions button { 
+    min-width: auto; 
+    width: 100%; 
+  }
+
+  .gw-admin-controls { 
+    position: static; 
+    text-align: center; 
+    margin-top: 20px; 
+    opacity: 1; 
+  }
+
+  /* Éxito */
+  .gw-success-registration { 
+    padding: 32px 16px; 
+  }
+  
+  .gw-success-title { 
+    font-size: 24px; 
+  }
+  
+  .gw-success-icon { 
+    width: 64px; 
+    height: 64px; 
+  }
+  
+  .gw-success-icon svg { 
+    width: 32px; 
+    height: 32px; 
+  }
+}
+
+/* MOBILE PEQUEÑO - menos de 480px */
+@media (max-width: 479px) {
+  .gw-modern-wrapper { 
+    padding: 8px !important; 
+  }
+
+  .gw-form-wrapper { 
+    border-radius: 12px; 
+  }
+
+  .gw-sidebar { 
+    padding: 16px 12px; 
+    border-radius: 12px 12px 0 0; 
+  }
+
+  .gw-hero-logo2 img { 
+    width: 10rem; 
+  }
+
+  .gw-step-item { 
+    min-width: 140px; 
+    max-width: 140px; 
+    padding: 8px 6px; 
+  }
+  
+  .gw-step-number { 
+    width: 24px; 
+    height: 24px; 
+    font-size: 11px; 
+  }
+  
+  .gw-step-content h3 { 
+    font-size: 11px; 
+    margin-bottom: 1px; 
+  }
+  
+  .gw-step-content p { 
+    font-size: 9px; 
+  }
+
+  .gw-main-content { 
+    padding: 20px 12px; 
+    border-radius: 0 0 12px 12px; 
+  }
+
+  .gw-form-header { 
+    margin-bottom: 24px; 
+  }
+  
+  .gw-form-header h1 { 
+    font-size: 24px; 
+    margin-bottom: 8px; 
+  }
+  
+  .gw-form-header p { 
+    font-size: 14px; 
+  }
+
+  .gw-btn-primary, .gw-btn-secondary, .gw-btn-danger { 
+    padding: 12px 20px; 
+    font-size: 14px; 
+    border-radius: 8px; 
+  }
+  
+  .gw-btn-admin { 
+    padding: 10px 16px; 
+    font-size: 12px; 
+  }
+
+  .gw-form-actions { 
+    padding-top: 20px; 
+    gap: 10px; 
+  }
+
+  .gw-error-message, .gw-success-message { 
+    padding: 12px 14px; 
+    margin-bottom: 20px; 
+    font-size: 12px; 
+  }
+
+  .gw-session-confirmation { 
+    margin-bottom: 20px; 
+  }
+  
+  .gw-session-confirmation .gw-session-card { 
+    padding: 16px 12px; 
+    border-radius: 12px; 
+  }
+
+  .gw-session-header h3 { 
+    font-size: 16px; 
+  }
+  
+  .gw-session-icon { 
+    width: 36px; 
+    height: 36px; 
+  }
+
+  .gw-session-details { 
+    padding: 12px; 
+    gap: 10px; 
+  }
+  
+  .gw-session-detail strong { 
+    font-size: 12px; 
+  }
+  
+  .gw-session-detail span:not(strong) { 
+    font-size: 14px; 
+  }
+
+  .gw-training-card { 
+    padding: 16px 12px; 
+  }
+  
+  .gw-session-card { 
+    padding: 12px; 
+    gap: 12px; 
+  }
+  
+  .gw-session-title { 
+    font-size: 15px; 
+    margin-bottom: 2px; 
+  }
+
+  .gw-confirmation-actions { 
+    margin-top: 16px; 
+    gap: 10px; 
+  }
+
+  .gw-reminder-card { 
+    padding: 16px; 
+  }
+
+  /* Éxito */
+  .gw-success-registration { 
+    padding: 24px 12px; 
+  }
+  
+  .gw-success-title { 
+    font-size: 20px; 
+  }
+  
+  .gw-success-icon { 
+    width: 56px; 
+    height: 56px; 
+    margin-bottom: 16px; 
+  }
+  
+  .gw-success-description { 
+    font-size: 13px; 
+    margin-bottom: 20px; 
+  }
+}
   

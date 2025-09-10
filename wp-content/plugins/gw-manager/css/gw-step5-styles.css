@@ -770,6 +770,7 @@ html, body {
     html, body {
         overflow: hidden !important;
         height: 100vh !important;
+        width: 100vw !important;
         position: relative !important;
     }
     
@@ -785,6 +786,8 @@ html, body {
         align-items: stretch !important;
         justify-content: stretch !important;
         overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
     
     .gw-form-wrapper {
@@ -796,6 +799,7 @@ html, body {
         border-radius: 16px;
         overflow: hidden;
         display: flex;
+        flex: 1;
     }
     
     .gw-sidebar {
@@ -891,12 +895,14 @@ html, body {
         align-items: flex-start;
         justify-content: flex-start;
         -webkit-overflow-scrolling: touch;
-        height: 0; /* Fuerza el uso correcto de flexbox */
+        display: flex;
+        flex-direction: column;
     }
     
     .gw-form-container {
         max-width: none;
         width: 100%;
+        padding-bottom: 40px;
     }
     
     .gw-form-header {
@@ -934,7 +940,8 @@ html, body {
         flex-direction: column;
         gap: 12px;
         padding-top: 24px;
-        margin-bottom: 20px; /* Espacio adicional para scroll */
+        margin-bottom: 20px;
+        display: flex;
     }
     
     .gw-error-message,
@@ -961,7 +968,7 @@ html, body {
         text-align: center;
         margin-bottom: 20px;
         align-self: center;
-    
+        display: flex;
     }
     
     .gw-session-header h3 {
@@ -979,7 +986,7 @@ html, body {
         gap: 12px;
         padding: 16px;
         width: 100%;
-
+        display: grid;
     }
     
     .gw-session-detail span:not(strong) {
@@ -1010,6 +1017,7 @@ html, body {
         align-items: flex-start;
         gap: 16px;
         padding: 16px;
+        display: flex;
     }
     
     .gw-session-card .gw-btn-secondary {
@@ -1021,12 +1029,13 @@ html, body {
         align-items: stretch;
         gap: 12px;
         margin-top: 20px;
+        display: flex;
     }
     
     .gw-charla-note {
         padding: 14px;
         margin-top: 20px;
-        margin-bottom: 20px; /* Espacio adicional */
+        margin-bottom: 20px;
     }
     
     .gw-charla-note p {
@@ -1035,7 +1044,7 @@ html, body {
     
     .gw-admin-controls {
         margin-top: 24px;
-        margin-bottom: 20px; /* Espacio adicional */
+        margin-bottom: 20px;
         padding-top: 20px;
     }
     
@@ -1046,7 +1055,7 @@ html, body {
     
     /* Success screen mobile */
     .gw-success-registration {
-        padding: 32px 16px 40px 16px; /* Padding inferior adicional */
+        padding: 32px 16px 40px 16px;
     }
     
     .gw-success-title {
@@ -1074,7 +1083,6 @@ html, body {
     }
     
     .gw-form-wrapper {
-        min-height: calc(100vh - 16px);
         border-radius: 12px;
     }
     
@@ -1172,7 +1180,6 @@ html, body {
     .gw-session-details {
         padding: 12px;
         gap: 10px;
-        
     }
     
     .gw-session-detail strong {
