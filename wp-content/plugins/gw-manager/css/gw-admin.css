@@ -282,7 +282,7 @@ html, body {
 /* CONTENIDO PRINCIPAL */
 .gw-main-content {
   flex: 1;
-  display: flex;
+
   align-items: flex-start;
   justify-content: flex-start;
   padding: 40px 60px;

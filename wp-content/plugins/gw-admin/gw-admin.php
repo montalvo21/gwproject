@@ -87,57 +87,262 @@ function gw_portal_voluntario_shortcode() {
         . '<line x1="21" y1="12" x2="9" y2="12"/>'
         . '</svg>'
         . '</a>';
+    
     echo '<style>
-  .gw-logout-btn{
-      position:fixed !important;
-      top:14px !important;
-      right:18px !important;
-      z-index:2147483647 !important; /* sobre overlays */
-      display:flex !important; align-items:center !important; gap:8px !important;
-      padding:10px 14px !important;
-      border-radius:10px !important;
-      font-weight:600 !important;
-      text-decoration:none !important;
-      letter-spacing:.2px !important;
-      background:#ea6b6b !important; color:#fff !important;
-      box-shadow:0 4px 10px rgba(0,0,0,.12) !important;
-      opacity:.98 !important;
-      visibility:visible !important; pointer-events:auto !important;
-      transition:all .15s ease-in-out !important;
-  }
-  .gw-logout-btn:hover{opacity:1 !important;transform:translateY(-1px) !important}
-  .gw-logout-icon{display:inline-block !important; width:18px !important; height:18px !important}
-  .gw-form-wrapper{position:relative}
-  body.admin-bar .gw-logout-btn{top:46px !important}
-  @media (min-width:783px){body.admin-bar .gw-logout-btn{top:32px !important}}
-  @media (max-width:640px){
-      .gw-logout-text{display:none !important}
-      .gw-logout-btn{ top:12px !important; right:12px !important; padding:10px !important; border-radius:999px !important }
-  }
-  </style>';
-    echo '<script>
-(function(){
-  try{
-    var btn=document.querySelector(\'.gw-logout-btn\');
-    if(!btn) return;
-    // Mover al final del body para evitar stacking contexts
-    if(btn.parentNode!==document.body){ document.body.appendChild(btn); }
-    // Forzar estilos críticos
-    btn.style.position=\'fixed\';
-    btn.style.zIndex=\'2147483647\';
-    btn.style.visibility=\'visible\';
-    btn.style.pointerEvents=\'auto\';
-    // Confirmación al hacer click (una sola vez)
-    if(!btn.dataset.bound){
-      btn.addEventListener(\'click\',function(e){
-        var ok = window.confirm(\'¿Seguro que deseas cerrar sesión? Tu progreso se guardará.\');
-        if(!ok){ e.preventDefault(); e.stopPropagation(); }
-      });
-      btn.dataset.bound=\'1\';
+    .gw-logout-btn {
+        position: fixed !important;
+        top: 20px !important;
+        right: 20px !important;
+        z-index: 2147483647 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 12px 16px !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        text-decoration: none !important;
+        letter-spacing: 0.2px !important;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        opacity: 0.95 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
-  }catch(e){}
-})();
-</script>';
+    
+    .gw-logout-btn:hover {
+        opacity: 1 !important;
+        transform: translateY(-2px) scale(1.02) !important;
+        box-shadow: 0 12px 35px rgba(239, 68, 68, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        background: linear-gradient(135deg, #f87171 0%, #ef4444 100%) !important;
+    }
+    
+    .gw-logout-btn:active {
+        transform: translateY(-1px) scale(1.01) !important;
+        transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    .gw-logout-icon {
+        display: inline-block !important;
+        width: 18px !important;
+        height: 18px !important;
+        stroke-width: 2.5 !important;
+        opacity: 0.9 !important;
+    }
+    
+    .gw-logout-text {
+        white-space: nowrap !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Adaptación para admin bar de WordPress */
+    body.admin-bar .gw-logout-btn {
+        top: 52px !important;
+    }
+    
+    @media (min-width: 783px) {
+        body.admin-bar .gw-logout-btn {
+            top: 52px !important;
+        }
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .gw-logout-btn {
+            top: 16px !important;
+            right: 16px !important;
+            padding: 10px 14px !important;
+            font-size: 13px !important;
+        }
+    }
+    
+    @media (max-width: 640px) {
+        .gw-logout-text {
+            display: none !important;
+        }
+        .gw-logout-btn {
+            top: 12px !important;
+            right: 12px !important;
+            padding: 10px !important;
+            border-radius: 50% !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            justify-content: center !important;
+        }
+        .gw-logout-icon {
+            width: 20px !important;
+            height: 20px !important;
+        }
+        body.admin-bar .gw-logout-btn {
+            top: 48px !important;
+        }
+    }
+    
+    /* Adaptación específica para tu diseño con sidebar */
+    @media (min-width: 1025px) {
+        .gw-logout-btn {
+            right: 32px !important;
+            top: 32px !important;
+        }
+    }
+    
+    /* Animación de entrada suave */
+    @keyframes fadeInScale {
+        0% {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.9);
+        }
+        100% {
+            opacity: 0.95;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    .gw-logout-btn {
+        animation: fadeInScale 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+    }
+    </style>';
+    
+    echo '<script>
+    (function(){
+        try {
+            var btn = document.querySelector(".gw-logout-btn");
+            if (!btn) return;
+            
+            // Mover al final del body para evitar stacking contexts
+            if (btn.parentNode !== document.body) {
+                document.body.appendChild(btn);
+            }
+            
+            // Forzar estilos críticos
+            btn.style.position = "fixed";
+            btn.style.zIndex = "2147483647";
+            btn.style.visibility = "visible";
+            btn.style.pointerEvents = "auto";
+            
+            // Confirmación mejorada al hacer click
+            if (!btn.dataset.bound) {
+                btn.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Crear modal de confirmación personalizado
+                    var modal = document.createElement("div");
+                    modal.style.cssText = `
+                        position: fixed !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100vw !important;
+                        height: 100vh !important;
+                        background: rgba(0, 0, 0, 0.6) !important;
+                        z-index: 2147483648 !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        backdrop-filter: blur(4px) !important;
+                        animation: fadeIn 0.2s ease-out !important;
+                    `;
+                    
+                    modal.innerHTML = `
+                        <div style="
+                            background: white !important;
+                            padding: 32px !important;
+                            border-radius: 16px !important;
+                            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+                            text-align: center !important;
+                            max-width: 400px !important;
+                            margin: 20px !important;
+                            animation: scaleIn 0.2s ease-out !important;
+                        ">
+                            <h3 style="margin: 0 0 16px 0 !important; color: #1f2937 !important; font-size: 20px !important;">
+                                ¿Cerrar sesión?
+                            </h3>
+                            <p style="margin: 0 0 24px 0 !important; color: #6b7280 !important; line-height: 1.5 !important;">
+                                Tu progreso se guardará automáticamente.
+                            </p>
+                            <div style="display: flex !important; gap: 12px !important; justify-content: center !important;">
+                                <button id="cancel-logout" style="
+                                    padding: 10px 20px !important;
+                                    border: 2px solid #e5e7eb !important;
+                                    background: white !important;
+                                    color: #6b7280 !important;
+                                    border-radius: 8px !important;
+                                    font-weight: 600 !important;
+                                    cursor: pointer !important;
+                                    transition: all 0.2s !important;
+                                ">
+                                    Cancelar
+                                </button>
+                                <button id="confirm-logout" style="
+                                    padding: 10px 20px !important;
+                                    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+                                    color: white !important;
+                                    border: none !important;
+                                    border-radius: 8px !important;
+                                    font-weight: 600 !important;
+                                    cursor: pointer !important;
+                                    transition: all 0.2s !important;
+                                ">
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Agregar estilos de animación
+                    var styleSheet = document.createElement("style");
+                    styleSheet.textContent = `
+                        @keyframes fadeIn {
+                            from { opacity: 0; }
+                            to { opacity: 1; }
+                        }
+                        @keyframes scaleIn {
+                            from { transform: scale(0.9); opacity: 0; }
+                            to { transform: scale(1); opacity: 1; }
+                        }
+                    `;
+                    document.head.appendChild(styleSheet);
+                    
+                    document.body.appendChild(modal);
+                    
+                    // Eventos de los botones
+                    document.getElementById("cancel-logout").onclick = function() {
+                        modal.remove();
+                        styleSheet.remove();
+                    };
+                    
+                    document.getElementById("confirm-logout").onclick = function() {
+                        window.location.href = btn.href;
+                    };
+                    
+                    // Cerrar con escape o click fuera
+                    modal.onclick = function(e) {
+                        if (e.target === modal) {
+                            modal.remove();
+                            styleSheet.remove();
+                        }
+                    };
+                    
+                    document.addEventListener("keydown", function(e) {
+                        if (e.key === "Escape") {
+                            modal.remove();
+                            styleSheet.remove();
+                        }
+                    });
+                });
+                
+                btn.dataset.bound = "1";
+            }
+        } catch(e) {
+            console.error("Error en logout button:", e);
+        }
+    })();
+    </script>';
 
     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
     if ($current_step == 1) {

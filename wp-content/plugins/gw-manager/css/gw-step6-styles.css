@@ -392,72 +392,138 @@ html, body {
    ESTILOS ESPECÍFICOS PARA STEP 6 - PROYECTOS
    ======================================== */
 
-/* Grid de proyectos */
-.gw-projects-grid {
+   .gw-projects-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 12px; /* Reducido de 20px a 12px */
     margin-bottom: 32px;
+    max-height: 60vh; /* Límite de altura */
+    overflow-y: auto; /* Scroll cuando hay muchos proyectos */
+    padding-right: 8px; /* Espacio para scrollbar */
 }
 
-/* Tarjeta de proyecto */
+/* Scrollbar personalizada */
+.gw-projects-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.gw-projects-grid::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.gw-projects-grid::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.gw-projects-grid::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Tarjeta de proyecto - MÁS COMPACTA */
 .gw-project-card {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 24px;
+    border-radius: 12px;
+    padding: 12px; /* Reducido de 16px a 12px */
+    margin-bottom: 0; /* Removido ya que el grid maneja el espaciado */
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
 }
 
-.gw-project-card:hover {
-    background: #f1f5f9;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    border-color: #cbd5e1;
-}
-
-/* Header del proyecto */
+/* Header del proyecto - MÁS COMPACTO */
 .gw-project-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px; /* Reducido de 12px a 10px */
+    margin-bottom: 12px; /* Reducido de 16px a 12px */
 }
 
 .gw-project-icon {
-    width: 40px;
-    height: 40px;
+    width: 36px; /* Reducido de 40px a 36px */
+    height: 36px;
     background: linear-gradient(135deg, #c4c33f 0%, #a3a332 100%);
-    border-radius: 12px;
+    border-radius: 10px; /* Reducido de 12px a 10px */
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     flex-shrink: 0;
+    font-size: 14px; /* Agregado para texto más pequeño */
 }
 
 .gw-project-header h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 16px; /* Reducido de 18px a 16px */
     font-weight: 600;
     color: #1e293b;
     line-height: 1.3;
 }
 
-/* Descripción del proyecto */
+/* Descripción del proyecto - MÁS COMPACTA */
 .gw-project-description {
-    margin-bottom: 20px;
+    margin-bottom: 12px; /* Reducido de 20px a 12px */
 }
 
 .gw-project-description p {
     margin: 0;
-    font-size: 14px;
+    font-size: 13px; /* Reducido de 14px a 13px */
     color: #64748b;
-    line-height: 1.5;
+    line-height: 1.4; /* Reducido de 1.5 a 1.4 */
+    /* Limitar a 2 líneas máximo */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
+/* Versión ULTRA COMPACTA cuando hay muchos proyectos */
+.gw-projects-grid.ultra-compact .gw-project-card {
+    padding: 8px;
+}
+
+.gw-projects-grid.ultra-compact .gw-project-header {
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.gw-projects-grid.ultra-compact .gw-project-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+}
+
+.gw-projects-grid.ultra-compact .gw-project-header h3 {
+    font-size: 14px;
+}
+
+.gw-projects-grid.ultra-compact .gw-project-description {
+    margin-bottom: 8px;
+}
+
+.gw-projects-grid.ultra-compact .gw-project-description p {
+    font-size: 12px;
+    -webkit-line-clamp: 1; /* Solo 1 línea en ultra compacto */
+}
+
+/* Grid responsive - 2 columnas en pantallas grandes */
+@media (min-width: 1200px) {
+    .gw-projects-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        max-height: 65vh;
+    }
+}
+
+/* 3 columnas en pantallas muy grandes */
+@media (min-width: 1600px) {
+    .gw-projects-grid {
+        gap: 20px;
+        max-height: 70vh;
+    }
+}
 /* Confirmación de proyecto */
 .gw-project-confirmation {
     margin-bottom: 32px;

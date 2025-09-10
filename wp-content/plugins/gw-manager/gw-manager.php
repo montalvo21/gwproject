@@ -1514,7 +1514,7 @@ add_action('wp_footer', function(){
             '<strong>Asistencias</strong>'+
             '<button type="button" id="gw-asist-close" class="button">Cerrar</button>'+
           '</div>'+
-          '<div id="gw-asist-body" style="padding:14px;max-height:70vh;overflow:auto;"></div>'+
+          '<div id="gw-asist-body" style="padding:29px;max-height:70vh;overflow:auto;"></div>'+
         '</div>';
       document.body.appendChild(w);
       w.addEventListener('click', function(e){
@@ -1612,7 +1612,7 @@ add_action('wp_footer', function(){
         var b = document.createElement('button');
         b.className = 'button gw-btn-asist';
         b.textContent = 'Asistencias';
-        b.style.marginLeft = '6px';
+        b.style.marginLeft = '-1px';
         b.addEventListener('click', function(){ openAsist(uid); });
         acciones.appendChild(b);
       });
@@ -1822,81 +1822,442 @@ add_action('wp_footer', function(){
   $ajax  = admin_url('admin-ajax.php');
   $nonce = wp_create_nonce('gw_notif');
   ?>
-  <style>
-    #gw-notif-btn{position:fixed;top:18px;right:18px;z-index:100005;background:#fff;border:1px solid #d9e1ef;border-radius:999px;padding:8px 12px;display:flex;gap:8px;align-items:center;box-shadow:0 8px 22px rgba(0,0,0,.08)}
-    #gw-notif-btn .badge{min-width:18px;height:18px;border-radius:10px;background:#dc2626;color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
-    #gw-notif-panel{position:fixed;top:58px;right:18px;width:360px;max-width:92vw;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.15);z-index:100004;display:none;overflow:hidden}
-    #gw-notif-panel header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f7fafd;border-bottom:1px solid #e2e8f0}
-    #gw-notif-list{max-height:60vh;overflow:auto}
-    #gw-notif-list .item{padding:10px 12px;border-bottom:1px solid #f1f5f9}
-    #gw-notif-list .meta{font-size:12px;color:#64748b}
-  </style>
-  <div id="gw-notif-btn" title="Notificaciones">
-    <span>🔔</span>
-    <span class="badge" id="gw-notif-badge" style="display:none">0</span>
-  </div>
-  <div id="gw-notif-panel" role="dialog" aria-label="Notificaciones">
-    <header>
-      <strong>Notificaciones</strong>
-      <div>
-        <button id="gw-notif-mark" class="button button-small">Marcar todo como leído</button>
-        <button id="gw-notif-close" class="button button-small">Cerrar</button>
+<style>
+  #gw-notif-btn {
+    position: fixed;
+    background: white;
+    top: 20px;
+    right: 20px;
+    z-index: 100005;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(10px);
+  }
+
+  #gw-notif-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-color: #cbd5e1;
+  }
+
+  #gw-notif-btn .icon {
+    width: 20px;
+    height: 20px;
+    color: #64748b;
+    transition: color 0.2s ease;
+  }
+
+  #gw-notif-btn:hover .icon {
+    color: #3b82f6;
+  }
+
+  #gw-notif-btn .badge {
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  #gw-notif-panel {
+    position: fixed;
+    top: 72px;
+    right: 20px;
+    width: 380px;
+    max-width: 92vw;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15), 0 8px 20px rgba(0, 0, 0, 0.08);
+    z-index: 100004;
+    display: none;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  #gw-notif-panel header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  #gw-notif-panel header strong {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #gw-notif-panel header .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  #gw-notif-panel .button {
+    padding: 6px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+
+  #gw-notif-panel .button:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+  }
+
+  #gw-notif-mark {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: white !important;
+    border-color: #2563eb !important;
+  }
+
+  #gw-notif-mark:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    border-color: #1d4ed8 !important;
+  }
+
+  #gw-notif-list {
+    max-height: 400px;
+    overflow-y: auto;
+    background: white;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+  }
+
+  #gw-notif-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  #gw-notif-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+
+  #gw-notif-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+
+  #gw-notif-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  #gw-notif-list .item {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.2s ease;
+    position: relative;
+  }
+
+  #gw-notif-list .item:hover {
+    background: #f8fafc;
+  }
+
+  #gw-notif-list .item:last-child {
+    border-bottom: none;
+  }
+
+  #gw-notif-list .item.unread {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+    border-left: 3px solid #3b82f6;
+  }
+
+  #gw-notif-list .item .content {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  #gw-notif-list .item .icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #4f46e5;
+  }
+
+  #gw-notif-list .item .text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #gw-notif-list .item .title {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  #gw-notif-list .item .meta {
+    font-size: 12px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #gw-notif-list .item .time {
+    color: #94a3b8;
+    font-size: 11px;
+  }
+
+  #gw-notif-list .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+  }
+
+  #gw-notif-list .empty .icon {
+    width: 48px;
+    height: 48px;
+    background: #f3f4f6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    color: #9ca3af;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    #gw-notif-btn {
+      top: 16px;
+      right: 16px;
+      padding: 10px 12px;
+      margin-top: 3rem;
+    
+    }
+
+    #gw-notif-panel {
+      top: 60px;
+      right: 16px;
+      width: calc(100vw - 32px);
+    }
+
+    #gw-notif-panel header {
+      padding: 12px 16px;
+      flex-direction: column;
+      gap: 8px;
+      text-align: center;
+    }
+
+    #gw-notif-list .item {
+      padding: 12px 16px;
+    }
+  }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    #gw-notif-btn {
+      background: linear-gradient(135deg, #c4c33f 100%);
+      border-color: #374151;
+      color: #e5e7eb;
+      margin-top: 3rem;
+
+      @media (min-width: 768px) {
+    #gw-notif-btn {
+
+      margin-top: 1rem;
+    
+    }
+    }
+  }
+
+    #gw-notif-panel {
+      background: #1f2937;
+      border-color: #374151;
+    }
+
+    #gw-notif-panel header {
+      background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+      border-color: #4b5563;
+    }
+
+    #gw-notif-list .item {
+      border-color: #374151;
+    }
+
+    #gw-notif-list .item:hover {
+      background: #374151;
+    }
+  }
+</style>
+
+<div id="gw-notif-btn" title="Notificaciones" role="button" tabindex="0">
+  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+  </svg>
+  <span class="badge" id="gw-notif-badge" style="display:none">0</span>
+</div>
+
+<div id="gw-notif-panel" role="dialog" aria-label="Panel de Notificaciones">
+  <header>
+    <strong>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </svg>
+      Notificaciones
+    </strong>
+    <div class="actions">
+      <button id="gw-notif-mark" class="button">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20,6 9,17 4,12"></polyline>
+        </svg>
+        Marcar como leídas
+      </button>
+      <button id="gw-notif-close" class="button">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        Cerrar
+      </button>
+    </div>
+  </header>
+  
+  <div id="gw-notif-list">
+    <div class="empty">
+      <div class="icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
       </div>
-    </header>
-    <div id="gw-notif-list"><div class="item">Cargando…</div></div>
+      <div class="title">No hay notificaciones</div>
+      <div class="meta">Todas las notificaciones aparecerán aquí</div>
+    </div>
   </div>
-  <script>
-  (function(){
-    var AJAX = '<?php echo esc_js($ajax); ?>';
-    var NONCE= '<?php echo esc_js($nonce); ?>';
-    var btn = document.getElementById('gw-notif-btn');
-    var panel = document.getElementById('gw-notif-panel');
-    var badge = document.getElementById('gw-notif-badge');
-    var list = document.getElementById('gw-notif-list');
+</div>
 
-    function fetchNotifs(){
-      var fd = new FormData(); fd.append('action','gw_notif_fetch'); fd.append('nonce', NONCE);
-      return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
-      .then(r=>r.json()).then(function(resp){
-        if (!resp || !resp.success) return;
-        var items = resp.data.items || [];
-        var count = (typeof resp.data.badge !== 'undefined') ? parseInt(resp.data.badge, 10) : (resp.data.unread || 0);
-        // badge = pendientes por resolver (charla/cap no aprobadas)
-        if (count > 0){ badge.style.display='inline-flex'; badge.textContent = count; }
-        else { badge.style.display='none'; }
-        // render
-        if (!items.length){ list.innerHTML = '<div class="item">Sin notificaciones recientes.</div>'; return; }
-        var html='';
-        items.forEach(function(it){
-          var label = (it.type==='charla'?'🗣️ Charla':(it.type==='cap'?'🎓 Capacitación':(it.type==='docs'?'📄 Documentos':'🔔 Evento')));
-          html += '<div class="item">'
-                + '<div><strong>'+label+'</strong> — '+ (it.title||'') +'</div>'
-                + '<div>'+ (it.user_name||'') + (it.text?(' · '+it.text):'') +'</div>'
-                + '<div class="meta">'+ it.time_h +'</div>'
-                + '</div>';
-        });
-        list.innerHTML = html;
-      });
+<script>
+// Funcionalidad básica de la campanita
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('gw-notif-btn');
+  const panel = document.getElementById('gw-notif-panel');
+  const closeBtn = document.getElementById('gw-notif-close');
+  const markBtn = document.getElementById('gw-notif-mark');
+
+  // Toggle del panel
+  btn.addEventListener('click', function() {
+    const isVisible = panel.style.display === 'block';
+    panel.style.display = isVisible ? 'none' : 'block';
+  });
+
+  // Cerrar panel
+  closeBtn.addEventListener('click', function() {
+    panel.style.display = 'none';
+  });
+
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!btn.contains(e.target) && !panel.contains(e.target)) {
+      panel.style.display = 'none';
     }
+  });
 
-    function markAll(){
-      var fd = new FormData(); fd.append('action','gw_notif_mark_seen'); fd.append('nonce', NONCE);
-      fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
-      .then(r=>r.json()).then(function(){ fetchNotifs(); });
-    }
+  // Marcar todas como leídas
+  markBtn.addEventListener('click', function() {
+    const unreadItems = panel.querySelectorAll('.item.unread');
+    unreadItems.forEach(item => item.classList.remove('unread'));
+    
+    const badge = document.getElementById('gw-notif-badge');
+    badge.style.display = 'none';
+    badge.textContent = '0';
+  });
 
-    btn.addEventListener('click', function(){
-      panel.style.display = (panel.style.display==='block'?'none':'block');
-      if (panel.style.display==='block') fetchNotifs();
-    });
-    document.getElementById('gw-notif-close').addEventListener('click', function(){ panel.style.display='none'; });
-    document.getElementById('gw-notif-mark').addEventListener('click', function(){ markAll(); });
+  // Función para agregar notificación (ejemplo)
+  window.addNotification = function(title, message, type = 'info') {
+    const list = document.getElementById('gw-notif-list');
+    const empty = list.querySelector('.empty');
+    if (empty) empty.remove();
 
-    // Polling ligero
-    setInterval(fetchNotifs, 30000);
-    fetchNotifs();
-  })();
-  </script>
+    const item = document.createElement('div');
+    item.className = 'item unread';
+    item.innerHTML = `
+      <div class="content">
+        <div class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div class="text">
+          <div class="title">${title}</div>
+          <div class="meta">
+            ${message}
+            <span class="time">Ahora</span>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    list.insertBefore(item, list.firstChild);
+    
+    // Actualizar badge
+    const badge = document.getElementById('gw-notif-badge');
+    const currentCount = parseInt(badge.textContent) || 0;
+    badge.textContent = currentCount + 1;
+    badge.style.display = 'inline-flex';
+  };
+
+  // Ejemplo de uso (puedes quitar esto)
+  // setTimeout(() => addNotification('Nueva capacitación', 'Se ha programado una nueva sesión para mañana'), 2000);
+});
+</script>
   <?php
 });
 
@@ -1994,10 +2355,10 @@ $gw_print_admin_pass_injector = function () {
           wrap.className = 'gw-passreset-field';
           wrap.innerHTML =
             '<label style="display:block;margin-top:12px;">Nueva contraseña</label>'+
-            '<input type="password" id="gwUserNewPass" placeholder="Dejar vacío para no cambiar" style="width:100%;margin-top:6px;">'+
-            '<small style="display:block;color:#6b7280;margin-top:6px;">Mínimo 6 caracteres. Frendly Reminder El cambio de contraseña aplica para usuario NO gmail</small>'+
+            '<input style="    padding: 12px 16px;border: 2px solid #e2e8f0;border-radius: 8px;font-size: 14px;background: white;color: #374151;transition: all 0.3s ease;font-family: inherit;  width: 100%; line-height: 1.5; type="password" id="gwUserNewPass" placeholder="Dejar vacío para no cambiar" style="width:100%;margin-top:6px;">'+
+            '<small style="display:block;color:#6b7280;margin-top:6px;     margin-left: 6px;">Mínimo 6 caracteres. Este cambio no afecta a usuarios que inician sesión con Google</small>'+
             '<label style="display:block;margin-top:12px;">Confirmar contraseña</label>'+
-            '<input type="password" id="gwUserNewPass2" placeholder="Repite la nueva contraseña" style="width:100%;margin-top:6px;">';
+            '<input style="    padding: 12px 16px;border: 2px solid #e2e8f0;border-radius: 8px;font-size: 14px;background: white;color: #374151;transition: all 0.3s ease;font-family: inherit;  width: 100%; margin-bottom:12px; type="password" id="gwUserNewPass2" placeholder="Repite la nueva contraseña" style="width:100%;margin-top:6px;">';
           try{ email.insertAdjacentElement('afterend', wrap); }catch(e){}
         }
 
@@ -2257,10 +2618,10 @@ add_action('wp_head', function(){
           body.innerHTML =
             '<form id="gw-simple-edit-form" class="gw-form">' +
               '<input type="hidden" name="user_id" value="'+(u.ID||uid)+'">' +
-              '<p><label>Nombre a mostrar</label><br><input type="text" name="display_name" value="'+(u.display_name||'')+'" style="width:100%"></p>' +
-              '<p><label>Email</label><br><input type="email" name="user_email" value="'+(u.user_email||'')+'" style="width:100%"></p>' +
-              '<p><label>Rol</label><br><select name="role" style="width:100%">'+opts+'</select></p>' +
-              '<p><label>País</label><br><input type="number" name="pais_id" value="'+(u.pais_id||'')+'" style="width:100%"></p>' +
+              '<p><label>Nombre a mostrar</label><input type="text" name="display_name" value="'+(u.display_name||'')+'" style="width:100%; margin-bottom:12px;"></p>' +
+              '<p><label>Email</label><input type="email" name="user_email" value="'+(u.user_email||'')+'" style="width:100%; margin-bottom:12px;"></p>' +
+              '<p><label>Rol</label><select name="role" style="width:100%; margin-bottom:12px;">'+opts+'</select></p>' +
+              '<p><label>País</label><input type="number" name="pais_id" value="'+(u.pais_id||'')+'" style="width:100%; margin-bottom:12px;"></p>' +
               '<div class="gw-form-actions" style="margin-top:10px;"><button type="submit" class="button button-primary">Guardar</button></div>' +
             '</form>';
 
@@ -5244,45 +5605,277 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   <div id="gw-listado-proyectos"></div>
 </div>
 <style>
+/* Cards de proyectos modernas */
 .gw-proyecto-item {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 10px;
-    transition: box-shadow 0.2s;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
+
+.gw-proyecto-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8, #7c3aed);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
 .gw-proyecto-item:hover {
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e1;
 }
+
+.gw-proyecto-item:hover::before {
+    opacity: 1;
+}
+
+/* Proyecto eliminado */
 .gw-proyecto-eliminado {
-    background: #ffebee;
-    border-color: #f44336;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fca5a5;
+    position: relative;
 }
+
+.gw-proyecto-eliminado::before {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+    opacity: 1;
+}
+
+.gw-proyecto-eliminado::after {
+    content: 'ELIMINADO';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* Header del proyecto */
 .gw-proyecto-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 16px;
 }
+
+.gw-proyecto-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.4;
+    margin: 0;
+    flex: 1;
+}
+
+.gw-proyecto-eliminado .gw-proyecto-title {
+    color: #7f1d1d;
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+/* Información del proyecto */
+.gw-proyecto-info {
+    margin-bottom: 20px;
+}
+
+.gw-proyecto-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.gw-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(59, 130, 246, 0.05);
+    border-radius: 8px;
+    font-size: 14px;
+    color: #475569;
+}
+
+.gw-meta-icon {
+    width: 16px;
+    height: 16px;
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+.gw-proyecto-descripcion {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 12px 0 0 0;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border-left: 3px solid #e2e8f0;
+}
+
+/* Acciones del proyecto */
 .gw-proyecto-acciones {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
 }
+
 .gw-proyecto-acciones button {
-    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 3px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 500;
     white-space: nowrap;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    min-height: 36px;
 }
-.gw-btn-eliminar { background: #f44336; color: white; }
-.gw-btn-restaurar { background: #4caf50; color: white; }
-.gw-btn-historial { background: #2196f3; color: white; }
-.gw-btn-editar { background: #ff9800; color: white; }
-.gw-btn-wp { background: #0073aa; color: white; }
+
+.gw-proyecto-acciones button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Botones específicos */
+.gw-btn-eliminar {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gw-btn-eliminar:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.gw-btn-restaurar {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gw-btn-restaurar:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.gw-btn-historial {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gw-btn-historial:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.gw-btn-editar {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gw-btn-editar:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.gw-btn-wp {
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gw-btn-wp:hover {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+}
+
+/* Estado activo/destacado */
+.gw-proyecto-item.destacado {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.gw-proyecto-item.destacado::before {
+    opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .gw-proyecto-item {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .gw-proyecto-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .gw-proyecto-meta {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .gw-proyecto-acciones {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .gw-proyecto-acciones button {
+        justify-content: center;
+    }
+}
+
+/* Animación de carga */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.gw-proyecto-item {
+    animation: fadeInUp 0.3s ease-out;
+}
+
+/* Estados de los iconos */
+.gw-proyecto-acciones svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease;
+}
+
+.gw-proyecto-acciones button:hover svg {
+    transform: scale(1.1);
+}
 </style>
 
 
@@ -5351,7 +5944,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
             }
           ?>
         </select>
-        <button type="button" class="next-step" style="float:right;margin-top:16px;">Siguiente →</button>
+        <button type="button" class="next-step" style="margin-top:16px;">Siguiente →</button>
       </div>
 
       <div class="gw-wizard-step-content step-2" style="display:none;">
@@ -5424,45 +6017,464 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     </div>
 
     <div id="gw-capacitaciones-listado">
-      <?php
-        $caps = get_posts(['post_type'=>'capacitacion','numberposts'=>-1,'orderby'=>'title','order'=>'ASC']);
-        if(empty($caps)){
-          echo '<p>No hay capacitaciones registradas.</p>';
-        } else {
-          foreach($caps as $cap){
-            $pais_id = get_post_meta($cap->ID, '_gw_pais_relacionado', true);
-            $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
-            $coach_id = get_post_meta($cap->ID, '_gw_coach_asignado', true);
-            $sesiones = get_post_meta($cap->ID, '_gw_sesiones', true);
+  <?php
+    // Configuración de paginación
+    $items_per_page = 5;
+    // CAMBIO AQUÍ: Aceptar tanto POST como GET
+    $current_page = isset($_POST['cap_page']) ? max(1, intval($_POST['cap_page'])) : (isset($_GET['cap_page']) ? max(1, intval($_GET['cap_page'])) : 1);
+    $offset = ($current_page - 1) * $items_per_page;
+    
+    // Obtener todas las capacitaciones
+    $all_caps = get_posts([
+      'post_type' => 'capacitacion',
+      'numberposts' => -1,
+      'orderby' => 'title',
+      'order' => 'ASC'
+    ]);
+    
+    $total_items = count($all_caps);
+    $total_pages = ceil($total_items / $items_per_page);
+    
+    // Obtener solo las capacitaciones de la página actual
+    $caps = array_slice($all_caps, $offset, $items_per_page);
+    
+    if(empty($all_caps)){
+      echo '<div class="gw-no-capacitaciones">';
+      echo '<div class="gw-no-cap-icon">';
+      echo '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+      echo '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>';
+      echo '<polyline points="14,2 14,8 20,8"></polyline>';
+      echo '<line x1="16" y1="13" x2="8" y2="13"></line>';
+      echo '<line x1="16" y1="17" x2="8" y2="17"></line>';
+      echo '<polyline points="10,9 9,9 8,9"></polyline>';
+      echo '</svg>';
+      echo '</div>';
+      echo '<h3>No hay capacitaciones registradas</h3>';
+      echo '<p>Comienza creando tu primera capacitación para organizar las sesiones de entrenamiento.</p>';
+      echo '</div>';
+    } else {
+      // Mostrar información de paginación
+      echo '<div class="gw-pagination-info">';
+      echo '<span>Mostrando ' . (($current_page - 1) * $items_per_page + 1) . '-' . min($current_page * $items_per_page, $total_items) . ' de ' . $total_items . ' capacitaciones</span>';
+      echo '</div>';
+      
+      // Mostrar capacitaciones
+      foreach($caps as $cap){
+        $pais_id = get_post_meta($cap->ID, '_gw_pais_relacionado', true);
+        $proy = get_post_meta($cap->ID, '_gw_proyecto_relacionado', true);
+        $coach_id = get_post_meta($cap->ID, '_gw_coach_asignado', true);
+        $sesiones = get_post_meta($cap->ID, '_gw_sesiones', true);
 
-            $pais_title = $pais_id ? get_the_title($pais_id) : '-';
-            $proy_title = $proy ? get_the_title($proy) : '-';
-            $coach_name = $coach_id ? get_userdata($coach_id)->display_name : '-';
-            $num_sesiones = is_array($sesiones) ? count($sesiones) : 0;
+        $pais_title = $pais_id ? get_the_title($pais_id) : '-';
+        $proy_title = $proy ? get_the_title($proy) : '-';
+        $coach_name = $coach_id ? get_userdata($coach_id)->display_name : '-';
+        $num_sesiones = is_array($sesiones) ? count($sesiones) : 0;
 
-            $modalidad = 'N/A';
-            if (is_array($sesiones) && !empty($sesiones)) {
-              $modalidades = array_unique(array_column($sesiones, 'modalidad'));
-              $modalidad = count($modalidades) > 1 ? 'Mixta' : ($modalidades[0] ?? 'N/A');
-            }
-
-            echo '<div class="gw-capacitacion-card" data-pais="'.$pais_id.'" data-coach="'.$coach_id.'" data-modalidad="'.strtolower($modalidad).'">';
-            echo '<div class="gw-capacitacion-title">'.esc_html($cap->post_title).'</div>';
-            echo '<div class="gw-capacitacion-meta">';
-            echo '<span><strong>País:</strong> '.$pais_title.'</span>';
-            echo '<span><strong>Proyecto:</strong> '.$proy_title.'</span>';
-            echo '<span><strong>Coach:</strong> '.$coach_name.'</span>';
-            echo '<span><strong>Sesiones:</strong> '.$num_sesiones.' ('.$modalidad.')</span>';
-            echo '</div>';
-            echo '<div class="gw-capacitacion-actions">';
-            echo '<span class="gw-cap-edit" data-id="'.$cap->ID.'">Editar</span>';
-            echo '<span class="gw-cap-delete" data-id="'.$cap->ID.'">Eliminar</span>';
-            echo '</div>';
-            echo '</div>';
-          }
+        $modalidad = 'N/A';
+        if (is_array($sesiones) && !empty($sesiones)) {
+          $modalidades = array_unique(array_column($sesiones, 'modalidad'));
+          $modalidad = count($modalidades) > 1 ? 'Mixta' : ($modalidades[0] ?? 'N/A');
         }
-      ?>
-    </div>
+
+        echo '<div class="gw-capacitacion-card" data-pais="'.$pais_id.'" data-coach="'.$coach_id.'" data-modalidad="'.strtolower($modalidad).'">';
+        echo '<div class="gw-capacitacion-header">';
+        echo '<div class="gw-capacitacion-title">'.esc_html($cap->post_title).'</div>';
+        echo '<div class="gw-capacitacion-status">';
+        echo '<span class="gw-status-badge gw-status-' . strtolower($modalidad) . '">' . $modalidad . '</span>';
+        echo '</div>';
+        echo '</div>';
+        
+        echo '<div class="gw-capacitacion-meta">';
+        echo '<div class="gw-meta-item">';
+        echo '<svg class="gw-meta-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>';
+        echo '<span><strong>País:</strong> '.$pais_title.'</span>';
+        echo '</div>';
+        echo '<div class="gw-meta-item">';
+        echo '<svg class="gw-meta-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><folder x="3" y="3" width="18" height="18" rx="2" ry="2"></folder><path d="M3 7h18"></path></svg>';
+        echo '<span><strong>Proyecto:</strong> '.$proy_title.'</span>';
+        echo '</div>';
+        echo '<div class="gw-meta-item">';
+        echo '<svg class="gw-meta-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+        echo '<span><strong>Coach:</strong> '.$coach_name.'</span>';
+        echo '</div>';
+        echo '<div class="gw-meta-item">';
+        echo '<svg class="gw-meta-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><calendar x="3" y="4" width="18" height="18" rx="2" ry="2"></calendar><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
+        echo '<span><strong>Sesiones:</strong> '.$num_sesiones.'</span>';
+        echo '</div>';
+        echo '</div>';
+        
+        echo '<div class="gw-capacitacion-actions">';
+        echo '<button class="gw-cap-edit gw-btn-action gw-btn-edit" data-id="'.$cap->ID.'">';
+        echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+        echo 'Editar';
+        echo '</button>';
+        echo '<button class="gw-cap-delete gw-btn-action gw-btn-delete" data-id="'.$cap->ID.'">';
+        echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+        echo 'Eliminar';
+        echo '</button>';
+        echo '</div>';
+        echo '</div>';
+      }
+      
+      // PAGINACIÓN SIMPLE CON FORMULARIOS POST
+      if($total_pages > 1) {
+        echo '<div style="margin-top: 32px; display: flex; justify-content: center; align-items: center; gap: 16px;">';
+        
+        // Botón anterior
+        if($current_page > 1) {
+          echo '<form method="post" style="display: inline-block; margin: 0;">';
+          echo '<input type="hidden" name="cap_page" value="'.($current_page - 1).'">';
+          echo '<button type="submit" style="display: inline-block; padding: 12px 20px; background: #a4b444; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background=\'#8a9b3a\';" onmouseout="this.style.background=\'#a4b444\';">';
+          echo '« Anterior';
+          echo '</button>';
+          echo '</form>';
+        } else {
+          echo '<span style="display: inline-block; padding: 12px 20px; background: #d1d5db; color: #9ca3af; border-radius: 8px; font-size: 14px; font-weight: 600;">« Anterior</span>';
+        }
+        
+        // Información de página
+        echo '<span style="font-size: 16px; font-weight: 600; color: #374151; padding: 0 16px;">';
+        echo 'Página ' . $current_page . ' de ' . $total_pages;
+        echo '</span>';
+        
+        // Botón siguiente
+        if($current_page < $total_pages) {
+          echo '<form method="post" style="display: inline-block; margin: 0;">';
+          echo '<input type="hidden" name="cap_page" value="'.($current_page + 1).'">';
+          echo '<button type="submit" style="display: inline-block; padding: 12px 20px; background: #a4b444; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background=\'#8a9b3a\';" onmouseout="this.style.background=\'#a4b444\';">';
+          echo 'Siguiente »';
+          echo '</button>';
+          echo '</form>';
+        } else {
+          echo '<span style="display: inline-block; padding: 12px 20px; background: #d1d5db; color: #9ca3af; border-radius: 8px; font-size: 14px; font-weight: 600;">Siguiente »</span>';
+        }
+        
+        echo '</div>';
+        
+        // Script para mantener la posición en la página
+        echo '<script>
+        document.addEventListener("DOMContentLoaded", function() {
+          // Si hay parámetro cap_page (POST o GET), hacer scroll al listado
+          if(window.location.href.indexOf("cap_page=") > -1 || document.querySelector("input[name=\'cap_page\']")) {
+            setTimeout(function() {
+              var listado = document.getElementById("gw-capacitaciones-listado");
+              if(listado) {
+                listado.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            }, 100);
+          }
+        });
+        </script>';
+      }
+    }
+  ?>
+</div>
+
+<style>
+/* Información de paginación */
+.gw-pagination-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Estado sin capacitaciones */
+.gw-no-capacitaciones {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 2px dashed #cbd5e1;
+}
+
+.gw-no-cap-icon {
+  width: 80px;
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  color: #94a3b8;
+}
+
+.gw-no-capacitaciones h3 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.gw-no-capacitaciones p {
+  margin: 0;
+  font-size: 16px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Cards de capacitaciones mejoradas */
+.gw-capacitacion-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.gw-capacitacion-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.gw-capacitacion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.gw-capacitacion-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.3;
+  flex: 1;
+  margin-right: 12px;
+}
+
+.gw-capacitacion-status {
+  flex-shrink: 0;
+}
+
+.gw-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gw-status-presencial {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.gw-status-virtual {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.gw-status-mixta {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.gw-status-n\/a {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.gw-capacitacion-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.gw-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.gw-meta-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.gw-capacitacion-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.gw-btn-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  text-decoration: none;
+}
+
+.gw-btn-edit {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+
+.gw-btn-edit:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.gw-btn-delete {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.gw-btn-delete:hover {
+  background: #fecaca;
+  border-color: #fca5a5;
+}
+
+/* Paginación */
+.gw-pagination-wrapper {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.gw-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.gw-pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.gw-pagination-btn:hover {
+  background: #e2e8f0;
+  color: #374151;
+  border-color: #cbd5e1;
+}
+
+.gw-pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 12px;
+}
+
+.gw-pagination-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.gw-pagination-number:hover {
+  background: #f1f5f9;
+  color: #374151;
+}
+
+.gw-pagination-current {
+  background: #3b82f6;
+  color: white;
+}
+
+.gw-pagination-current:hover {
+  background: #2563eb;
+  color: white;
+}
+
+.gw-pagination-dots {
+  color: #94a3b8;
+  padding: 0 4px;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gw-pagination-info {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+  
+  .gw-capacitacion-meta {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .gw-capacitacion-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .gw-capacitacion-actions {
+    flex-direction: column;
+  }
+  
+  .gw-pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .gw-pagination-numbers {
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .gw-pagination-numbers {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .gw-btn-action {
+    justify-content: center;
+  }
+}
+</style>
   </div>
 
   <script>
@@ -5870,84 +6882,88 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   </script>
 </div>
 
+          
                 <!-- TAB PROGRESO -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-progreso" style="display:none;">
-                    <div class="gw-form-header">
-                        <h1>Progreso del voluntario</h1>
-                        <p>Monitorea el progreso de los voluntarios.</p>
-                        <div class="gw-prog-filters" id="gw-prog-filters" style="margin:8px 0 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                          <input id="gw-prog-search" type="search" placeholder="Buscar por nombre o email..." style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:260px;" />
-                          <select id="gw-prog-pais" style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:200px;">
-                            <option value="">Todos los países</option>
-                            <?php
-                              $gw_prog_paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
-                              foreach ($gw_prog_paises as $p) {
-                                echo '<option value="'.(int)$p->ID.'" data-text="'.esc_attr($p->post_title).'">'.esc_html($p->post_title).'</option>';
-                              }
-                            ?>
-                          </select>
-                          <button type="button" class="button" id="gw-prog-clear">Limpiar</button>
-                        </div>
-                    </div>
+<div class="gw-admin-tab-content" id="gw-admin-tab-progreso" style="display:none;">
+  <div class="gw-form-header">
+    <h1>Progreso del voluntario</h1>
+    <p>Monitorea el progreso de los voluntarios.</p>
+    
+    <div class="gw-prog-filters" id="gw-prog-filters" style="margin:8px 0 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input id="gw-prog-search" type="search" placeholder="Buscar por nombre o email..." style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:260px;" />
+      
+      <select id="gw-prog-pais" style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:200px;">
+        <option value="">Todos los países</option>
+        <?php
+          $gw_prog_paises = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+          foreach ($gw_prog_paises as $p) {
+            echo '<option value="'.(int)$p->ID.'" data-text="'.esc_attr($p->post_title).'">'.esc_html($p->post_title).'</option>';
+          }
+        ?>
+      </select>
+      
+      <button type="button" class="button" id="gw-prog-clear">Limpiar</button>
+    </div>
+  </div>
 
-                    <?php
-                    // Mostrar el shortcode dentro de un contenedor para permitir filtrado en vivo
-                    echo '<div id="gw-progress-list">' . do_shortcode('[gw_progreso_voluntario]') . '</div>';
-                    ?>
+  <?php
+  // Mostrar el shortcode dentro de un contenedor para permitir filtrado en vivo
+  echo '<div id="gw-progress-list">' . do_shortcode('[gw_progreso_voluntario]') . '</div>';
+  ?>
 
-                    <script>
-                    (function(){
-                      var search = document.getElementById('gw-prog-search');
-                      var sel    = document.getElementById('gw-prog-pais');
-                      var clearB = document.getElementById('gw-prog-clear');
-                      var list   = document.getElementById('gw-progress-list');
-                      if(!list) return;
+  <script>
+  (function(){
+    var search = document.getElementById('gw-prog-search');
+    var sel    = document.getElementById('gw-prog-pais');
+    var clearB = document.getElementById('gw-prog-clear');
+    var list   = document.getElementById('gw-progress-list');
+    if(!list) return;
 
-                      function norm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+    function norm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
-                      function filter(){
-                        var q = norm(search ? search.value : '');
-                        var paisId   = sel ? sel.value : '';
-                        var paisText = '';
-                        if (sel && sel.selectedIndex >= 0) {
-                          paisText = norm(sel.options[sel.selectedIndex].getAttribute('data-text') || sel.options[sel.selectedIndex].text);
-                        }
-                        // Detectar filas de tabla de la vista de progreso
-                        var rows = list.querySelectorAll('tbody tr');
-                        if (!rows.length) {
-                          // Fallback: por si el shortcode usa otro layout (cards)
-                          rows = list.querySelectorAll('.gw-vol-row');
-                        }
-                        rows.forEach(function(tr){
-                          var t = norm(tr.textContent);
-                          var okSearch = !q || t.indexOf(q) !== -1;
-                          var okPais   = true;
-                          if (paisId) {
-                            // Preferir data-pais-id si existe; sino, buscar por texto del país
-                            var pid = tr.getAttribute('data-pais-id') || (tr.dataset ? tr.dataset.paisId : '');
-                            if (pid) {
-                              okPais = String(pid) === String(paisId);
-                            } else {
-                              okPais = t.indexOf(paisText) !== -1;
-                            }
-                          }
-                          tr.style.display = (okSearch && okPais) ? '' : 'none';
-                        });
-                      }
+    function filter(){
+      var q = norm(search ? search.value : '');
+      var paisId   = sel ? sel.value : '';
+      var paisText = '';
+      if (sel && sel.selectedIndex >= 0) {
+        paisText = norm(sel.options[sel.selectedIndex].getAttribute('data-text') || sel.options[sel.selectedIndex].text);
+      }
+      // Detectar filas de tabla de la vista de progreso
+      var rows = list.querySelectorAll('tbody tr');
+      if (!rows.length) {
+        // Fallback: por si el shortcode usa otro layout (cards)
+        rows = list.querySelectorAll('.gw-vol-row');
+      }
+      rows.forEach(function(tr){
+        var t = norm(tr.textContent);
+        var okSearch = !q || t.indexOf(q) !== -1;
+        var okPais   = true;
+        if (paisId) {
+          // Preferir data-pais-id si existe; sino, buscar por texto del país
+          var pid = tr.getAttribute('data-pais-id') || (tr.dataset ? tr.dataset.paisId : '');
+          if (pid) {
+            okPais = String(pid) === String(paisId);
+          } else {
+            okPais = t.indexOf(paisText) !== -1;
+          }
+        }
+        tr.style.display = (okSearch && okPais) ? '' : 'none';
+      });
+    }
 
-                      function debounce(fn,ms){ var to; return function(){ clearTimeout(to); var a=arguments; to=setTimeout(function(){ fn.apply(null,a); }, ms||180); }; }
-                      var doFilter = debounce(filter, 120);
+    function debounce(fn,ms){ var to; return function(){ clearTimeout(to); var a=arguments; to=setTimeout(function(){ fn.apply(null,a); }, ms||180); }; }
+    var doFilter = debounce(filter, 120);
 
-                      if (search) search.addEventListener('input', doFilter);
-                      if (sel)    sel.addEventListener('change', filter);
-                      if (clearB) clearB.addEventListener('click', function(){ if (search) search.value=''; if (sel) sel.value=''; filter(); });
+    if (search) search.addEventListener('input', doFilter);
+    if (sel)    sel.addEventListener('change', filter);
+    if (clearB) clearB.addEventListener('click', function(){ if (search) search.value=''; if (sel) sel.value=''; filter(); });
 
-                      // Reaplicar filtro si el listado se re-renderiza dinámicamente
-                      var mo = new MutationObserver(function(){ filter(); });
-                      mo.observe(list, {childList:true, subtree:true});
-                    })();
-                    </script>
-                </div>
+    // Reaplicar filtro si el listado se re-renderiza dinámicamente
+    var mo = new MutationObserver(function(){ filter(); });
+    mo.observe(list, {childList:true, subtree:true});
+  })();
+  </script>
+</div>
 
                 <script>
                 (function(){
@@ -6099,371 +7115,673 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 
 
                 <!-- TAB 7: SEGUIMIENTO DE AUSENCIAS (AJUSTES) -->
-                  <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
-                  <div class="gw-form-header">
-                    <h1>Seguimiento de ausencias</h1>
-                  <p>Detecta inasistencias, programa recordatorios y gestiona el estado de los voluntarios.</p>
-                  </div>
-                  <?php $abs = gw_abs_get_settings(); $nonce_abs = wp_create_nonce('gw_abs_admin'); ?>
+                <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias" style="display:none;">
+  <div class="gw-form-header">
+    <h1>Seguimiento de ausencias</h1>
+    <p>Detecta inasistencias, programa recordatorios y gestiona el estado de los voluntarios.</p>
+  </div>
+  
+  <?php $abs = gw_abs_get_settings(); $nonce_abs = wp_create_nonce('gw_abs_admin'); ?>
 
-                  <div style="display:flex;gap:24px;flex-wrap:wrap;">
-        <!-- Ajustes -->
-        <form id="gw-abs-settings" style="flex:1 1 360px;max-width:560px;border:1px solid #e1e8f0;border-radius:10px;padding:14px;background:#fff;">
-                    <h3 style="margin-top:0;">Ajustes de recordatorios</h3>
-                    <label>Máximo de correos (0–10)</label>
-                    <input type="number" name="reminder_count" value="<?php echo esc_attr($abs['reminder_count']); ?>" min="0" max="10" style="width:120px;">
-                    <label style="display:block;margin-top:8px;">Intervalo entre correos (horas)</label>
-                    <input type="number" name="reminder_interval_hours" value="<?php echo esc_attr($abs['reminder_interval_hours']); ?>" min="1" style="width:120px;">
-                    <label style="display:block;margin-top:8px;">Margen de gracia tras hora de inicio (minutos)</label>
-                    <input type="number" name="grace_minutes" value="<?php echo esc_attr($abs['grace_minutes']); ?>" min="0" style="width:120px;">
-                    <label style="display:block;margin-top:12px;">Asunto (recordatorio)</label>
-                    <input type="text" name="subject" value="<?php echo esc_attr($abs['subject']); ?>" style="width:100%;">
-                    <label style="display:block;margin-top:8px;">Cuerpo (recordatorio)</label>
-                    <textarea name="body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['body']); ?></textarea>
-                    <label style="display:block;margin-top:12px;">Asunto (desactivación)</label>
-                    <input type="text" name="deact_subject" value="<?php echo esc_attr($abs['deact_subject']); ?>" style="width:100%;">
-                    <label style="display:block;margin-top:8px;">Cuerpo (desactivación)</label>
-                    <textarea name="deact_body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['deact_body']); ?></textarea>
-                    <div style="margin-top:12px;">
-                        <button type="submit" class="button button-primary">Guardar ajustes</button>
-                        <span id="gw-abs-save-ok" style="display:none;margin-left:10px;color:#1e7e34;">Guardado</span>
-                    </form>
-                  </div>
-                  </div>
-
-                    <!-- TAB 8: AUSENCIAS DETECTADAS (LISTADO) -->
-                    <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias_detectadas" style="display:none;">
-                    <div class="gw-form-header">
-                    <h1>Ausencias detectadas</h1>
-                    <p>Control de ausencias de voluntarios.</p>
-                    </div>
-
-                    <div class="gw-abs-list" style="flex:1 1 520px;min-width:420px;">
-                    <h3 style="margin-top:0;">Ausencias detectadas</h3>
-                <?php
-                global $wpdb; $table = $wpdb->prefix.'gw_ausencias';
-                $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
-            if (!$rows) {
-          echo '<p>No hay ausencias registradas.</p>';
-        } else {
-          echo '<table class="widefat striped"><thead><tr><th>Usuario</th><th>Capacitación</th><th>Fecha/Hora</th><th>Estado</th><th>Recordatorios</th><th>Acciones</th></tr></thead><tbody>';
-          foreach ($rows as $r) {
-              $u = get_user_by('id', intval($r['user_id']));
-              $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
-              echo '<tr data-aid="'.intval($r['id']).'">';
-              echo '<td>'. esc_html($u ? ($u->display_name ?: $u->user_email) : ('#'.$r['user_id'])) .'</td>';
-              echo '<td>'. esc_html($cap_title) .'</td>';
-              echo '<td>'. esc_html($r['fecha']) .'</td>';
-              echo '<td>'. esc_html($r['status']) .'</td>';
-              echo '<td>'. intval($r['reminders_sent']) .'</td>';
-              echo '<td>'
-                    .'<button type="button" class="button button-small gw-abs-resolver" data-id="'.intval($r['id']).'">Marcar resuelto</button> '
-                    .'<button type="button" class="button button-small gw-abs-reactivar" data-uid="'.intval($r['user_id']).'">Reactivar usuario</button> '
-                    .'<button type="button" class="button button-small gw-abs-ocultar" data-id="'.intval($r['id']).'">Ocultar</button>'
-                  .'</td>';
-              echo '</tr>';
-          }
-          echo '</tbody></table>';
-      }
-    ?>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <!-- Ajustes -->
+    <form id="gw-abs-settings" style="flex:1 1 360px;max-width:560px;border:1px solid #e1e8f0;border-radius:10px;padding:14px;background:#fff;">
+      <h3 style="margin-top:0;">Ajustes de recordatorios</h3>
+      
+      <label>Máximo de correos (0–10)</label>
+      <input type="number" name="reminder_count" value="<?php echo esc_attr($abs['reminder_count']); ?>" min="0" max="10" style="width:120px;">
+      
+      <label style="display:block;margin-top:8px;">Intervalo entre correos (horas)</label>
+      <input type="number" name="reminder_interval_hours" value="<?php echo esc_attr($abs['reminder_interval_hours']); ?>" min="1" style="width:120px;">
+      
+      <label style="display:block;margin-top:8px;">Margen de gracia tras hora de inicio (minutos)</label>
+      <input type="number" name="grace_minutes" value="<?php echo esc_attr($abs['grace_minutes']); ?>" min="0" style="width:120px;">
+      
+      <label style="display:block;margin-top:12px;">Asunto (recordatorio)</label>
+      <input type="text" name="subject" value="<?php echo esc_attr($abs['subject']); ?>" style="width:100%;">
+      
+      <label style="display:block;margin-top:8px;">Cuerpo (recordatorio)</label>
+      <textarea name="body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['body']); ?></textarea>
+      
+      <label style="display:block;margin-top:12px;">Asunto (desactivación)</label>
+      <input type="text" name="deact_subject" value="<?php echo esc_attr($abs['deact_subject']); ?>" style="width:100%;">
+      
+      <label style="display:block;margin-top:8px;">Cuerpo (desactivación)</label>
+      <textarea name="deact_body" rows="6" style="width:100%;"><?php echo esc_textarea($abs['deact_body']); ?></textarea>
+      
+      <div style="margin-top:12px;">
+        <button type="submit" class="button button-primary">Guardar ajustes</button>
+        <span id="gw-abs-save-ok" style="display:none;margin-left:10px;color:#1e7e34;">Guardado</span>
+      </div>
+    </form>
   </div>
 </div>
 
-                <script>
-                (function(){
-                    var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
-                    var nonce   = '<?php echo esc_js($nonce_abs); ?>';
-
-                    // Guardar ajustes
-                    var form = document.getElementById('gw-abs-settings');
-                    if (form) {
-                    form.addEventListener('submit', function(e){
-                        e.preventDefault();
-                        var data = new FormData(form);
-                        data.append('action','gw_abs_save_settings');
-                        data.append('nonce', nonce);
-                        fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data})
-                        .then(r=>r.json()).then(function(res){
-                            if(res && res.success){
-                            var ok = document.getElementById('gw-abs-save-ok');
-                            ok.style.display=''; setTimeout(()=>{ok.style.display='none';},1500);
-                            }
-                        });
-                    });
-                    }
-
-                    // Acciones en filas
-                    document.addEventListener('click', function(ev){
-                    var el;
-                    if (el = ev.target.closest('.gw-abs-resolver')) {
-                        var id = el.getAttribute('data-id');
-                        var fd = new FormData(); fd.append('action','gw_abs_mark_resuelto'); fd.append('nonce',nonce); fd.append('id',id);
-                        fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:fd})
-                        .then(r=>r.json()).then(function(res){ if(res && res.success){ el.closest('tr').remove(); } });
-                    }
-                    if (el = ev.target.closest('.gw-abs-reactivar')) {
-                        var uid = el.getAttribute('data-uid');
-                        var fd = new FormData(); fd.append('action','gw_abs_reactivar_usuario'); fd.append('nonce',nonce); fd.append('user_id',uid);
-                        fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:fd})
-                        .then(r=>r.json()).then(function(res){ /* opcional: feedback */ });
-                    }
-                    if (el = ev.target.closest('.gw-abs-ocultar')) {
-                        var id = el.getAttribute('data-id');
-                        var fd = new FormData(); fd.append('action','gw_abs_ocultar'); fd.append('nonce',nonce); fd.append('id',id);
-                        fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:fd})
-                        .then(r=>r.json()).then(function(res){ if(res && res.success){ el.closest('tr').remove(); } });
-                    }
-                    });
-                })();
-                </script>
-
-                <style>
-                  /* ===== AUSENCIAS: layout desktop ===== */
-/* ===== AUSENCIAS (solo desktop): evitar corte a la derecha ===== */
-@media (min-width: 1100px){
-  /* wrapper flex de la sección */
-  #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
-    align-items: flex-start;
-    gap: 24px;
-  }
-
-  /* panel de ajustes a la izquierda (ancho fijo razonable) */
-  #gw-admin-tab-ausencias #gw-abs-settings
-#gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]
-#gw-admin-tab-ausencias .widefat ...
-#gw-admin-tab-ausencias .button.button-small.gw-abs-...{
-    flex: 0 0 520px;
-    max-width: 560px;
-  }
-
-  /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
-  #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
-    flex: 1 1 auto;
-    min-width: 0 !important;          /* clave para que no se corte */
-    overflow-x: auto;                  /* scroll solo si no cabe */
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
-  #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
-    width: 100%;
-    min-width: 980px;                  /* ajusta si lo ves necesario */
-    table-layout: auto;
-  }
-
-  /* reservar espacio para Acciones y evitar saltos de botones */
-  #gw-admin-tab-ausencias .widefat th:last-child,
-  #gw-admin-tab-ausencias .widefat td:last-child{
-    width: 280px;                      /* sube/baja según botones */
-    white-space: nowrap;
-    padding-right: 16px;
-  }
-
-  /* permitir salto de línea en "Capacitación" si es largo */
-  #gw-admin-tab-ausencias .widefat td:nth-child(2){
-    white-space: normal;
-  }
-
-  #gw-admin-tab-ausencias .widefat td{ vertical-align: middle; }
-
-
-
-  /* AUSENCIAS: colores de acciones */
-#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver{
-  background: #1e88e5 !important;   /* azul */
-  border-color: #1e88e5 !important;
-  color: #fff !important;
-}
-#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver:hover{
-  background: #1976d2 !important;
-  border-color: #1976d2 !important;
-}
-#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver:active{
-  background: #1565c0 !important;
-  border-color: #1565c0 !important;
-}
-#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver:focus{
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
-}
-
-/* Ocultar: rojo (peligro) */
-#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar{
-  background: #dc3545 !important;
-  border-color: #dc3545 !important;
-  color: #fff !important;
-}
-#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar:hover{
-  background: #c82333 !important;
-  border-color: #bd2130 !important;
-}
-#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar:active{
-  background: #a71e2a !important;
-  border-color: #a71e2a !important;
-}
-#gw-admin-tab-ausencias .button.button-small.gw-abs-ocultar:focus{
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(220,53,69,.35) !important;
-}
-
-/* Reactivar usuario: lo dejo con tu verde actual */
-
-
-                </style>
-                </div>
-
-                
-
-                <!-- TAB REPORTES -->
-                <div class="gw-admin-tab-content" id="gw-admin-tab-reportes" style="display:none;">
-                    <div class="gw-form-header">
-                        <h1>Reportes y listados</h1>
-                        <p>Genera reportes del sistema.</p>
-                        <div id="gw-reports-root">
-
-                        <div id="gw-reports" class="gw-reports-wrap" style="padding:14px 10px;">
-  <div class="gw-report-filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-    <label for="gwRepTipo"><strong>Tipo:</strong></label>
-    <select id="gwRepTipo">
-      <option value="capacitacion" selected>Capacitaciones</option>
-      <option value="charla">Charlas</option>
-    </select>
-
-    <!-- Estos filtros son opcionales: si no existen en tu panel no pasa nada -->
-    <!--
-      <select id="gwRepPais"></select>
-      <select id="gwRepEstado"></select>
-    -->
-
-    <button id="gwRepGenerar" class="button button-primary">Generar</button>
-    <button id="gwRepExportCSV" class="button">Exportar CSV</button>
+<!-- TAB 8: AUSENCIAS DETECTADAS (LISTADO) -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-ausencias_detectadas" style="display:none;">
+  <div class="gw-form-header">
+    <h1>Ausencias detectadas</h1>
+    <p>Control de ausencias de voluntarios.</p>
   </div>
 
-  <div id="gwRepResultados"></div>
+  <div class="gw-ausencias-container">
+    <div class="gw-abs-list">
+      <h3 style="margin-top:0;">Ausencias detectadas</h3>
+      
+      <?php
+      global $wpdb; 
+      $table = $wpdb->prefix.'gw_ausencias';
+      $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
+      
+      if (!$rows) {
+        echo '<div class="gw-no-ausencias">';
+        echo '<div class="gw-no-ausencias-icon">';
+        echo '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+        echo '<path d="M9 12l2 2 4-4"></path>';
+        echo '<circle cx="12" cy="12" r="10"></circle>';
+        echo '</svg>';
+        echo '</div>';
+        echo '<h3>No hay ausencias registradas</h3>';
+        echo '<p>Todas las ausencias han sido resueltas o no se han detectado ausencias recientes.</p>';
+        echo '</div>';
+      } else {
+        echo '<div class="gw-table-responsive">';
+        echo '<table class="gw-ausencias-table">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th class="gw-col-usuario">Usuario</th>';
+        echo '<th class="gw-col-capacitacion">Capacitación</th>';
+        echo '<th class="gw-col-fecha">Fecha/Hora</th>';
+        echo '<th class="gw-col-estado">Estado</th>';
+        echo '<th class="gw-col-recordatorios">Recordatorios</th>';
+        echo '<th class="gw-col-acciones">Acciones</th>';
+        echo '</tr>';
+        echo '</thead>';
+        echo '<tbody>';
+        
+        foreach ($rows as $r) {
+          $u = get_user_by('id', intval($r['user_id']));
+          $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
+          
+          echo '<tr data-aid="'.intval($r['id']).'" class="gw-ausencia-row">';
+          echo '<td class="gw-col-usuario">';
+          echo '<div class="gw-usuario-info">';
+          echo '<strong>'. esc_html($u ? ($u->display_name ?: $u->user_email) : ('#'.$r['user_id'])) .'</strong>';
+          if ($u && $u->user_email) {
+            echo '<br><small class="gw-usuario-email">'. esc_html($u->user_email) .'</small>';
+          }
+          echo '</div>';
+          echo '</td>';
+          
+          echo '<td class="gw-col-capacitacion">'. esc_html($cap_title) .'</td>';
+          echo '<td class="gw-col-fecha">'. esc_html($r['fecha']) .'</td>';
+          
+          echo '<td class="gw-col-estado">';
+          $estado_class = 'gw-estado-' . strtolower(str_replace(' ', '-', $r['status']));
+          echo '<span class="gw-estado-badge '.$estado_class.'">'. esc_html($r['status']) .'</span>';
+          echo '</td>';
+          
+          echo '<td class="gw-col-recordatorios">';
+          echo '<span class="gw-recordatorios-count">'. intval($r['reminders_sent']) .'</span>';
+          echo '</td>';
+          
+          echo '<td class="gw-col-acciones">';
+          echo '<div class="gw-acciones-group">';
+          echo '<button type="button" class="gw-btn gw-btn-resolver" data-id="'.intval($r['id']).'">';
+          echo '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+          echo '<polyline points="20,6 9,17 4,12"></polyline>';
+          echo '</svg>';
+          echo 'Resolver';
+          echo '</button>';
+          
+          echo '<button type="button" class="gw-btn gw-btn-reactivar" data-uid="'.intval($r['user_id']).'">';
+          echo '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+          echo '<path d="M1 4v6h6"></path>';
+          echo '<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>';
+          echo '</svg>';
+          echo 'Reactivar';
+          echo '</button>';
+          
+          echo '<button type="button" class="gw-btn gw-btn-ocultar" data-id="'.intval($r['id']).'">';
+          echo '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+          echo '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>';
+          echo '<line x1="1" y1="1" x2="23" y2="23"></line>';
+          echo '</svg>';
+          echo 'Ocultar';
+          echo '</button>';
+          echo '</div>';
+          echo '</td>';
+          echo '</tr>';
+        }
+        
+        echo '</tbody>';
+        echo '</table>';
+        echo '</div>';
+      }
+      ?>
+    </div>
+  </div>
 </div>
 
 <script>
-// Asegura ajaxurl
-if (typeof window.ajaxurl === 'undefined') {
-  window.ajaxurl = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>';
-}
-(function($){
-  function fetchReport(page){
-    var data = {
-      action : 'gw_reports_fetch',
-      nonce  : '<?php echo wp_create_nonce('gw_reports'); ?>',
-      tipo   : $('#gwRepTipo').val(),
-      pais_id: $('#gwRepPais').length ? ($('#gwRepPais').val() || '') : '',
-      estado : $('#gwRepEstado').length ? ($('#gwRepEstado').val() || '') : '',
-      page   : page || 1
-    };
-    $.post(ajaxurl, data, function(html){
-      $('#gwRepResultados').html(html);
-    });
-  }
+(function(){
+  var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+  var nonce   = '<?php echo esc_js($nonce_abs ?? wp_create_nonce('gw_ausencias')); ?>';
 
-  $('#gwRepGenerar').off('click.gwRep').on('click.gwRep', function(e){
-    e.preventDefault();
-    fetchReport(1);
+  // Acciones en filas
+  document.addEventListener('click', function(ev){
+    var el;
+    
+    // Resolver ausencia
+    if (el = ev.target.closest('.gw-btn-resolver')) {
+      var id = el.getAttribute('data-id');
+      var row = el.closest('tr');
+      
+      el.disabled = true;
+      el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="gw-spin"><circle cx="12" cy="12" r="3"></circle></svg> Resolviendo...';
+      
+      var fd = new FormData(); 
+      fd.append('action','gw_abs_mark_resuelto'); 
+      fd.append('nonce',nonce); 
+      fd.append('id',id);
+      
+      fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:fd})
+        .then(r=>r.json())
+        .then(function(res){ 
+          if(res && res.success){ 
+            row.style.opacity = '0.5';
+            setTimeout(() => row.remove(), 300);
+          } else {
+            el.disabled = false;
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"></polyline></svg> Resolver';
+            alert('Error al resolver la ausencia');
+          }
+        })
+        .catch(() => {
+          el.disabled = false;
+          el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"></polyline></svg> Resolver';
+          alert('Error de conexión');
+        });
+    }
+    
+    // Reactivar usuario
+    if (el = ev.target.closest('.gw-btn-reactivar')) {
+      var uid = el.getAttribute('data-uid');
+      
+      el.disabled = true;
+      el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="gw-spin"><circle cx="12" cy="12" r="3"></circle></svg> Reactivando...';
+      
+      var fd = new FormData(); 
+      fd.append('action','gw_abs_reactivar_usuario'); 
+      fd.append('nonce',nonce); 
+      fd.append('user_id',uid);
+      
+      fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:fd})
+        .then(r=>r.json())
+        .then(function(res){
+          if(res && res.success) {
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"></polyline></svg> Reactivado';
+            el.classList.remove('gw-btn-reactivar');
+            el.classList.add('gw-btn-success');
+            setTimeout(() => {
+              el.disabled = false;
+              el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg> Reactivar';
+              el.classList.remove('gw-btn-success');
+              el.classList.add('gw-btn-reactivar');
+            }, 2000);
+          } else {
+            el.disabled = false;
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg> Reactivar';
+            alert('Error al reactivar usuario');
+          }
+        });
+    }
+    
+    // Ocultar ausencia
+    if (el = ev.target.closest('.gw-btn-ocultar')) {
+      var id = el.getAttribute('data-id');
+      var row = el.closest('tr');
+      
+      if (!confirm('¿Estás seguro de que quieres ocultar esta ausencia?')) {
+        return;
+      }
+      
+      el.disabled = true;
+      el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="gw-spin"><circle cx="12" cy="12" r="3"></circle></svg> Ocultando...';
+      
+      var fd = new FormData(); 
+      fd.append('action','gw_abs_ocultar'); 
+      fd.append('nonce',nonce); 
+      fd.append('id',id);
+      
+      fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:fd})
+        .then(r=>r.json())
+        .then(function(res){ 
+          if(res && res.success){ 
+            row.style.opacity = '0.5';
+            setTimeout(() => row.remove(), 300);
+          } else {
+            el.disabled = false;
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg> Ocultar';
+            alert('Error al ocultar la ausencia');
+          }
+        });
+    }
   });
-
-  $('#gwRepExportCSV').off('click.gwRep').on('click.gwRep', function(e){
-    e.preventDefault();
-    var params = $.param({
-      action : 'gw_reports_export',
-      nonce  : '<?php echo wp_create_nonce('gw_reports'); ?>',
-      tipo   : $('#gwRepTipo').val(),
-      pais_id: $('#gwRepPais').length ? ($('#gwRepPais').val() || '') : '',
-      estado : $('#gwRepEstado').length ? ($('#gwRepEstado').val() || '') : ''
-    });
-    window.location = ajaxurl + '?' + params;
-  });
-
-  // Paginación delegada
-  $(document).off('click.gwRep', '.gwRepPag').on('click.gwRep', '.gwRepPag', function(e){
-    e.preventDefault();
-    var p = parseInt($(this).data('p'), 10) || 1;
-    fetchReport(p);
-  });
-})(jQuery);
+})();
 </script>
 
-  <?php
-    // Fuentes para selects
-    $gw_reports_paises    = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
-    $gw_reports_proyectos = get_posts(['post_type' => 'proyecto', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
-    $gw_reports_caps      = get_posts(['post_type' => 'capacitacion', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
-  ?>
-  <div class="gw-reports-filters" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-    <label>País
-      <select id="gw-r-pais">
-        <option value="0">Todos</option>
-        <?php foreach ($gw_reports_paises as $p): ?>
-          <option value="<?php echo (int)$p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <label>Proyecto
-      <select id="gw-r-proy">
-        <option value="0">Todos</option>
-        <?php foreach ($gw_reports_proyectos as $p): ?>
-          <option value="<?php echo (int)$p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <label>Capacitación
-      <select id="gw-r-cap">
-        <option value="0">Todas</option>
-        <?php foreach ($gw_reports_caps as $c): ?>
-          <option value="<?php echo (int)$c->ID; ?>"><?php echo esc_html($c->post_title); ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <label>Estado usuario
-      <select id="gw-r-estado">
-        <option value="todos">Todos</option>
-        <option value="activos">Activos</option>
-        <option value="inactivos">Inactivos</option>
-      </select>
-    </label>
-    <label>Asistencia
-      <select id="gw-r-asistencia">
-        <option value="todos">Todas</option>
-        <option value="asistio">Asistió</option>
-        <option value="pendiente">Pendiente</option>
-      </select>
-    </label>
-    <label>Desde
-      <input type="date" id="gw-r-desde">
-    </label>
-    <label>Hasta
-      <input type="date" id="gw-r-hasta">
-    </label>
-    <button type="button" id="gw-r-generar" class="button button-primary">Generar</button>
-    <button type="button" id="gw-r-exportar" class="button">Exportar CSV</button>
-    <button type="button" id="gw-r-pdf" class="button">Exportar PDF</button>
-  </div>
+<style>
+/* Contenedor principal */
+.gw-ausencias-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-top: 20px;
+}
 
-  <div id="gw-reports-result">
-    <table id="gw-reports-table" class="widefat striped">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Email</th>
-          <th>País</th>
-          <th>Proyecto</th>
-          <th>Capacitación</th>
-          <th>Fecha</th>
-          <th>Hora</th>
-          <th>Estado</th>
-          <th>Asistencia</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+.gw-abs-list {
+  padding: 24px;
+}
+
+/* Estado sin ausencias */
+.gw-no-ausencias {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 2px dashed #cbd5e1;
+}
+
+.gw-no-ausencias-icon {
+  width: 80px;
+  height: 80px;
+  background: #dcfce7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  color: #16a34a;
+}
+
+.gw-no-ausencias h3 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.gw-no-ausencias p {
+  margin: 0;
+  font-size: 16px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Tabla responsive */
+.gw-table-responsive {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+.gw-ausencias-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: white;
+}
+
+.gw-ausencias-table thead th {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #374151;
+  font-weight: 600;
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.gw-ausencias-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.gw-ausencias-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+.gw-ausencias-table tbody tr:hover {
+  background: #f0f9ff;
+}
+
+/* Columnas específicas */
+.gw-col-usuario {
+  min-width: 180px;
+}
+
+.gw-col-capacitacion {
+  min-width: 150px;
+  max-width: 200px;
+  word-wrap: break-word;
+}
+
+.gw-col-fecha {
+  min-width: 120px;
+  text-align: center;
+}
+
+.gw-col-estado {
+  min-width: 100px;
+  text-align: center;
+}
+
+.gw-col-recordatorios {
+  min-width: 80px;
+  text-align: center;
+}
+
+.gw-col-acciones {
+  min-width: 280px;
+  white-space: nowrap;
+}
+
+/* Usuario info */
+.gw-usuario-info strong {
+  display: block;
+  color: #1f2937;
+}
+
+.gw-usuario-email {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* Estados */
+.gw-estado-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gw-estado-pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.gw-estado-ausente {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.gw-estado-resuelto {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Recordatorios */
+.gw-recordatorios-count {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* Acciones */
+.gw-acciones-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gw-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.gw-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.gw-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gw-btn-resolver {
+  background: linear-gradient(135deg, #1e88e5 0%, #1976d2 100%);
+  color: white;
+}
+
+.gw-btn-reactivar {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.gw-btn-ocultar {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+}
+
+.gw-btn-success {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+
+/* Animaciones */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.gw-spin {
+  animation: spin 1s linear infinite;
+}
+
+.gw-ausencia-row {
+  transition: opacity 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gw-abs-list {
+    padding: 16px;
+  }
+  
+  .gw-acciones-group {
+    flex-direction: column;
+  }
+  
+  .gw-btn {
+    justify-content: center;
+  }
+}
+</style>
+
+                
+                <!-- TAB REPORTES -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-reportes" style="display:none;">
+  <div class="gw-form-header">
+    <h1>Reportes y listados</h1>
+    <p>Genera reportes del sistema.</p>
+    <div id="gw-reports-root">
+
+      <?php
+        // Fuentes para selects
+        $gw_reports_paises    = get_posts(['post_type' => 'pais', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+        $gw_reports_proyectos = get_posts(['post_type' => 'proyecto', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+        $gw_reports_caps      = get_posts(['post_type' => 'capacitacion', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'ASC']);
+      ?>
+      
+      <div class="gw-reports-filters">
+        <div class="gw-filters-grid">
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">País</span>
+            <select id="gw-r-pais" class="gw-filter-select">
+              <option value="0">Todos</option>
+              <?php foreach ($gw_reports_paises as $p): ?>
+                <option value="<?php echo (int)$p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+          
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">Proyecto</span>
+            <select id="gw-r-proy" class="gw-filter-select">
+              <option value="0">Todos</option>
+              <?php foreach ($gw_reports_proyectos as $p): ?>
+                <option value="<?php echo (int)$p->ID; ?>"><?php echo esc_html($p->post_title); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+          
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">Capacitación</span>
+            <select id="gw-r-cap" class="gw-filter-select">
+              <option value="0">Todas</option>
+              <?php foreach ($gw_reports_caps as $c): ?>
+                <option value="<?php echo (int)$c->ID; ?>"><?php echo esc_html($c->post_title); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+          
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">Estado usuario</span>
+            <select id="gw-r-estado" class="gw-filter-select">
+              <option value="todos">Todos</option>
+              <option value="activos">Activos</option>
+              <option value="inactivos">Inactivos</option>
+            </select>
+          </label>
+          
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">Asistencia</span>
+            <select id="gw-r-asistencia" class="gw-filter-select">
+              <option value="todos">Todas</option>
+              <option value="asistio">Asistió</option>
+              <option value="pendiente">Pendiente</option>
+            </select>
+          </label>
+          
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">Desde</span>
+            <input type="date" id="gw-r-desde" class="gw-filter-input">
+          </label>
+          
+          <label class="gw-filter-item">
+            <span class="gw-filter-label">Hasta</span>
+            <input type="date" id="gw-r-hasta" class="gw-filter-input">
+          </label>
+        </div>
+        
+        <div class="gw-filter-actions">
+          <button type="button" id="gw-r-generar" class="gw-btn gw-btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            Generar Reporte
+          </button>
+          
+          <button type="button" id="gw-r-exportar" class="gw-btn gw-btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14,2 14,8 20,8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10,9 9,9 8,9"></polyline>
+            </svg>
+            Exportar XLSX
+          </button>
+          
+          <button type="button" id="gw-r-pdf" class="gw-btn gw-btn-danger">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6,9 6,2 18,2 18,9"></polyline>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+              <rect x="6" y="14" width="12" height="8"></rect>
+            </svg>
+            Exportar PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla con scroll horizontal -->
+      <div id="gw-reports-result" class="gw-table-container">
+        <div class="gw-table-scroll-wrapper">
+          <table id="gw-reports-table" class="gw-reports-table">
+            <thead>
+              <tr>
+                <th class="gw-col-nombre">Nombre</th>
+                <th class="gw-col-email">Email</th>
+                <th class="gw-col-pais">País</th>
+                <th class="gw-col-proyecto">Proyecto</th>
+                <th class="gw-col-capacitacion">Capacitación</th>
+                <th class="gw-col-fecha">Fecha</th>
+                <th class="gw-col-hora">Hora</th>
+                <th class="gw-col-estado">Estado</th>
+                <th class="gw-col-asistencia">Asistencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="9" class="gw-no-data">
+                  <div class="gw-no-data-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14,2 14,8 20,8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                    <h3>Genera tu primer reporte</h3>
+                    <p>Selecciona los filtros y haz clic en "Generar Reporte"</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Indicador de scroll -->
+        <div class="gw-scroll-indicator">
+          <span class="gw-scroll-hint">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15,18 9,12 15,6"></polyline>
+            </svg>
+            Desliza horizontalmente para ver más columnas
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9,18 15,12 9,6"></polyline>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -6475,27 +7793,59 @@ jQuery(function($){
 
   function renderRows(rows){
     var $tb = $('#gw-reports-table tbody').empty();
+    
     if (!rows || !rows.length) {
-      $tb.append('<tr><td colspan="9">Sin resultados con los filtros seleccionados.</td></tr>');
+      $tb.append(`
+        <tr>
+          <td colspan="9" class="gw-no-data">
+            <div class="gw-no-data-content">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="M21 21l-4.35-4.35"></path>
+              </svg>
+              <h3>Sin resultados</h3>
+              <p>No se encontraron datos con los filtros seleccionados</p>
+            </div>
+          </td>
+        </tr>
+      `);
+      $('.gw-scroll-indicator').hide();
       return;
     }
+    
+    $('.gw-scroll-indicator').show();
+    
     rows.forEach(function(r){
-      var tr = '<tr>'
-        + '<td>'+(r.nombre||'')+'</td>'
-        + '<td>'+(r.email||'')+'</td>'
-        + '<td>'+(r.pais||'')+'</td>'
-        + '<td>'+(r.proyecto||'')+'</td>'
-        + '<td>'+(r.capacitacion||'')+'</td>'
-        + '<td>'+(r.fecha||'')+'</td>'
-        + '<td>'+(r.hora||'')+'</td>'
-        + '<td>'+(r.estado||'')+'</td>'
-        + '<td>'+(r.asistencia||'')+'</td>'
-        + '</tr>';
+      var estadoClass = '';
+      var asistenciaClass = '';
+      
+      // Clases CSS para estados
+      if (r.estado === 'Activo') estadoClass = 'gw-estado-activo';
+      else if (r.estado === 'Inactivo') estadoClass = 'gw-estado-inactivo';
+      
+      if (r.asistencia === 'Asistió') asistenciaClass = 'gw-asistencia-si';
+      else if (r.asistencia === 'No asistió') asistenciaClass = 'gw-asistencia-no';
+      else asistenciaClass = 'gw-asistencia-pendiente';
+      
+      var tr = `<tr>
+        <td class="gw-col-nombre"><strong>${r.nombre || ''}</strong></td>
+        <td class="gw-col-email">${r.email || ''}</td>
+        <td class="gw-col-pais">${r.pais || ''}</td>
+        <td class="gw-col-proyecto">${r.proyecto || '—'}</td>
+        <td class="gw-col-capacitacion">${r.capacitacion || ''}</td>
+        <td class="gw-col-fecha">${r.fecha || ''}</td>
+        <td class="gw-col-hora">${r.hora || ''}</td>
+        <td class="gw-col-estado"><span class="gw-badge ${estadoClass}">${r.estado || ''}</span></td>
+        <td class="gw-col-asistencia"><span class="gw-badge ${asistenciaClass}">${r.asistencia || ''}</span></td>
+      </tr>`;
       $tb.append(tr);
     });
   }
 
   $('#gw-r-generar').on('click', function(){
+    var $btn = $(this);
+    var originalText = $btn.text();
+    
     var data = {
       action: 'gw_reports_generate',
       pais: $('#gw-r-pais').val(),
@@ -6506,14 +7856,23 @@ jQuery(function($){
       desde: $('#gw-r-desde').val(),
       hasta: $('#gw-r-hasta').val()
     };
-    $(this).prop('disabled', true).text('Generando…');
+    
+    $btn.prop('disabled', true).html('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="gw-spin"><circle cx="12" cy="12" r="3"></circle></svg> Generando…');
+    
     $.post(ajaxurl, data)
       .done(function(resp){
-        if (resp && resp.success) renderRows(resp.data.rows || []);
-        else renderRows([]);
+        if (resp && resp.success) {
+          renderRows(resp.data.rows || []);
+        } else {
+          renderRows([]);
+        }
       })
-      .fail(function(){ renderRows([]); })
-      .always(() => $('#gw-r-generar').prop('disabled', false).text('Generar'));
+      .fail(function(){ 
+        renderRows([]);
+      })
+      .always(function() {
+        $btn.prop('disabled', false).html(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Generar Reporte`);
+      });
   });
 
   function exportCSV(){
@@ -6526,12 +7885,18 @@ jQuery(function($){
       });
       rows.push(cols.join(','));
     });
+    
+    if (rows.length <= 1) {
+      alert('No hay datos para exportar');
+      return;
+    }
+    
     var csv = rows.join('\n');
     var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     var url  = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'reporte-voluntariado.csv';
+    a.download = 'reporte-voluntariado-' + new Date().toISOString().split('T')[0] + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -6541,67 +7906,341 @@ jQuery(function($){
   $('#gw-r-exportar').on('click', exportCSV);
 
   $('#gw-r-pdf').on('click', function(){
+    var tableContent = document.getElementById('gw-reports-result').innerHTML;
     var w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write('<html><head><title>Reporte</title></head><body>' + document.getElementById('gw-reports-result').innerHTML + '</body></html>');
+    if (!w) {
+      alert('Por favor permite ventanas emergentes para exportar PDF');
+      return;
+    }
+    
+    w.document.write(`
+      <html>
+        <head>
+          <title>Reporte de Voluntariado</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .gw-scroll-indicator { display: none; }
+            .gw-no-data { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h1>Reporte de Voluntariado</h1>
+          <p>Generado el: ${new Date().toLocaleDateString()}</p>
+          ${tableContent}
+        </body>
+      </html>
+    `);
     w.document.close();
     w.focus();
-    w.print(); // el usuario puede "Guardar como PDF"
+    w.print();
   });
 });
 </script>
 
 <style>
-  /* ===== REPORTES: Colores de botones (solo en esta pestaña) ===== */
+/* Filtros modernos */
+.gw-reports-filters {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
 
-/* GENERAR → azul */
-#gw-admin-tab-reportes #gwRepGenerar.button.button-primary,
-#gw-admin-tab-reportes #gw-r-generar.button.button-primary{
-  background: #1e88e5 !important;
-  border-color: #1e88e5 !important;
-  color: #fff !important;
+.gw-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
 }
-#gw-admin-tab-reportes #gwRepGenerar.button.button-primary:hover,
-#gw-admin-tab-reportes #gw-r-generar.button.button-primary:hover{
-  background: #1976d2 !important;
-  border-color: #1976d2 !important;
+
+.gw-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-#gw-admin-tab-reportes #gwRepGenerar.button.button-primary:active,
-#gw-admin-tab-reportes #gw-r-generar.button.button-primary:active{
-  background: #1565c0 !important;
-  border-color: #1565c0 !important;
+
+.gw-filter-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
 }
-#gw-admin-tab-reportes #gwRepGenerar.button.button-primary:focus,
-#gw-admin-tab-reportes #gw-r-generar.button.button-primary:focus{
+
+.gw-filter-select,
+.gw-filter-input {
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.gw-filter-select:focus,
+.gw-filter-input:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(30,136,229,.35) !important;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-
-
-/* EXPORTAR PDF → rojo */
-#gw-admin-tab-reportes #gw-r-pdf.button{
-  background: #dc3545 !important;
-  border-color: #dc3545 !important;
-  color: #fff !important;
-}
-#gw-admin-tab-reportes #gw-r-pdf.button:hover{
-  background: #c82333 !important;
-  border-color: #bd2130 !important;
-}
-#gw-admin-tab-reportes #gw-r-pdf.button:active{
-  background: #a71e2a !important;
-  border-color: #a71e2a !important;
-}
-#gw-admin-tab-reportes #gw-r-pdf.button:focus{
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(220,53,69,.35) !important;
+.gw-filter-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding-top: 20px;
+  border-top: 1px solid #f1f5f9;
 }
 
+/* Botones modernos */
+.gw-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.gw-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.gw-btn-primary {
+  background: linear-gradient(135deg, #1e88e5 0%, #1976d2 100%);
+  color: white;
+}
+
+.gw-btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+}
+
+.gw-btn-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+}
+
+/* Contenedor de tabla responsive */
+.gw-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.gw-table-scroll-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.gw-table-scroll-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.gw-table-scroll-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.gw-table-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.gw-table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tabla moderna */
+.gw-reports-table {
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: white;
+}
+
+.gw-reports-table thead th {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #374151;
+  font-weight: 600;
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.gw-reports-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  max-width: 200px;
+  word-wrap: break-word;
+}
+
+.gw-reports-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+.gw-reports-table tbody tr:hover {
+  background: #f0f9ff;
+}
+
+/* Columnas específicas */
+.gw-col-nombre {
+  min-width: 150px;
+}
+
+.gw-col-email {
+  min-width: 200px;
+  font-family: monospace;
+}
+
+.gw-col-pais,
+.gw-col-proyecto,
+.gw-col-capacitacion {
+  min-width: 120px;
+}
+
+.gw-col-fecha,
+.gw-col-hora {
+  min-width: 100px;
+  text-align: center;
+}
+
+.gw-col-estado,
+.gw-col-asistencia {
+  min-width: 110px;
+  text-align: center;
+}
+
+/* Badges */
+.gw-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gw-estado-activo {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.gw-estado-inactivo {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.gw-asistencia-si {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.gw-asistencia-no {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.gw-asistencia-pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Estado sin datos */
+.gw-no-data {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.gw-no-data-content {
+  color: #6b7280;
+}
+
+.gw-no-data-content svg {
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
+.gw-no-data-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #374151;
+}
+
+.gw-no-data-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Indicador de scroll */
+.gw-scroll-indicator {
+  padding: 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.gw-scroll-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Animación de carga */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.gw-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gw-filters-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .gw-filter-actions {
+    flex-direction: column;
+  }
+  
+  .gw-btn {
+    justify-content: center;
+  }
+  
+  .gw-scroll-hint {
+    font-size: 12px;
+  }
+}
 </style>
-
-            </div>
-        </div>
     </div>
 </div>
 
