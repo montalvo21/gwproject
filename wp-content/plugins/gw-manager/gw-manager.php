@@ -638,7 +638,7 @@ input::placeholder {
 
 /* === Ausencias: estilos para ambos tabs === */
 #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"],
+#gw-admin-tab-ausencias-detectadas > div[style*="display:flex"],
 #gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
     gap: 24px;
     align-items: flex-start;
@@ -3869,7 +3869,7 @@ add_action('wp_footer', function(){
       if (tab === 'ausencias'){ // Módulo 7: solo AJUSTES
         if (settings) settings.style.display = '';
         if (lists) lists.forEach(function(el){ el.style.display = 'none'; });
-      } else if (tab === 'ausencias_detectadas'){ // Módulo 8: solo LISTADO
+      } else if (tab === 'ausencias-detectadas'){ // Módulo 8: solo LISTADO
         if (settings) settings.style.display = 'none';
         if (lists) lists.forEach(function(el){ el.style.display = ''; });
       }
@@ -4273,10 +4273,10 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                 </div>
 
                     <!-- Botón 8 -->
-                    <div class="gw-step-item gw-admin-tab-btn" data-tab="ausencia_detectadas">
+                <div class="gw-step-item gw-admin-tab-btn" data-tab="ausencias_detectadas">
                     <div class="gw-step-number">8</div>
                     <div class="gw-step-content">
-                        <h3>Ausencias Detectadas </h3>
+                        <h3>Ausencias Detectadas</h3>
                         <p>Control de ausencias de voluntarios.</p>
                     </div>
                 </div>
@@ -7019,7 +7019,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 @media (min-width: 1100px){
   /* wrapper flex de la sección */
   #gw-admin-tab-ausencias > div[style*="display:flex"],
-  #gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
+  #gw-admin-tab-ausencias-detectadas > div[style*="display:flex"]{
     align-items: flex-start;
     gap: 24px;
   }
@@ -7036,7 +7036,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 
   /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
   #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
+#gw-admin-tab-ausencias-detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
     flex: 1 1 auto;
     min-width: 0 !important;          /* clave para que no se corte */
     overflow-x: auto;                  /* scroll solo si no cabe */
@@ -7045,7 +7045,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 
   /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
   #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
+#gw-admin-tab-ausencias-detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
     width: 100%;
     min-width: 980px;                  /* ajusta si lo ves necesario */
     table-layout: auto;
@@ -7371,105 +7371,65 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 })();
 </script>
 
-<style>
-/* Contenedor principal */
-.gw-ausencias-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  margin-top: 20px;
-}
+                <style>
+                  /* ===== AUSENCIAS: layout desktop ===== */
+/* ===== AUSENCIAS (solo desktop): evitar corte a la derecha ===== */
+@media (min-width: 1100px){
+  /* wrapper flex de la sección */
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
+    align-items: flex-start;
+    gap: 24px;
+  }
 
-.gw-abs-list {
-  padding: 24px;
-}
+  /* panel de ajustes a la izquierda (ancho fijo razonable) */
+  #gw-admin-tab-ausencias #gw-abs-settings
+#gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]
+#gw-admin-tab-ausencias .widefat ...
+#gw-admin-tab-ausencias .button.button-small.gw-abs-...{
+    flex: 0 0 520px;
+    max-width: 560px;
+  }
 
-/* Estado sin ausencias */
-.gw-no-ausencias {
-  text-align: center;
-  padding: 60px 20px;
-  background: #f8fafc;
-  border-radius: 16px;
-  border: 2px dashed #cbd5e1;
-}
+  /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
+    flex: 1 1 auto;
+    min-width: 0 !important;          /* clave para que no se corte */
+    overflow-x: auto;                  /* scroll solo si no cabe */
+    -webkit-overflow-scrolling: touch;
+  }
 
-.gw-no-ausencias-icon {
-  width: 80px;
-  height: 80px;
-  background: #dcfce7;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px auto;
-  color: #16a34a;
-}
+  /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
+  #gw-admin-tab-ausencias > div[style*="display:flex"],
+#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
+    width: 100%;
+    min-width: 980px;                  /* ajusta si lo ves necesario */
+    table-layout: auto;
+  }
 
-.gw-no-ausencias h3 {
-  margin: 0 0 12px 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #374151;
-}
+  /* reservar espacio para Acciones y evitar saltos de botones */
+  #gw-admin-tab-ausencias .widefat th:last-child,
+  #gw-admin-tab-ausencias .widefat td:last-child{
+    width: 280px;                      /* sube/baja según botones */
+    white-space: nowrap;
+    padding-right: 16px;
+  }
 
-.gw-no-ausencias p {
-  margin: 0;
-  font-size: 16px;
-  color: #64748b;
-  line-height: 1.5;
-}
+  /* permitir salto de línea en "Capacitación" si es largo */
+  #gw-admin-tab-ausencias .widefat td:nth-child(2){
+    white-space: normal;
+  }
 
-/* Tabla responsive */
-.gw-table-responsive {
-  overflow-x: auto;
-  margin-top: 20px;
-}
+  #gw-admin-tab-ausencias .widefat td{ vertical-align: middle; }
 
-.gw-ausencias-table {
-  width: 100%;
-  min-width: 900px;
-  border-collapse: collapse;
-  font-size: 14px;
-  background: white;
-}
 
-.gw-ausencias-table thead th {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  color: #374151;
-  font-weight: 600;
-  padding: 16px 12px;
-  text-align: left;
-  border-bottom: 2px solid #e5e7eb;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
 
-.gw-ausencias-table tbody td {
-  padding: 12px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-}
-
-.gw-ausencias-table tbody tr:nth-child(even) {
-  background: #f9fafb;
-}
-
-.gw-ausencias-table tbody tr:hover {
-  background: #f0f9ff;
-}
-
-/* Columnas específicas */
-.gw-col-usuario {
-  min-width: 180px;
-}
-
-.gw-col-capacitacion {
-  min-width: 150px;
-  max-width: 200px;
-  word-wrap: break-word;
+  /* AUSENCIAS: colores de acciones */
+#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver{
+  background: #1e88e5 !important;   /* azul */
+  border-color: #1e88e5 !important;
+  color: #fff !important;
 }
 
 .gw-col-fecha {
