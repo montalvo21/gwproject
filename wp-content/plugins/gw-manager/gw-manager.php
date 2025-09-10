@@ -7434,84 +7434,116 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 })();
 </script>
 
-                <style>
-                  /* ===== AUSENCIAS: layout desktop ===== */
-/* ===== AUSENCIAS (solo desktop): evitar corte a la derecha ===== */
-@media (min-width: 1100px){
-  /* wrapper flex de la sección */
-  #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"]{
-    align-items: flex-start;
-    gap: 24px;
-  }
+<style>/* Contenedor principal con scroll */
+.gw-ausencias-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-top: 20px;
+}
 
-  /* panel de ajustes a la izquierda (ancho fijo razonable) */
-  #gw-admin-tab-ausencias #gw-abs-settings
-#gw-admin-tab-ausencias > div[style*="display:flex"] > div[style*="min-width:420px"]
-#gw-admin-tab-ausencias .widefat ...
-#gw-admin-tab-ausencias .button.button-small.gw-abs-...{
-    flex: 0 0 520px;
-    max-width: 560px;
-  }
+.gw-abs-list {
+  padding: 24px;
+}
 
-  /* contenedor de la lista (derecha): que pueda encoger y tenga scroll-x */
-  #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"]{
-    flex: 1 1 auto;
-    min-width: 0 !important;          /* clave para que no se corte */
-    overflow-x: auto;                  /* scroll solo si no cabe */
-    -webkit-overflow-scrolling: touch;
-  }
+/* Tabla responsive CON SCROLL HORIZONTAL */
+.gw-table-responsive {
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-top: 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  /* Scrollbar personalizada */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
 
-  /* la tabla puede necesitar ancho mínimo; así no rompe columnas */
-  #gw-admin-tab-ausencias > div[style*="display:flex"],
-#gw-admin-tab-ausencias_detectadas > div[style*="display:flex"] > div[style*="min-width:420px"] .widefat{
-    width: 100%;
-    min-width: 980px;                  /* ajusta si lo ves necesario */
-    table-layout: auto;
-  }
+.gw-table-responsive::-webkit-scrollbar {
+  height: 8px;
+}
 
-  /* reservar espacio para Acciones y evitar saltos de botones */
-  #gw-admin-tab-ausencias .widefat th:last-child,
-  #gw-admin-tab-ausencias .widefat td:last-child{
-    width: 280px;                      /* sube/baja según botones */
-    white-space: nowrap;
-    padding-right: 16px;
-  }
+.gw-table-responsive::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
 
-  /* permitir salto de línea en "Capacitación" si es largo */
-  #gw-admin-tab-ausencias .widefat td:nth-child(2){
-    white-space: normal;
-  }
+.gw-table-responsive::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
 
-  #gw-admin-tab-ausencias .widefat td{ vertical-align: middle; }
+.gw-table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
 
+.gw-ausencias-table {
+  width: 100%;
+  min-width: 1200px; /* Aumentado para forzar scroll */
+  border-collapse: collapse;
+  font-size: 14px;
+  background: white;
+}
 
+.gw-ausencias-table thead th {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  color: #374151;
+  font-weight: 600;
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 
-  /* AUSENCIAS: colores de acciones */
-#gw-admin-tab-ausencias .button.button-small.gw-abs-resolver{
-  background: #1e88e5 !important;   /* azul */
-  border-color: #1e88e5 !important;
-  color: #fff !important;
+.gw-ausencias-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.gw-ausencias-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+.gw-ausencias-table tbody tr:hover {
+  background: #f0f9ff;
+}
+
+/* Columnas específicas - ANCHOS FIJOS */
+.gw-col-usuario {
+  min-width: 200px;
+  width: 200px;
+}
+
+.gw-col-capacitacion {
+  min-width: 150px;
+  width: 150px;
+  word-wrap: break-word;
 }
 
 .gw-col-fecha {
-  min-width: 120px;
+  min-width: 140px;
+  width: 140px;
   text-align: center;
 }
 
 .gw-col-estado {
-  min-width: 100px;
+  min-width: 120px;
+  width: 120px;
   text-align: center;
 }
 
 .gw-col-recordatorios {
-  min-width: 80px;
+  min-width: 100px;
+  width: 100px;
   text-align: center;
 }
 
 .gw-col-acciones {
-  min-width: 280px;
+  min-width: 350px;
+  width: 350px;
   white-space: nowrap;
 }
 
@@ -7552,6 +7584,11 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   color: #166534;
 }
 
+.gw-estado-inactivo {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 /* Recordatorios */
 .gw-recordatorios-count {
   display: inline-block;
@@ -7564,7 +7601,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   text-align: center;
 }
 
-/* Acciones */
+/* Acciones - NUEVOS COLORES */
 .gw-acciones-group {
   display: flex;
   gap: 6px;
@@ -7574,21 +7611,23 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 .gw-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 4px;
+  padding: 6px 10px;
   border: none;
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .gw-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .gw-btn:disabled {
@@ -7597,24 +7636,110 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   transform: none;
 }
 
+/* Botón RESOLVER - Verde */
 .gw-btn-resolver {
-  background: linear-gradient(135deg, #1e88e5 0%, #1976d2 100%);
-  color: white;
-}
-
-.gw-btn-reactivar {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-}
-
-.gw-btn-ocultar {
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-  color: white;
-}
-
-.gw-btn-success {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: white;
+  border: 1px solid #16a34a;
+}
+
+.gw-btn-resolver:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  border-color: #15803d;
+}
+
+/* Botón REACTIVAR - Azul */
+.gw-btn-reactivar {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: 1px solid #2563eb;
+}
+
+.gw-btn-reactivar:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #1d4ed8;
+}
+
+/* Botón OCULTAR - Rojo */
+.gw-btn-ocultar {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: 1px solid #dc2626;
+}
+
+.gw-btn-ocultar:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #b91c1c;
+}
+
+/* Botón ASISTENCIAS - Púrpura */
+.gw-btn-asistencias {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: 1px solid #7c3aed;
+}
+
+.gw-btn-asistencias:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border-color: #6d28d9;
+}
+
+/* Botón SUCCESS - Verde claro */
+.gw-btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: 1px solid #059669;
+}
+
+/* Estado sin ausencias */
+.gw-no-ausencias {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 2px dashed #cbd5e1;
+}
+
+.gw-no-ausencias-icon {
+  width: 80px;
+  height: 80px;
+  background: #dcfce7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  color: #16a34a;
+}
+
+.gw-no-ausencias h3 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.gw-no-ausencias p {
+  margin: 0;
+  font-size: 16px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Indicador de scroll */
+.gw-scroll-indicator {
+  padding: 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  border-radius: 0 0 8px 8px;
+}
+
+.gw-scroll-indicator::before {
+  content: "👈 Desliza horizontalmente para ver más columnas 👉";
+  font-size: 12px;
 }
 
 /* Animaciones */
@@ -7637,15 +7762,26 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     padding: 16px;
   }
   
+  .gw-ausencias-table {
+    min-width: 800px; /* Menor en móvil pero sigue necesitando scroll */
+  }
+  
   .gw-acciones-group {
     flex-direction: column;
+    gap: 4px;
   }
   
   .gw-btn {
     justify-content: center;
+    font-size: 10px;
+    padding: 5px 8px;
   }
-}
-</style>
+  
+  .gw-col-acciones {
+    min-width: 280px;
+    width: 280px;
+  }
+}</style>
 
                 
                 <!-- TAB REPORTES -->
