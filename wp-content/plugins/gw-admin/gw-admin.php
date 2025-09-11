@@ -656,10 +656,26 @@ function gw_portal_voluntario_shortcode() {
           .catch(function(){});
       }
 
-      function openPanel(){ panel.style.display = 'block'; fetchList(); if (!poller) { poller = setInterval(fetchList, 25000); } }
-      function closePanel(){ panel.style.display = 'none'; if (poller){ clearInterval(poller); poller = null; } }
+      function openPanel(){
+        // Cerrar el panel de TICKETS si está abierto
+        if (window.gwvCloseTkPanel) { try { window.gwvCloseTkPanel(); } catch(e){} }
+        panel.style.display = 'block';
+        fetchList();
+        if (!poller) { poller = setInterval(fetchList, 25000); }
+      }
+      function closePanel(){
+        panel.style.display = 'none';
+        if (poller){ clearInterval(poller); poller = null; }
+      }
+      // Disponer cierre global para que otros módulos nos cierren correctamente
+      window.gwvCloseNotifPanel = closePanel;
 
-      btn    && btn.addEventListener('click', function(e){ e.stopPropagation(); (panel.style.display === 'block') ? closePanel() : openPanel(); });
+      btn && btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var visible = (panel.style.display === 'block');
+        if (visible) { closePanel(); }
+        else { openPanel(); }
+      });
       closeBt&& closeBt.addEventListener('click', closePanel);
       markBt && markBt.addEventListener('click', markRead);
       document.addEventListener('click', function(e){ if (!panel.contains(e.target) && !btn.contains(e.target)) closePanel(); });
@@ -693,27 +709,23 @@ function gw_portal_voluntario_shortcode() {
       var tkMark  = document.getElementById('gwv-tk-mark');
       var tkPoll  = null;
 
+      // Explicit helpers to open/cerrar el panel de tickets y exponer global closer
+      function openTkPanel(){
+        // Cerrar el panel de NOTIFICACIONES si estuviera abierto
+        if (window.gwvCloseNotifPanel) { try { window.gwvCloseNotifPanel(); } catch(e){} }
+        tkPanel.style.display='block';
+        fetchInbox();
+        if (!tkPoll){ tkPoll = setInterval(fetchInbox, 30000); }
+      }
+      function closeTkPanel(){
+        tkPanel.style.display='none';
+        if (tkPoll){ clearInterval(tkPoll); tkPoll=null; }
+      }
+      // Exponer para que el módulo de notificaciones pueda cerrarnos
+      window.gwvCloseTkPanel = closeTkPanel;
+
       function openM(){ modal.style.display='flex'; msg.focus(); }
       function closeM(){ modal.style.display='none'; okBox.style.display='none'; msg.value=''; }
-
-      // Ticket panel open/close logic
-      btn && btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        var vis = (tkPanel.style.display==='block');
-        if (vis){
-          tkPanel.style.display='none';
-          if (tkPoll){ clearInterval(tkPoll); tkPoll=null; }
-        } else {
-          tkPanel.style.display='block';
-          fetchInbox();
-          if (!tkPoll){ tkPoll = setInterval(fetchInbox, 30000); }
-        }
-      });
-
-      closeX && closeX.addEventListener('click', closeM);
-      cancel && cancel.addEventListener('click', closeM);
-      modal && modal.addEventListener('click', function(e){ if (e.target === modal) closeM(); });
-      document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeM(); });
 
       function esc(t){ return (t==null?'':String(t)).trim(); }
 
@@ -761,15 +773,30 @@ function gw_portal_voluntario_shortcode() {
       }
       // Acciones del panel
       tkNew   && tkNew.addEventListener('click', function(e){ e.preventDefault(); openM(); });
-      tkClose && tkClose.addEventListener('click', function(){ tkPanel.style.display='none'; if (tkPoll){clearInterval(tkPoll); tkPoll=null;} });
+      tkClose && tkClose.addEventListener('click', function(){ closeTkPanel(); });
       tkMark  && tkMark.addEventListener('click', function(){ markInboxRead(); });
       document.addEventListener('click', function(e){
         if (tkPanel.style.display==='block' && !tkPanel.contains(e.target) && !btn.contains(e.target)){
-          tkPanel.style.display='none'; if (tkPoll){clearInterval(tkPoll); tkPoll=null;}
+          closeTkPanel();
+        }
+      });
+      // Ticket panel open/close logic using new helpers
+      btn && btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var vis = (tkPanel.style.display==='block');
+        if (vis){
+          closeTkPanel();
+        } else {
+          openTkPanel();
         }
       });
       // Precarga del badge al entrar
       fetchInbox();
+
+      closeX && closeX.addEventListener('click', closeM);
+      cancel && cancel.addEventListener('click', closeM);
+      modal && modal.addEventListener('click', function(e){ if (e.target === modal) closeM(); });
+      document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeM(); });
 
       send && send.addEventListener('click', function(){
         var t = esc(topic.value);
