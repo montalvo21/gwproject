@@ -71,7 +71,6 @@ html, body {
 /* CONTENEDOR PRINCIPAL DE FORMULARIO */
 .gw-form-wrapper {
   width: 100%;
-  max-width: 1500px;
   height: 104%;
   max-height: 1269px;
   background: #ffffff;

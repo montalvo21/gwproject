@@ -2013,7 +2013,7 @@ add_action('wp_footer', function(){
   #gw-notif-panel {
     position: fixed;
     top: 132px;
-    right: 18px;
+    right: 50px;
     width: 380px;
     max-width: 92vw;
     background: white;
@@ -2475,14 +2475,14 @@ add_action('wp_footer', function(){
   #gw-notif-btn{
     position: fixed;
     top: 4.8rem !important;
-    right: 9rem !important;
+    right: 11rem !important;
     margin-top: 0 !important;
     z-index: 100006;
   }
 
   /* Botón de tickets: SIEMPRE debajo de la campanita */
   #gw-ticket-btn{
-    position:fixed; top:76px !important; right:20px !important; z-index:100005;
+    position:fixed; top:76px !important; right:50px !important; z-index:100005;
     background:#fff; border:1px solid #e2e8f0; border-radius:14px;
     padding:10px 14px; display:flex; gap:8px; align-items:center;
     box-shadow:0 4px 12px rgba(0,0,0,.08);
@@ -2496,7 +2496,7 @@ add_action('wp_footer', function(){
 
   /* Panel de tickets: alineado bajo el botón de tickets */
   #gw-ticket-panel{
-    position:fixed; top:128px !important; right:20px !important; width:420px; max-width:92vw;
+    position:fixed; top:128px !important; right:50px !important; width:420px; max-width:92vw;
     background:#fff; border:1px solid #e2e8f0; border-radius:14px;
     box-shadow:0 20px 50px rgba(0,0,0,.15); z-index:100004; display:none; overflow:hidden;
   }
@@ -4747,8 +4747,23 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     if (empty($paises)) {
                         echo '<p>No hay países registrados aún.</p>';
                     } else {
-                        echo '<div style="max-width:700px;">';
-                        foreach ($paises as $pais) {
+                      echo '
+                      <style>
+                      .contenedor {
+                          max-width: 700px;
+                      }
+                      
+                      @media (min-width: 1000px) {
+                          .contenedor {
+                              max-width: none;   /* quita límite */
+                              column-count: 2;   /* columnas */
+                              column-gap: 20px;  /* opcional: separación */
+                          }
+                      }
+                      </style>
+                      
+                      <div class="contenedor">';
+                      foreach ($paises as $pais) {
                             $charlas_asociadas = get_post_meta($pais->ID, '_gw_charlas', true);
                             if (!is_array($charlas_asociadas)) $charlas_asociadas = [];
                             echo '<div style="border:1px solid #c8d6e5;padding:18px;border-radius:9px;margin-bottom:20px;background:#fafdff;" data-pais-id="' . $pais->ID . '">';
@@ -5008,6 +5023,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     
                     #gw-qr-modal > div {
                         animation: modalSlideIn 0.3s ease-out;
+                        bottom: -16rem;
                     }
                     
                     @keyframes modalSlideIn {
@@ -5147,6 +5163,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                             max-width: 90% !important;
                             margin: 5% auto !important;
                             padding: 12px !important;
+                            bottom: -16rem;
                         }
                         
                         #gw-qr-modal h3 {
@@ -5247,6 +5264,8 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                             max-width: 380px !important;
                             margin: 3% auto !important;
                             padding: 16px !important;
+                            bottom: -16rem;
+                            
                         }
                         
                         #gw-qr-modal h3 {
@@ -5302,6 +5321,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                             margin: 2% auto;
                             max-width: 95%;
                             padding: 15px;
+                            bottom: -16rem;
                         }
                         
                         #gw-qr-modal-qr img {
