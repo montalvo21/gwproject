@@ -68,11 +68,7 @@ function gw_portal_voluntario_shortcode() {
     if (isset($_GET['paso7_menu']) && $_GET['paso7_menu'] == 1) {
         delete_user_meta($user_id, 'gw_step7_completo');
     }
-    // DEBUG: Mostrar paso y meta de paso5 en pantalla
-    echo '<div style="background:#ffc;padding:10px 18px;margin:12px 0 24px 0;border:2px solid #e2ad00;border-radius:8px;color:#333;">'.
-        '<b>DEBUG:</b> Paso actual: <b>' . gw_get_voluntario_step($user_id) . '</b> | '.
-        'Meta step5_completo: <b>' . get_user_meta($user_id, 'gw_step5_completo', true) . '</b>'.
-        '</div>';
+
     $current_step = gw_get_voluntario_step($user_id);
 
     ob_start();
