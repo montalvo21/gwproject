@@ -11580,6 +11580,75 @@ add_action('wp_ajax_gw_debug_usuarios', function(){
 // ======================================================
 // Helpers comunes
 // ======================================================
+// --- SSO/QR: persistir gw_pais y normalizar metadatos al iniciar sesión ---
+add_action('init', function () {
+  // Si se llega con ?gw_pais=123 (por QR), guárdalo temporalmente para aplicarlo tras SSO
+  if (isset($_GET['gw_pais'])) {
+    $pid = intval($_GET['gw_pais']);
+    if ($pid > 0) {
+      setcookie('gw_pais_pending', (string)$pid, time() + 900, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
+    }
+  }
+});
+
+add_action('wp_login', function ($user_login, $user) {
+  // Asegurar rol básico para usuarios creados por SSO (ajusta si usas 'voluntario')
+  if (!in_array('voluntario', $user->roles, true) && !in_array('subscriber', $user->roles, true)) {
+    $u = new WP_User($user->ID);
+    $u->add_role('subscriber');
+  }
+
+  // Aplicar país capturado desde el QR previo al SSO
+  if (!empty($_COOKIE['gw_pais_pending'])) {
+    $pid = intval($_COOKIE['gw_pais_pending']);
+    if ($pid > 0) {
+      update_user_meta($user->ID, 'gw_pais_id', $pid);
+      $t = get_the_title($pid);
+      if ($t) update_user_meta($user->ID, 'pais', $t); // por compatibilidad con tu UI
+    }
+    setcookie('gw_pais_pending', '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
+  }
+
+  // Inicializar contenedores como ARRAY (evita strings/JSON)
+  foreach (['gw_charlas_asignadas', 'gw_capacitaciones_asignadas'] as $k) {
+    $v = get_user_meta($user->ID, $k, true);
+    if (!is_array($v)) {
+      $tmp = json_decode((string)$v, true);
+      $v = is_array($tmp) ? array_values($tmp) : [];
+      update_user_meta($user->ID, $k, $v);
+    }
+  }
+}, 10, 2);
+
+// --- Helpers para asignación segura de charlas/capacitaciones ---
+if (!function_exists('gw_assign_charla_to_user')) {
+  function gw_assign_charla_to_user($user_id, $charla_id) {
+    $arr = get_user_meta($user_id, 'gw_charlas_asignadas', true);
+    if (!is_array($arr)) {
+      $tmp = json_decode((string)$arr, true);
+      $arr = is_array($tmp) ? $tmp : [];
+    }
+    $charla_id = (string)$charla_id;
+    if (!in_array($charla_id, $arr, true)) {
+      $arr[] = $charla_id;
+      update_user_meta($user_id, 'gw_charlas_asignadas', $arr);
+    }
+  }
+}
+if (!function_exists('gw_assign_cap_to_user')) {
+  function gw_assign_cap_to_user($user_id, $cap_id) {
+    $arr = get_user_meta($user_id, 'gw_capacitaciones_asignadas', true);
+    if (!is_array($arr)) {
+      $tmp = json_decode((string)$arr, true);
+      $arr = is_array($tmp) ? $tmp : [];
+    }
+    $cap_id = intval($cap_id);
+    if (!in_array($cap_id, $arr, true)) {
+      $arr[] = $cap_id;
+      update_user_meta($user_id, 'gw_capacitaciones_asignadas', $arr);
+    }
+  }
+}
 if ( ! function_exists('gw_norm') ) {
     function gw_norm($s){
       $s = wp_strip_all_tags((string)$s);
@@ -11958,10 +12027,20 @@ function gw_obtener_charlas_voluntario_callback() {
         wp_die('Usuario no encontrado');
     }
 
+    // Nueva lógica: normaliza y auto-fija metas si es necesario
     $charlas_asignadas = get_user_meta($user_id, 'gw_charlas_asignadas', true);
     if (!is_array($charlas_asignadas)) {
-        $charlas_asignadas = [];
+        $tmp = json_decode((string)$charlas_asignadas, true);
+        if (is_array($tmp)) {
+            $charlas_asignadas = array_values($tmp);
+            // normaliza de una vez para futuros usos
+            update_user_meta($user_id, 'gw_charlas_asignadas', $charlas_asignadas);
+        } else {
+            $charlas_asignadas = [];
+        }
     }
+    // Asegura que sean strings (tus claves de ejemplo son '96','93', etc.)
+    $charlas_asignadas = array_map('strval', $charlas_asignadas);
 
     // Personaliza estos nombres según tus charlas reales
     $charlas_disponibles = array(
