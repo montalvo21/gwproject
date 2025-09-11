@@ -846,7 +846,7 @@ label {
    ======================================== */
 @media (max-width: 1200px) and (min-width: 1025px) {
   .gw-modern-wrapper {
-    padding: 24px;
+    padding: 11px;
   }
   
   .gw-sidebar {
@@ -966,8 +966,8 @@ label {
     }
     
     .gw-hero-logo2 {
-        text-align: center;
         margin-bottom: 12px;
+        margin-top: 2rem;
     }
     
     .gw-hero-logo2 img {

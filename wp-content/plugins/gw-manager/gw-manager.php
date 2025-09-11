@@ -2012,8 +2012,8 @@ add_action('wp_footer', function(){
 
   #gw-notif-panel {
     position: fixed;
-    top: 72px;
-    right: 20px;
+    top: 132px;
+    right: 18px;
     width: 380px;
     max-width: 92vw;
     background: white;
@@ -2213,9 +2213,8 @@ add_action('wp_footer', function(){
     }
 
     #gw-notif-panel {
-      top: 60px;
-      right: 16px;
-      width: calc(100vw - 32px);
+        top: 9rem;
+        right: 0.8rem;
     }
 
     #gw-notif-panel header {
@@ -2234,7 +2233,6 @@ add_action('wp_footer', function(){
   @media (prefers-color-scheme: dark) {
     #gw-notif-btn {
       background: linear-gradient(135deg, #c4c33f 100%);
-      border-color: #374151;
       color: #e5e7eb;
       margin-top: 3rem;
 
@@ -2475,8 +2473,11 @@ add_action('wp_footer', function(){
 <style>
   /* Asegura la campanita en la parte superior fija */
   #gw-notif-btn{
-    position:fixed; top:16px !important; right:20px !important; margin-top:0 !important;
-    z-index:100006;
+    position: fixed;
+    top: 4.8rem !important;
+    right: 9rem !important;
+    margin-top: 0 !important;
+    z-index: 100006;
   }
 
   /* Botón de tickets: SIEMPRE debajo de la campanita */
@@ -2511,9 +2512,14 @@ add_action('wp_footer', function(){
 
   /* Responsive */
   @media (max-width:480px){
-    #gw-notif-btn{ top:12px !important; right:16px !important; margin-top:0 !important; }
-    #gw-ticket-btn{ top:68px !important; right:16px !important; }
-    #gw-ticket-panel{ top:118px !important; right:16px !important; width:calc(100vw - 32px); }
+    #gw-notif-btn{ top: 5.8rem !important; right: 8.2rem !important; margin-top: 0 !important; height: 3rem;}
+    #gw-ticket-btn{         top: 93px !important;
+        right: 12px !important;
+        width: 7rem;
+        height: 3rem;}
+    #gw-ticket-panel{ top: 150px !important;
+        right: 11px !important;
+        width: calc(100vw - 32px);}
   }
 </style>
 
