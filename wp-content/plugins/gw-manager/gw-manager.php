@@ -361,7 +361,9 @@ add_action('init', function () {
 });
 
 
+// ===============================================
 // Shortcode para mostrar capacitaciones inscritas
+// ===============================================
 add_shortcode('gw_mis_capacitaciones', 'gw_mis_capacitaciones_shortcode');
 
 function gw_mis_capacitaciones_shortcode() {
@@ -381,35 +383,24 @@ function gw_mis_capacitaciones_shortcode() {
     $capacitacion_title = get_the_title($capacitacion_id);
     $capacitacion_url = get_permalink($capacitacion_id);
 
-    $output = '<div class="gw-mis-capacitaciones">';
+    $output  = '<div class="gw-mis-capacitaciones">';
     $output .= '<h2>Mis Capacitaciones</h2>';
-    $output .= "<p><strong>Capacitación:</strong> <a href=\"{$capacitacion_url}\">{$capacitacion_title}</a></p>";
-    $output .= "<p><strong>Fecha:</strong> {$fecha}</p>";
-    $output .= "<p><strong>Hora:</strong> {$hora}</p>";
+    $output .= '<p><strong>Capacitación:</strong> <a href="'.esc_url($capacitacion_url).'">'.esc_html($capacitacion_title).'</a></p>';
+    $output .= '<p><strong>Fecha:</strong> '.esc_html($fecha).'</p>';
+    $output .= '<p><strong>Hora:</strong> '.esc_html($hora).'</p>';
     $output .= '</div>';
 
     return $output;
 }
-// Shortcode para página de inicio visual con login Nextend Social Login
-if (!function_exists('gw_google_login_url')) {
-    /**
-     * Genera el URL de login de Google y guarda en el transient de `state` datos extra
-     * como `gw_pais` (si viene en la query).
-     */
-    function gw_google_login_url($pais_id = 0) {
-        // Intentar tomar gw_pais de la request si no vino por parámetro
-        if (!$pais_id && isset($_REQUEST['gw_pais'])) {
-            $pais_id = intval($_REQUEST['gw_pais']);
-        }
 
-        // CSRF + carry data
+// ===============================================
+// Google OAuth: URL de inicio
+// ===============================================
+if (!function_exists('gw_google_login_url')) {
+    function gw_google_login_url() {
+        // CSRF state
         $state = wp_generate_password(24, false, false);
-        // Guardamos un array en el transient (antes era '1')
-        set_transient('gw_google_state_'.$state, [
-            'ok'      => 1,
-            'gw_pais' => intval($pais_id),
-            'ts'      => time(),
-        ], 10 * MINUTE_IN_SECONDS);
+        set_transient('gw_google_state_'.$state, '1', 10 * MINUTE_IN_SECONDS);
 
         $params = [
             'client_id'     => GW_GOOGLE_CLIENT_ID,
@@ -424,54 +415,269 @@ if (!function_exists('gw_google_login_url')) {
     }
 }
 
-// Iniciar flujo OAuth (no logueado)
+/* -------------------------------------------------------
+   Helpers de País
+--------------------------------------------------------*/
+/** Devuelve el código de país y lo persiste en 'gw_pais' si sólo hay 'gw_pais_id'. */
+function gw_resolve_user_pais_code(int $user_id): string {
+    $code = (string) get_user_meta($user_id, 'gw_pais', true);
+    if ($code !== '') return $code;
+
+    $pid = (int) get_user_meta($user_id, 'gw_pais_id', true);
+    if ($pid > 0) {
+        $code = (string) get_post_meta($pid, 'codigo', true);
+        if ($code === '') $code = (string) get_post_field('post_name', $pid);
+        if ($code !== '') update_user_meta($user_id, 'gw_pais', $code);
+    }
+    return $code;
+}
+
+/** Devuelve el ID de país; si sólo hay código, permite resolverlo vía filtro. */
+function gw_resolve_user_pais_id(int $user_id): int {
+    $pid = (int) get_user_meta($user_id, 'gw_pais_id', true);
+    if ($pid > 0) return $pid;
+
+    $code = gw_resolve_user_pais_code($user_id);
+    if ($code !== '') {
+        // Puedes mapear código → post_id (CPT País) con este filtro si lo necesitas.
+        $pid = (int) apply_filters('gw/resolve_pais_id_from_code', 0, $code);
+        if ($pid > 0) update_user_meta($user_id, 'gw_pais_id', $pid);
+    }
+    return $pid;
+}
+
+/* -------------------------------------------------------
+   Detección de Sesiones Próximas (ajustable por filtros)
+--------------------------------------------------------*/
+/**
+ * Determina si una charla tiene al menos una sesión futura.
+ * Soporta:
+ *  A) CPT de sesiones (por defecto 'sesion_charla')
+ *  B) Meta en charla 'gw_sesiones' (array de fechas/timestamps)
+ */
+function gw_charla_tiene_sesion_activa(int $charla_id): bool {
+    $charla_id = (int) $charla_id;
+    if ($charla_id <= 0) return false;
+
+    $now_ts = current_time('timestamp');
+
+    // A) CPT de sesiones
+    $cpt_sesion     = apply_filters('gw/sesion_cpt', 'sesion_charla');
+    $meta_charla_fk = apply_filters('gw/sesion_meta/charla_fk', 'charla_id');
+    $meta_inicio    = apply_filters('gw/sesion_meta/inicio', 'inicio'); // o 'fecha_inicio'
+    $meta_estado    = apply_filters('gw/sesion_meta/estado', 'estado');
+    $usar_estado    = (bool) apply_filters('gw/sesion_usa_estado', false);
+    $valor_activo   = apply_filters('gw/sesion_valor_estado_activo', 'activa');
+
+    $mq = [
+        'relation' => 'AND',
+        [
+            'key'     => $meta_charla_fk,
+            'value'   => $charla_id,
+            'compare' => '='
+        ],
+        [
+            'key'     => $meta_inicio,
+            'value'   => $now_ts,
+            'type'    => 'NUMERIC',
+            'compare' => '>='
+        ]
+    ];
+    if ($usar_estado) {
+        $mq[] = [
+            'key'     => $meta_estado,
+            'value'   => $valor_activo,
+            'compare' => '='
+        ];
+    }
+
+    $q = new WP_Query([
+        'post_type'      => $cpt_sesion,
+        'post_status'    => 'publish',
+        'posts_per_page' => 1,
+        'no_found_rows'  => true,
+        'fields'         => 'ids',
+        'meta_query'     => $mq,
+    ]);
+    if ($q->have_posts()) return true;
+
+    // B) Meta en la charla
+    $ses = get_post_meta($charla_id, 'gw_sesiones', true);
+    if (is_array($ses)) {
+        foreach ($ses as $s) {
+            $ini = is_array($s) ? ($s['inicio'] ?? null) : $s;
+            if (!$ini) continue;
+            $ts = is_numeric($ini) ? (int) $ini : strtotime((string) $ini);
+            if ($ts && $ts >= $now_ts) return true;
+        }
+    }
+
+    return false;
+}
+
+/* -------------------------------------------------------
+   Charlas activas por País (y con sesión)
+--------------------------------------------------------*/
+/**
+ * Devuelve IDs de charlas del país que estén "activas" y con sesión futura.
+ * - "Activa" por meta: gw_activa = '1' (ajustable por filtros).
+ * - Relación país↔charla por meta 'gw_pais_id' (o taxonomía vía filtros).
+ * - Fallback: meta del post País '_gw_charlas' (IDs) si no hay relación directa.
+ */
+function gw_get_charlas_activas_con_sesion_por_pais(int $pais_id): array {
+    $pais_id = (int) $pais_id;
+    if ($pais_id <= 0) return [];
+
+    $meta_activa_key   = apply_filters('gw/charla_meta/activa_key', 'gw_activa');
+    $meta_activa_value = apply_filters('gw/charla_meta/activa_value', '1');
+
+    $usar_taxonomia_pais = (bool) apply_filters('gw/charla_relacion/usa_taxonomia', false);
+    $taxonomia_pais      = apply_filters('gw/charla_relacion/taxonomia', 'pais');
+    $meta_rel_pais       = apply_filters('gw/charla_relacion/meta_pais_fk', 'gw_pais_id');
+
+    $args = [
+        'post_type'      => 'charla',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'no_found_rows'  => true,
+        'orderby'        => 'ID',
+        'order'          => 'ASC',
+        'meta_query'     => [
+            'relation' => 'AND',
+            [
+                'key'     => $meta_activa_key,
+                'value'   => $meta_activa_value,
+                'compare' => '='
+            ],
+        ],
+    ];
+
+    if ($usar_taxonomia_pais) {
+        $args['tax_query'] = [[
+            'taxonomy' => $taxonomia_pais,
+            'field'    => 'term_id',
+            'terms'    => (int) apply_filters('gw/map_pais_post_to_term', $pais_id, $pais_id),
+        ]];
+    } else {
+        $args['meta_query'][] = [
+            'key'     => $meta_rel_pais,
+            'value'   => $pais_id,
+            'compare' => '=',
+            'type'    => 'NUMERIC'
+        ];
+    }
+
+    $ids = get_posts($args);
+
+    // Fallback: IDs desde el post País
+    if (empty($ids)) {
+        $ids = get_post_meta($pais_id, '_gw_charlas', true);
+        $ids = is_array($ids) ? array_map('intval', $ids) : [];
+        if ($ids) {
+            $ids = array_values(array_filter($ids, function($cid) use ($meta_activa_key, $meta_activa_value){
+                return get_post_status($cid) === 'publish'
+                    && (string) get_post_meta($cid, $meta_activa_key, true) === (string) $meta_activa_value;
+            }));
+        }
+    }
+
+    if (empty($ids)) return [];
+
+    // Mantener sólo las que tengan sesión próxima
+    $ids = array_values(array_filter($ids, 'gw_charla_tiene_sesion_activa'));
+
+    return $ids;
+}
+
+/* -------------------------------------------------------
+   Defaults (si el país no tiene ninguna válida)
+--------------------------------------------------------*/
+function gw_get_charlas_default(): array {
+    $ids = [];
+    $charlas = get_posts([
+        'post_type'      => 'charla',
+        'post_status'    => 'publish',
+        'numberposts'    => 5,
+        'orderby'        => 'ID',
+        'order'          => 'ASC'
+    ]);
+    foreach ($charlas as $p) $ids[] = (int) $p->ID;
+    // Filtra sólo las que tengan sesión
+    $ids = array_values(array_filter($ids, 'gw_charla_tiene_sesion_activa'));
+    return $ids;
+}
+
+/* -------------------------------------------------------
+   Sincronizador idempotente (país + activas + sesión)
+--------------------------------------------------------*/
+function gw_sync_charlas_para_usuario(int $user_id): void {
+    if ($user_id <= 0) return;
+
+    // 1) Resolver país
+    $pais_id = gw_resolve_user_pais_id($user_id);
+
+    // 2) Charlas activas con sesión del país
+    $asignadas = [];
+    if ($pais_id > 0) {
+        $asignadas = gw_get_charlas_activas_con_sesion_por_pais($pais_id);
+    }
+
+    // 3) Sumar las agendadas por el usuario (si usas esa vía)
+    $agendada = get_user_meta($user_id, 'gw_charla_agendada', true);
+    if (!empty($agendada)) {
+        if (is_array($agendada)) foreach ($agendada as $cid) $asignadas[] = (int) $cid;
+        else $asignadas[] = (int) $agendada;
+    }
+
+    // 4) Defaults si sigue vacío
+    if (empty($asignadas)) {
+        $asignadas = gw_get_charlas_default();
+    }
+
+    // 5) Normalizar y validar existencia/publicación
+    $asignadas = array_values(array_unique(array_filter(array_map('intval', $asignadas))));
+    $validas   = [];
+    foreach ($asignadas as $cid) {
+        if (get_post_status($cid) === 'publish') $validas[] = $cid;
+    }
+
+    update_user_meta($user_id, 'gw_charlas_asignadas', $validas);
+}
+
+/* -------------------------------------------------------
+   Flujo OAuth Google (start + callback)
+--------------------------------------------------------*/
 add_action('admin_post_nopriv_gw_google_start', function () {
-    $pais = isset($_GET['gw_pais']) ? intval($_GET['gw_pais']) : 0;
-    wp_redirect( gw_google_login_url($pais) );
+    wp_redirect(gw_google_login_url());
     exit;
 });
 
-// Callback OAuth (no logueado)
 add_action('admin_post_nopriv_gw_google_callback', function () {
     if (!isset($_GET['state'], $_GET['code'])) wp_die('OAuth inválido');
     $state = sanitize_text_field($_GET['state']);
-    $st = get_transient('gw_google_state_'.$state);
-    if (!$st) wp_die('Estado inválido/expirado');
+    if (!get_transient('gw_google_state_'.$state)) wp_die('Estado inválido/expirado');
     delete_transient('gw_google_state_'.$state);
-    // Extra: pais que venía en el QR (si aplica)
-    $pais_from_state = is_array($st) ? intval($st['gw_pais'] ?? 0) : 0;
 
     $code = sanitize_text_field($_GET['code']);
 
-    // 1) Intercambio code -> token
-// 1) Intercambio por tokens
-$resp = wp_remote_post(GW_GOOGLE_TOKEN, [
-    'timeout' => 20,
-    'headers' => [ 'Accept' => 'application/json' ],
-    'body' => [
-        'code'          => $code,
-        'client_id'     => GW_GOOGLE_CLIENT_ID,
-        'client_secret' => GW_GOOGLE_CLIENT_SECRET,
-        'redirect_uri'  => GW_GOOGLE_REDIRECT,
-        'grant_type'    => 'authorization_code',
-    ],
-]);
+    // 1) Token
+    $resp = wp_remote_post(GW_GOOGLE_TOKEN, [
+        'timeout' => 20,
+        'headers' => [ 'Accept' => 'application/json' ],
+        'body' => [
+            'code'          => $code,
+            'client_id'     => GW_GOOGLE_CLIENT_ID,
+            'client_secret' => GW_GOOGLE_CLIENT_SECRET,
+            'redirect_uri'  => GW_GOOGLE_REDIRECT,
+            'grant_type'    => 'authorization_code',
+        ],
+    ]);
+    if (is_wp_error($resp)) wp_die('Error de token: '.$resp->get_error_message());
 
-if (is_wp_error($resp)) {
-    wp_die('Error de token: '. $resp->get_error_message());
-}
-
-$raw = wp_remote_retrieve_body($resp);
-$data = json_decode($raw, true);
-
-// --- LOG útil para debug (se va a wp-content/debug.log)
-error_log('GW_GOOGLE_TOKEN_RESPONSE: ' . $raw);
-
-if (empty($data['access_token'])) {
-    // Muestra el error concreto en pantalla para resolver rápido
-    wp_die('<pre>Intercambio falló: ' . esc_html($raw) . '</pre>');
-}
-
+    $raw  = wp_remote_retrieve_body($resp);
+    $data = json_decode($raw, true);
+    if (empty($data['access_token'])) wp_die('Intercambio falló: '.$raw);
 
     // 2) Userinfo
     $u = wp_remote_get(GW_GOOGLE_USERINFO, [
@@ -481,92 +687,124 @@ if (empty($data['access_token'])) {
     if (is_wp_error($u)) wp_die('Error userinfo');
     $userInfo = json_decode(wp_remote_retrieve_body($u), true);
 
-    $email = isset($userInfo['email']) ? sanitize_email($userInfo['email']) : '';
+    $email = sanitize_email($userInfo['email'] ?? '');
+    $name  = sanitize_text_field($userInfo['name'] ?? '');
+    $sub   = sanitize_text_field($userInfo['sub'] ?? '');
     if (!$email) wp_die('No se obtuvo email de Google');
-    $name  = isset($userInfo['name']) ? sanitize_text_field($userInfo['name']) : '';
-    $sub   = isset($userInfo['sub'])  ? sanitize_text_field($userInfo['sub'])  : '';
 
-    // 3) Buscar/crear usuario WP
+    // 3) Usuario
     $user = get_user_by('email', $email);
+    $is_new_user = false;
     if (!$user) {
-        $uid = wp_create_user($email, wp_generate_password(20, true, true), $email);
+        $is_new_user = true;
+        $uid = wp_create_user($email, wp_generate_password(20,true,true), $email);
         if (is_wp_error($uid)) wp_die('No se pudo crear el usuario');
-        wp_update_user(['ID' => $uid, 'display_name' => ($name ?: $email)]);
+        wp_update_user(['ID'=>$uid,'display_name'=>($name?:$email)]);
         $user = get_user_by('id', $uid);
-
-        // Rol por defecto: voluntario
         $user->set_role('voluntario');
 
-        // Metadatos útiles
         update_user_meta($uid, 'gw_google_sub', $sub);
         update_user_meta($uid, 'gw_active', '1');
-        // Si venía pais_from_state, asignar país y charlas al nuevo usuario
-        if ($pais_from_state > 0) {
-            update_user_meta($uid, 'gw_pais_id', $pais_from_state);
-            $charlas_flujo = get_post_meta($pais_from_state, '_gw_charlas', true);
-            if (is_array($charlas_flujo)) {
-                update_user_meta($uid, 'gw_charlas_asignadas', $charlas_flujo);
+
+        if (!empty($_COOKIE['gw_pais_pending'])) {
+            $pid = (int) $_COOKIE['gw_pais_pending'];
+            if ($pid>0) {
+                update_user_meta($uid,'gw_pais_id',$pid);
+                $code = gw_resolve_user_pais_code($uid);
+                error_log("Asignado país $pid ($code) al usuario $uid");
             }
+            setcookie('gw_pais_pending','',time()-3600,COOKIEPATH,COOKIE_DOMAIN,is_ssl(),true);
         }
     }
 
-    // 4) Iniciar sesión
-    wp_set_auth_cookie($user->ID, true);
+    // 4) Login
+    wp_set_auth_cookie($user->ID,true);
     wp_set_current_user($user->ID);
 
-    /** Asignaciones por QR (si el flujo venía con gw_pais) **/
-    if (in_array('voluntario', $user->roles)) {
-        $uid = $user->ID;
+    // 5) Sync charlas (país + activas + con sesión)
+    gw_sync_charlas_para_usuario($user->ID);
 
-        // Si no tiene país y recibimos uno desde el state, asignarlo
-        $curr_pais = get_user_meta($uid, 'gw_pais_id', true);
-        if (!$curr_pais && $pais_from_state > 0) {
-            update_user_meta($uid, 'gw_pais_id', $pais_from_state);
-
-            // Si no tiene charlas asignadas, copiarlas desde el país
-            $charlas_flujo = get_post_meta($pais_from_state, '_gw_charlas', true);
-            if (is_array($charlas_flujo) && !get_user_meta($uid, 'gw_charlas_asignadas', true)) {
-                update_user_meta($uid, 'gw_charlas_asignadas', $charlas_flujo);
-            }
-        }
-    }
-
-    // 5) Redirecciones (igual a tu lógica)
-    if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
+    // 6) Redirect
+    if (array_intersect(['administrator','coach','coordinador_pais'],$user->roles)) {
         wp_redirect(site_url('/index.php/panel-administrativo')); exit;
     }
-    if (in_array('voluntario', $user->roles)) {
-        $active = get_user_meta($user->ID, 'gw_active', true); if ($active === '') $active = '1';
-        if ($active === '0') { wp_redirect(site_url('/index.php/portal-voluntario?inactivo=1')); exit; }
+    if (in_array('voluntario',$user->roles)) {
+        $active = get_user_meta($user->ID,'gw_active',true) ?: '1';
+        if ($active==='0') {
+            wp_redirect(site_url('/index.php/portal-voluntario?inactivo=1')); exit;
+        }
         wp_redirect(site_url('/index.php/portal-voluntario')); exit;
     }
     wp_redirect(site_url('/')); exit;
 });
 
-// Botón “Continuar con Google”
-if (!function_exists('gw_login_google_button_html')) {
-    function gw_login_google_button_html() {
-        ob_start(); ?>
-        <div class="gw-login-google" style="margin-top:18px; text-align:center;">
-          <?php
-            $gw_start = admin_url('admin-post.php?action=gw_google_start');
-            if (isset($_GET['gw_pais'])) {
-                $gw_start = add_query_arg('gw_pais', intval($_GET['gw_pais']), $gw_start);
-            }
-          ?>
-          <a href="<?php echo esc_url( $gw_start ); ?>"
-             class="gw-google-btn"
-             style="display:inline-flex;align-items:center;gap:10px;justify-content:center;
-                    width:100%;max-width:420px;height:44px;border-radius:999px;border:1px solid #d0d7e2;
-                    background:#fff;text-decoration:none;font-weight:600;">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""
-                 style="width:20px;height:20px;" />
-            <span>Continuar con Google</span>
-          </a>
-        </div>
-        <?php return ob_get_clean();
+/* -------------------------------------------------------
+   Hooks de login / sesión
+--------------------------------------------------------*/
+// wp_login (incluye login tradicional)
+add_action('wp_login', function($user_login, $user){
+    if (!in_array('voluntario',$user->roles,true) && !in_array('subscriber',$user->roles,true)) {
+        $u=new WP_User($user->ID); $u->add_role('subscriber');
     }
-}
+
+    // País pendiente en cookie
+    if (!empty($_COOKIE['gw_pais_pending'])) {
+        $pid=(int)$_COOKIE['gw_pais_pending'];
+        if ($pid>0) {
+            update_user_meta($user->ID,'gw_pais_id',$pid);
+            gw_resolve_user_pais_code($user->ID);
+        }
+        setcookie('gw_pais_pending','',time()-3600,COOKIEPATH,COOKIE_DOMAIN,is_ssl(),true);
+    }
+
+    // Sync charlas
+    gw_sync_charlas_para_usuario((int)$user->ID);
+
+    // Normalizar arrays (por si vinieran como JSON string)
+    foreach(['gw_charlas_asignadas','gw_capacitaciones_asignadas'] as $k){
+        $v=get_user_meta($user->ID,$k,true);
+        if(!is_array($v)){
+            $tmp=json_decode((string)$v,true);
+            $v=is_array($tmp)?array_values($tmp):[];
+            update_user_meta($user->ID,$k,$v);
+        }
+    }
+},10,2);
+
+// set_auth_cookie (paracaídas para SSO que no dispara wp_login)
+add_action('set_auth_cookie', function($auth_cookie, $expire, $expiration, $user_id){
+    if (!empty($user_id)) gw_sync_charlas_para_usuario((int)$user_id);
+}, 10, 4);
+
+// init (refresco suave al cargar el sitio ya logueado)
+add_action('init',function(){
+    if(is_user_logged_in()){
+        $u=wp_get_current_user();
+        if(in_array('voluntario',$u->roles)){
+            gw_sync_charlas_para_usuario((int)$u->ID);
+        }
+    }
+});
+
+/* -------------------------------------------------------
+   Botón "Continuar con Google"
+--------------------------------------------------------*/
+if(!function_exists('gw_login_google_button_html')){
+function gw_login_google_button_html(){
+    ob_start(); ?>
+    <div class="gw-login-google" style="margin-top:18px; text-align:center;">
+      <a href="<?php echo esc_url(admin_url('admin-post.php?action=gw_google_start')); ?>"
+         class="gw-google-btn"
+         style="display:inline-flex;align-items:center;gap:10px;justify-content:center;
+                width:100%;max-width:420px;height:44px;border-radius:999px;border:1px solid #d0d7e2;
+                background:#fff;text-decoration:none;font-weight:600;">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""
+             style="width:20px;height:20px;" />
+        <span>Continuar con Google</span>
+      </a>
+    </div>
+    <?php return ob_get_clean();
+}}
 
 // ===========================================================
 //  TU SHORTCODE + PÁGINA DE LOGIN (CON EL BOTÓN YA INCRUSTADO)
