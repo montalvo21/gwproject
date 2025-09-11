@@ -13103,3 +13103,63 @@ function gw_ajax_generar_link_qr_pais_final() {
 }
 
 add_action('wp_ajax_gw_generar_link_qr_pais', 'gw_ajax_generar_link_qr_pais_final');
+
+
+
+/**
+ * Crea o sincroniza el WP_User desde el perfil de Google
+ * $g = ['sub','email','name','given_name','family_name','picture', ...]
+ * Retorna el $user_id listo y loguea.
+ */
+function gw_upsert_user_from_google(array $g){
+  $email = sanitize_email($g['email'] ?? '');
+  if (!$email) wp_die('Email requerido por Google');
+
+  // 1) Buscar usuario por email
+  $user = get_user_by('email', $email);
+  $default_role = 'voluntario';
+
+  if (!$user) {
+    // user_login único a partir del email
+    $login = sanitize_user(current(explode('@', $email)));
+    if (username_exists($login)) $login .= '_' . wp_generate_password(4, false, false);
+
+    $user_id = wp_insert_user([
+      'user_login'   => $login,
+      'user_pass'    => wp_generate_password(24),
+      'user_email'   => $email,
+      'first_name'   => $g['given_name'] ?? '',
+      'last_name'    => $g['family_name'] ?? '',
+      'display_name' => !empty($g['name']) ? $g['name'] : trim(($g['given_name'] ?? '') . ' ' . ($g['family_name'] ?? '')),
+      'role'         => $default_role,
+    ]);
+
+    if (is_wp_error($user_id)) wp_die('No se pudo crear el usuario.');
+  } else {
+    $user_id = $user->ID;
+
+    // Mantén admin/coordinador/coach; si no tiene ninguno de tus roles, asigna voluntario
+    $u = new WP_User($user_id);
+    $app_roles = ['administrator','coordinador_pais','coach','voluntario'];
+    if (!array_intersect($app_roles, $u->roles)) {
+      $u->set_role($default_role);
+    }
+
+    // Completa nombres si faltan
+    if (empty($user->first_name) && !empty($g['given_name'])) update_user_meta($user_id, 'first_name', $g['given_name']);
+    if (empty($user->last_name)  && !empty($g['family_name'])) update_user_meta($user_id, 'last_name',  $g['family_name']);
+    if (empty($user->display_name) && !empty($g['name'])) wp_update_user(['ID'=>$user_id,'display_name'=>$g['name']]);
+  }
+
+  // 2) Metas mínimas que tu panel usa (clave para que “aparezcan”)
+  if (get_user_meta($user_id, 'gw_active', true)   === '') update_user_meta($user_id, 'gw_active', '1');
+  if (get_user_meta($user_id, 'gw_pais_id', true)  === '') update_user_meta($user_id, 'gw_pais_id', 0); // o un país por defecto
+  update_user_meta($user_id, 'gw_auth_provider', 'google');
+  if (!empty($g['sub'])) update_user_meta($user_id, 'gw_google_sub', $g['sub']);
+
+  // 3) Login y redirección
+  wp_set_current_user($user_id);
+  wp_set_auth_cookie($user_id, true);
+  wp_safe_redirect(home_url('/index.php/portal-voluntario/')); // cambia a donde quieras
+  exit;
+}
