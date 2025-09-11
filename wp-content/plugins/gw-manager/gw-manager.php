@@ -1631,6 +1631,42 @@ add_action('wp_footer', function(){
   <?php
 });
 
+// ===== Notificaciones — Tabla dedicada =====
+function gw_notif_table(){
+  global $wpdb;
+  return $wpdb->prefix . 'notificaciones'; // ej: wp_notificaciones
+}
+
+// Crea/actualiza la tabla si no existe
+add_action('plugins_loaded', function(){
+  global $wpdb;
+  $table   = gw_notif_table();
+  $charset = $wpdb->get_charset_collate();
+
+  $sql = "CREATE TABLE {$table} (
+    id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id      BIGINT(20) UNSIGNED NOT NULL,
+    `type`       VARCHAR(20) NOT NULL,
+    entity_id    BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+    title        VARCHAR(255) NOT NULL,
+    body         TEXT NULL,
+    `status`     VARCHAR(10) NOT NULL DEFAULT 'UNREAD',
+    resolved     TINYINT(1) NOT NULL DEFAULT 0,
+    created_at   DATETIME NOT NULL,
+    read_at      DATETIME NULL,
+    resolved_at  DATETIME NULL,
+    resolved_by  BIGINT(20) UNSIGNED NULL,
+    PRIMARY KEY (id),
+    KEY idx_user_status  (user_id, `status`),
+    KEY idx_user_created (user_id, created_at),
+    KEY idx_resolved     (resolved),
+    KEY idx_type         (`type`)
+  ) {$charset};";
+
+  require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+  dbDelta($sql);
+});
+
 // ===============================
 // Notificaciones (campana y feed)
 // ===============================
@@ -1638,93 +1674,93 @@ add_action('wp_footer', function(){
 // Estructura de almacenamiento: opción con los últimos N eventos.
 if (!function_exists('gw_notif_log')) {
   function gw_notif_log($type, $user_id, $related_id = 0, $title = '', $text = ''){
-    $type = sanitize_key($type);
-    $user_id = intval($user_id);
-    $related_id = intval($related_id);
-    $title = sanitize_text_field($title);
+    global $wpdb;
+    $table = gw_notif_table();
+    $type  = strtoupper(sanitize_key($type)); // CHARLA | CAPACITACION | DOCUMENTO
+    $user  = intval($user_id);
+    $rid   = intval($related_id);
+    $title = wp_strip_all_tags($title);
     $text  = wp_kses_post($text);
+    $now   = current_time('mysql');
 
-    $log = get_option('gw_notifications_log', []);
-    if (!is_array($log)) $log = [];
-    $next_id = intval( get_option('gw_notifications_next_id', 1) );
+    $wpdb->insert($table, [
+      'user_id'    => $user,
+      'type'       => $type,
+      'entity_id'  => $rid,
+      'title'      => $title,
+      'body'       => $text,
+      'status'     => 'UNREAD',
+      'resolved'   => 0,
+      'created_at' => $now,
+    ], ['%d','%s','%d','%s','%s','%s','%d','%s']);
 
-    $log[] = [
-      'id'   => $next_id,
-      'ts'   => current_time('timestamp'),
-      'type' => $type,
-      'uid'  => $user_id,
-      'rid'  => $related_id,
-      'title'=> $title,
-      'text' => $text,
-    ];
-
-    // Limitar tamaño del feed
-    if (count($log) > 300) { $log = array_slice($log, -300); }
-
-    update_option('gw_notifications_log', $log, false);
-    update_option('gw_notifications_next_id', $next_id + 1, false);
-
-    return $next_id;
+    return intval($wpdb->insert_id);
   }
 }
 
 if (!function_exists('gw_notif_max_id')) {
   function gw_notif_max_id(){
-    return intval( get_option('gw_notifications_next_id', 1) ) - 1;
+    global $wpdb; $t = gw_notif_table();
+    $id = (int)$wpdb->get_var("SELECT IFNULL(MAX(id),0) FROM {$t}");
+    return $id;
   }
-  if (!function_exists('gw_notif_mark_done')) {
-    function gw_notif_mark_done($type, $uid, $rid){
-      $type = sanitize_key($type);
-      $uid  = intval($uid);
-      $rid  = intval($rid);
-      $done = get_option('gw_notifications_done', []);
-      if (!is_array($done)) $done = [];
-      $key = "{$type}:{$uid}:{$rid}";
-      if (!in_array($key, $done, true)) {
-        $done[] = $key;
-        update_option('gw_notifications_done', $done, false);
-      }
-    }
-  }
-  
-  if (!function_exists('gw_notif_pending_count')) {
-    function gw_notif_pending_count(){
-      $log  = get_option('gw_notifications_log', []);
-      if (!is_array($log)) $log = [];
-      $done = get_option('gw_notifications_done', []);
-      if (!is_array($done)) $done = [];
-      $pending = 0;
-      foreach ($log as $ev) {
-        $type = isset($ev['type']) ? $ev['type'] : '';
-        if ($type !== 'charla' && $type !== 'cap') continue;
-        $key = $type . ':' . intval($ev['uid']) . ':' . intval($ev['rid']);
-        if (!in_array($key, $done, true)) $pending++;
-      }
-      return $pending;
+}
+
+// Marca como “resuelta” (p.ej. al aprobar asistencia)
+if (!function_exists('gw_notif_mark_done')) {
+  function gw_notif_mark_done($type, $uid, $rid){
+    global $wpdb; $t = gw_notif_table();
+    $type = strtoupper(sanitize_key($type));
+    $uid  = intval($uid);
+    $rid  = intval($rid);
+    $now  = current_time('mysql');
+    // Si no tenemos entity_id (p.ej. charla marcada por “key”), resolvemos todas de ese tipo del usuario que estén pendientes.
+    if ($rid > 0) {
+      $wpdb->query( $wpdb->prepare(
+        "UPDATE {$t} SET resolved=1, resolved_at=%s, resolved_by=%d WHERE user_id=%d AND type=%s AND entity_id=%d AND resolved=0",
+        $now, get_current_user_id(), $uid, $type, $rid
+      ));
+    } else {
+      $wpdb->query( $wpdb->prepare(
+        "UPDATE {$t} SET resolved=1, resolved_at=%s, resolved_by=%d WHERE user_id=%d AND type=%s AND resolved=0",
+        $now, get_current_user_id(), $uid, $type
+      ));
     }
   }
 }
 
+// Cantidad para el badge rojo (solo eventos pendientes relevantes)
+if (!function_exists('gw_notif_pending_count')) {
+  function gw_notif_pending_count(){
+    global $wpdb; $t = gw_notif_table();
+    // Solo CHARLA y CAPACITACION cuentan para el badge, y solo mientras no estén resueltas
+    $n = (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t} WHERE type IN ('CHARLA','CAPACITACION') AND resolved=0");
+    return $n;
+  }
+}
+
+// Últimos N (orden cron desc). $since_id opcional, igual que tu firma actual.
 if (!function_exists('gw_notif_fetch')) {
   function gw_notif_fetch($since_id = 0, $limit = 40){
+    global $wpdb; $t = gw_notif_table();
     $since_id = intval($since_id);
-    $limit = max(1, min(80, intval($limit)));
-    $log = get_option('gw_notifications_log', []);
-    if (!is_array($log)) $log = [];
+    $limit    = max(1, min(80, intval($limit)));
 
-    // Tomar los últimos $limit y filtrar por since_id
-    $log = array_values($log);
-    $out = [];
-    for ($i = count($log)-1; $i >= 0 && count($out) < $limit; $i--) {
-      $ev = $log[$i];
-      if (intval($ev['id']) <= $since_id) break;
-      $u = get_user_by('id', intval($ev['uid']));
-      $name = $u ? ($u->display_name ?: $u->user_login) : 'Usuario';
-      $ev['user_name'] = $name;
-      $ev['time_h'] = date_i18n('Y-m-d H:i', intval($ev['ts']));
-      $out[] = $ev;
+    $sql = $since_id > 0
+      ? $wpdb->prepare("SELECT * FROM {$t} WHERE id > %d ORDER BY id DESC LIMIT %d", $since_id, $limit)
+      : $wpdb->prepare("SELECT * FROM {$t} ORDER BY id DESC LIMIT %d", $limit);
+
+    $rows = $wpdb->get_results($sql, ARRAY_A);
+    if (!$rows) return [];
+
+    $out  = [];
+    foreach ($rows as $r){
+      $u = get_user_by('id', intval($r['user_id']));
+      $r['user_name'] = $u ? ($u->display_name ?: $u->user_login) : 'Usuario';
+      $ts  = strtotime($r['created_at']);
+      $r['time_h'] = $ts ? date_i18n('Y-m-d H:i', $ts) : '';
+      $out[] = $r;
     }
-    // devolver en orden cron desc
     return $out;
   }
 }
@@ -1771,10 +1807,12 @@ if (!function_exists('gw_notif_on_user_meta')) {
     }
   }
 }
-add_action('added_user_meta',  'gw_notif_on_user_meta', 10, 4);
+
+add_action('added_user_meta', 'gw_notif_on_user_meta', 10, 4);
 add_action('updated_user_meta', 'gw_notif_on_user_meta', 10, 4);
 
-// ====== AJAX: obtener y marcar como leídas ======
+
+// ====== AJAX: obtener y marcar como leídas (DB) ======
 add_action('wp_ajax_gw_notif_fetch', function(){
   if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
   $u = wp_get_current_user();
@@ -1785,17 +1823,17 @@ add_action('wp_ajax_gw_notif_fetch', function(){
   if (!wp_verify_nonce($nonce, 'gw_notif')) wp_send_json_error(['msg'=>'Nonce inválido']);
 
   $last_seen = intval( get_user_meta($u->ID, 'gw_notif_last_seen', true) );
-$list   = gw_notif_fetch(0, 25); // últimos
-$max_id = gw_notif_max_id();
-$unread = max(0, $max_id - $last_seen);
-$badge  = gw_notif_pending_count(); // << lo importante
+  $list   = gw_notif_fetch(0, 25);
+  $max_id = gw_notif_max_id();
+  $unread = max(0, $max_id - $last_seen);
+  $badge  = gw_notif_pending_count();
 
-wp_send_json_success([
-  'items'  => $list,
-  'unread' => $unread,
-  'badge'  => $badge,
-  'max_id' => $max_id,
-]);
+  wp_send_json_success([
+    'items'  => $list,
+    'unread' => $unread,
+    'badge'  => $badge,
+    'max_id' => $max_id,
+  ]);
 });
 
 add_action('wp_ajax_gw_notif_mark_seen', function(){
@@ -1807,9 +1845,100 @@ add_action('wp_ajax_gw_notif_mark_seen', function(){
   $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
   if (!wp_verify_nonce($nonce, 'gw_notif')) wp_send_json_error(['msg'=>'Nonce inválido']);
 
-  $max_id = gw_notif_max_id();
-  update_user_meta($u->ID, 'gw_notif_last_seen', $max_id);
+  // Marcamos leídas globalmente (no cambia el badge)
+  update_user_meta($u->ID, 'gw_notif_last_seen', gw_notif_max_id());
+
+  // Opcional: marcar status=READ para todo lo que estaba UNREAD (no afecta badge)
+  global $wpdb; $t = gw_notif_table();
+  $wpdb->query("UPDATE {$t} SET status='READ', read_at = NOW() WHERE status='UNREAD'");
+
   wp_send_json_success(['unread'=>0]);
+});
+
+// ===============================
+// Tickets de voluntarios (admin)
+// ===============================
+
+// Contador de tickets pendientes (no resueltos)
+if (!function_exists('gw_ticket_count_pending')) {
+  function gw_ticket_count_pending(){
+    global $wpdb; $t = gw_notif_table();
+    return (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t} WHERE type='TICKET' AND resolved=0");
+  }
+}
+
+// Obtener últimos tickets (incluye nombre/email del voluntario)
+if (!function_exists('gw_ticket_fetch')) {
+  function gw_ticket_fetch($limit = 80){
+    global $wpdb; $t = gw_notif_table();
+    $limit = max(1, min(200, intval($limit)));
+    $rows = $wpdb->get_results(
+      $wpdb->prepare("SELECT * FROM {$t} WHERE type='TICKET' ORDER BY id DESC LIMIT %d", $limit),
+      ARRAY_A
+    );
+    if (!$rows) return [];
+    foreach ($rows as &$r){
+      $vid = intval($r['entity_id']); // voluntario que creó el ticket
+      $u = $vid ? get_user_by('id', $vid) : null;
+      $r['vol_name']  = $u ? ($u->display_name ?: $u->user_login) : ('Voluntario #'.$vid);
+      $r['vol_email'] = $u ? $u->user_email : '';
+      $r['time_h']    = $r['created_at'] ? date_i18n('Y-m-d H:i', strtotime($r['created_at'])) : '';
+    }
+    return $rows;
+  }
+}
+
+// AJAX: listar tickets para el panel admin
+add_action('wp_ajax_gw_ticket_admin_fetch', function(){
+  if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+  $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') || current_user_can('coach') || current_user_can('coordinador_pais') )) {
+    wp_send_json_error(['msg'=>'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if (!wp_verify_nonce($nonce, 'gw_ticket')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $items = gw_ticket_fetch(80);
+  $badge = gw_ticket_count_pending();
+  wp_send_json_success(['items'=>$items, 'badge'=>$badge]);
+});
+
+// AJAX: resolver ticket y notificar al voluntario
+add_action('wp_ajax_gw_ticket_admin_resolve', function(){
+  if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+  $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') || current_user_can('coach') || current_user_can('coordinador_pais') )) {
+    wp_send_json_error(['msg'=>'No autorizado']);
+  }
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if (!wp_verify_nonce($nonce, 'gw_ticket')) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+  $id = intval($_POST['id'] ?? 0);
+  if (!$id) wp_send_json_error(['msg'=>'ID inválido']);
+
+  global $wpdb; $t = gw_notif_table();
+
+  // Traer ticket
+  $row = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$t} WHERE id=%d AND type='TICKET'", $id), ARRAY_A );
+  if (!$row) wp_send_json_error(['msg'=>'Ticket no encontrado']);
+
+  // Marcar resuelto
+  $wpdb->update($t, [
+    'resolved'    => 1,
+    'status'      => 'READ',
+    'resolved_at' => current_time('mysql'),
+    'resolved_by' => get_current_user_id(),
+    'read_at'     => current_time('mysql'),
+  ], ['id'=>$id], ['%d','%s','%s','%d','%s'], ['%d']);
+
+  // Notificar al voluntario
+  $vol_id = intval($row['entity_id']);
+  if ($vol_id > 0 && function_exists('gw_notif_log')) {
+    gw_notif_log('TICKET', $vol_id, 0, 'Solicitud corregida', 'Tu solicitud fue corregida por el administrador.');
+  }
+
+  $badge = gw_ticket_count_pending();
+  wp_send_json_success(['done'=>1, 'badge'=>$badge]);
 });
 
 // ====== UI: campana fija en panel administrativo ======
@@ -2069,6 +2198,10 @@ add_action('wp_footer', function(){
     color: #9ca3af;
   }
 
+  /* Toque de icono y énfasis */
+  #gw-notif-panel .item .icon{ font-size: 15px; }
+  #gw-notif-panel .item.unread .title{ font-weight: 700; }
+
   /* Responsive */
   @media (max-width: 480px) {
     #gw-notif-btn {
@@ -2183,81 +2316,329 @@ add_action('wp_footer', function(){
 </div>
 
 <script>
-// Funcionalidad básica de la campanita
-document.addEventListener('DOMContentLoaded', function() {
-  const btn = document.getElementById('gw-notif-btn');
-  const panel = document.getElementById('gw-notif-panel');
-  const closeBtn = document.getElementById('gw-notif-close');
-  const markBtn = document.getElementById('gw-notif-mark');
+  
+  // Panel de notificaciones Funcionalidad de la campanita (con backend vía AJAX/DB)
+document.addEventListener('DOMContentLoaded', function () {
+  var btn     = document.getElementById('gw-notif-btn');
+  var panel   = document.getElementById('gw-notif-panel');
+  var closeBtn= document.getElementById('gw-notif-close');
+  var markBtn = document.getElementById('gw-notif-mark');
+  var list    = document.getElementById('gw-notif-list');
+  var badge   = document.getElementById('gw-notif-badge');
+
+  // URLs/nonce del backend (vienen del PHP de este mismo bloque)
+  var AJAX  = "<?php echo esc_js($ajax); ?>";
+  var NONCE = "<?php echo esc_js($nonce); ?>";
+
+  var openedOnce = false;
+  var poller = null;
+
+  function setBadge(n){
+    n = parseInt(n,10) || 0;
+    if (n > 0) { badge.style.display = 'inline-flex'; badge.textContent = n; }
+    else { badge.style.display = 'none'; badge.textContent = '0'; }
+  }
+  // Disponible global para que otros flujos (p.ej. marcar asistencia) lo usen:
+  window.gwNotifUpdateBadge = setBadge;
+
+  // helper simple para evitar inyecciones en HTML
+  function esc(s){
+    return String(s || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+  }
+
+  function renderItems(items){
+    // Limpia la lista
+    list.innerHTML = '';
+
+    if (!items || !items.length){
+      list.innerHTML = '<div class="empty"><div class="icon">🔔</div><div class="title">No hay notificaciones</div><div class="meta">Todas las notificaciones aparecerán aquí</div></div>';
+      return;
+    }
+
+    // Mapas de icono y etiqueta de tipo
+    var iconMap  = { CHARLA:'🗣️', CAPACITACION:'🎓', DOCUMENTO:'📎' };
+    var labelMap = { CHARLA:'Charla', CAPACITACION:'Capacitación', DOCUMENTO:'Documento' };
+
+    var html = '';
+    items.forEach(function(it){
+      var type = String(it.type || '').toUpperCase();
+      var ico  = iconMap[type] || '🔔';
+      var lbl  = labelMap[type] || 'Notificación';
+      var unreadCls = (String(it.status).toUpperCase()==='UNREAD') ? ' unread' : '';
+
+      html += ''
+        + '<div class="item'+ unreadCls +'">'
+        +   '<div class="content">'
+        +     '<div class="icon">'+ ico +'</div>'
+        +     '<div class="text">'
+        +       '<div class="title"><strong>'+ lbl +'</strong> — '+ esc(it.title) +'</div>'
+        +       '<div class="meta">'
+        +         (it.user_name ? esc(it.user_name) : '')
+        +         (it.body ? ' · ' + esc(it.body) : '')
+        +         (it.time_h ? ' <span class="time">'+ esc(it.time_h) +'</span>' : '')
+        +       '</div>'
+        +     '</div>'
+        +   '</div>'
+        + '</div>';
+    });
+
+    list.innerHTML = html;
+  }
+
+  function fetchNotifs(){
+    var fd = new FormData();
+    fd.append('action', 'gw_notif_fetch');
+    fd.append('nonce', NONCE);
+    return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+      .then(function(r){ return r.json(); })
+      .then(function(resp){
+        if (!resp || !resp.success) throw new Error('Resp NOK');
+        var d = resp.data || {};
+        renderItems(d.items || []);
+        // OJO: el badge representa PENDIENTES (no resueltas). No se borra al abrir.
+        setBadge(d.badge || 0);
+        return d;
+      });
+  }
+
+  function markSeen(){
+    var fd = new FormData();
+    fd.append('action','gw_notif_mark_seen');
+    fd.append('nonce', NONCE);
+    return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+      .then(function(r){ return r.json(); })
+      .then(function(resp){
+        // Quitamos aspecto "unread" en UI, pero NO tocamos el badge rojo
+        var unread = list.querySelectorAll('.item.unread');
+        unread.forEach(function(n){ n.classList.remove('unread'); });
+      });
+  }
+
+  function openPanel(){
+    panel.style.display = 'block';
+    if (!openedOnce){
+      fetchNotifs().catch(function(){});
+      openedOnce = true;
+    }
+    // Poll suave mientras está abierto
+    if (!poller){
+      poller = setInterval(function(){ fetchNotifs().catch(function(){}); }, 20000);
+    }
+  }
+  function closePanel(){
+    panel.style.display = 'none';
+    if (poller){ clearInterval(poller); poller=null; }
+  }
 
   // Toggle del panel
-  btn.addEventListener('click', function() {
-    const isVisible = panel.style.display === 'block';
-    panel.style.display = isVisible ? 'none' : 'block';
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var visible = panel.style.display === 'block';
+    if (visible) closePanel(); else openPanel();
   });
 
-  // Cerrar panel
-  closeBtn.addEventListener('click', function() {
-    panel.style.display = 'none';
+  // Cerrar
+  closeBtn.addEventListener('click', function(){ closePanel(); });
+  document.addEventListener('click', function(e){
+    if (!btn.contains(e.target) && !panel.contains(e.target)) closePanel();
   });
 
-  // Cerrar al hacer clic fuera
-  document.addEventListener('click', function(e) {
-    if (!btn.contains(e.target) && !panel.contains(e.target)) {
-      panel.style.display = 'none';
-    }
+  // Marcar como leídas (NO toca el badge)
+  markBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    markSeen().catch(function(){});
   });
 
-  // Marcar todas como leídas
-  markBtn.addEventListener('click', function() {
-    const unreadItems = panel.querySelectorAll('.item.unread');
-    unreadItems.forEach(item => item.classList.remove('unread'));
-    
-    const badge = document.getElementById('gw-notif-badge');
-    badge.style.display = 'none';
-    badge.textContent = '0';
-  });
-
-  // Función para agregar notificación (ejemplo)
-  window.addNotification = function(title, message, type = 'info') {
-    const list = document.getElementById('gw-notif-list');
-    const empty = list.querySelector('.empty');
-    if (empty) empty.remove();
-
-    const item = document.createElement('div');
-    item.className = 'item unread';
-    item.innerHTML = `
-      <div class="content">
-        <div class="icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-        </div>
-        <div class="text">
-          <div class="title">${title}</div>
-          <div class="meta">
-            ${message}
-            <span class="time">Ahora</span>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    list.insertBefore(item, list.firstChild);
-    
-    // Actualizar badge
-    const badge = document.getElementById('gw-notif-badge');
-    const currentCount = parseInt(badge.textContent) || 0;
-    badge.textContent = currentCount + 1;
-    badge.style.display = 'inline-flex';
-  };
-
-  // Ejemplo de uso (puedes quitar esto)
-  // setTimeout(() => addNotification('Nueva capacitación', 'Se ha programado una nueva sesión para mañana'), 2000);
+  // Primer precarga para que el badge aparezca al entrar al panel
+  fetchNotifs().catch(function(){});
 });
 </script>
+
+</script>
+  <?php
+});
+
+// ====== UI: botón Ticket para admin ======
+add_action('wp_footer', function(){
+  if (!is_user_logged_in()) return;
+  $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') || current_user_can('coach') || current_user_can('coordinador_pais') )) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req, 'panel-administrativo') === false) return;
+
+  $ajax  = admin_url('admin-ajax.php');
+  $nonce = wp_create_nonce('gw_ticket');
+  ?>
+<style>
+  /* Asegura la campanita en la parte superior fija */
+  #gw-notif-btn{
+    position:fixed; top:16px !important; right:20px !important; margin-top:0 !important;
+    z-index:100006;
+  }
+
+  /* Botón de tickets: SIEMPRE debajo de la campanita */
+  #gw-ticket-btn{
+    position:fixed; top:76px !important; right:20px !important; z-index:100005;
+    background:#fff; border:1px solid #e2e8f0; border-radius:14px;
+    padding:10px 14px; display:flex; gap:8px; align-items:center;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+    cursor:pointer; transition:.2s;
+  }
+  #gw-ticket-btn:hover{ transform:translateY(-1px); }
+  #gw-ticket-btn .badge{
+    min-width:20px;height:20px;border-radius:10px;background:#10b981;color:#fff;
+    display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700;padding:0 6px;
+  }
+
+  /* Panel de tickets: alineado bajo el botón de tickets */
+  #gw-ticket-panel{
+    position:fixed; top:128px !important; right:20px !important; width:420px; max-width:92vw;
+    background:#fff; border:1px solid #e2e8f0; border-radius:14px;
+    box-shadow:0 20px 50px rgba(0,0,0,.15); z-index:100004; display:none; overflow:hidden;
+  }
+  #gw-ticket-panel header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;
+  }
+  #gw-ticket-list{ max-height:420px; overflow:auto; }
+  #gw-ticket-list .item{ padding:14px 16px; border-bottom:1px solid #f1f5f9; }
+  #gw-ticket-list .item .title{ font-weight:600; margin-bottom:4px; }
+  #gw-ticket-list .item .meta{ font-size:12px; color:#64748b; display:flex; flex-wrap:wrap; gap:8px;}
+  #gw-ticket-list .item.resolved{ opacity:.6; }
+
+  /* Responsive */
+  @media (max-width:480px){
+    #gw-notif-btn{ top:12px !important; right:16px !important; margin-top:0 !important; }
+    #gw-ticket-btn{ top:68px !important; right:16px !important; }
+    #gw-ticket-panel{ top:118px !important; right:16px !important; width:calc(100vw - 32px); }
+  }
+</style>
+
+  <div id="gw-ticket-btn" title="Tickets de voluntarios">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/><path d="M3 7v10a2 2 0 0 0 2 2h14"/></svg>
+    <span style="font-weight:600;">Tickets</span>
+    <span class="badge" id="gw-ticket-badge">0</span>
+  </div>
+
+  <div id="gw-ticket-panel" role="dialog" aria-label="Tickets de voluntarios">
+    <header>
+      <strong>Tickets de voluntarios</strong>
+      <div>
+        <button id="gw-ticket-close" class="button">Cerrar</button>
+      </div>
+    </header>
+    <div id="gw-ticket-list">
+      <div class="item"><div class="meta">Cargando…</div></div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    var AJAX  = <?php echo wp_json_encode($ajax); ?>;
+    var NONCE = <?php echo wp_json_encode($nonce); ?>;
+
+    var btn   = document.getElementById('gw-ticket-btn');
+    var panel = document.getElementById('gw-ticket-panel');
+    var close = document.getElementById('gw-ticket-close');
+    var list  = document.getElementById('gw-ticket-list');
+    var badge = document.getElementById('gw-ticket-badge');
+    var poll  = null;
+
+    function setBadge(n){
+      n = parseInt(n,10)||0;
+      if (n>0){ badge.style.display='inline-flex'; badge.textContent = n; }
+      else { badge.style.display='none'; badge.textContent='0'; }
+    }
+
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+    function render(items){
+      list.innerHTML = '';
+      if (!items || !items.length){
+        list.innerHTML = '<div class="item"><div class="meta">No hay tickets.</div></div>';
+        return;
+      }
+      items.forEach(function(it){
+        var div = document.createElement('div');
+        div.className = 'item' + (parseInt(it.resolved,10)?' resolved':'');
+        div.innerHTML =
+          '<div class="title">🎫 ' + esc(it.title||'Ticket') + '</div>' +
+          '<div class="meta">' +
+            (it.vol_name ? esc(it.vol_name) : '') +
+            (it.vol_email ? ' · ' + esc(it.vol_email) : '') +
+            (it.time_h ? ' · ' + esc(it.time_h) : '') +
+          '</div>' +
+          (it.body ? '<div style="margin:6px 0 8px;color:#334155;">'+esc(it.body)+'</div>' : '') +
+          (parseInt(it.resolved,10) ? '<div style="color:#10b981;font-weight:600;">Resuelto</div>'
+                                    : '<button class="button button-primary gw-ticket-resolve" data-id="'+it.id+'">Marcar corregido</button>');
+        list.appendChild(div);
+      });
+    }
+
+    function fetchTickets(){
+      var fd = new FormData();
+      fd.append('action','gw_ticket_admin_fetch');
+      fd.append('nonce', NONCE);
+      return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){
+          if (!resp || !resp.success) throw new Error('Resp NOK');
+          render(resp.data.items||[]);
+          setBadge(resp.data.badge||0);
+        }).catch(function(){});
+    }
+
+    function resolveTicket(id){
+      var fd = new FormData();
+      fd.append('action','gw_ticket_admin_resolve');
+      fd.append('nonce', NONCE);
+      fd.append('id', id);
+      return fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){
+          if (resp && resp.success){
+            fetchTickets();
+          }
+        });
+    }
+
+    // Delegación: resolver
+    document.addEventListener('click', function(e){
+      var b = e.target.closest('.gw-ticket-resolve');
+      if (!b) return;
+      e.preventDefault();
+      var id = parseInt(b.getAttribute('data-id'),10)||0;
+      if (!id) return;
+      resolveTicket(id);
+    });
+
+    function openPanel(){
+      panel.style.display='block';
+      fetchTickets();
+      if (!poll) poll = setInterval(fetchTickets, 30000);
+    }
+    function closePanel(){
+      panel.style.display='none';
+      if (poll){ clearInterval(poll); poll=null; }
+    }
+
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var vis = panel.style.display==='block';
+      if (vis) closePanel(); else openPanel();
+    });
+    close.addEventListener('click', closePanel);
+    document.addEventListener('click', function(e){
+      if (!btn.contains(e.target) && !panel.contains(e.target)) closePanel();
+    });
+
+    // Cargar el badge al entrar al panel
+    fetchTickets();
+  })();
+  </script>
   <?php
 });
 
@@ -2837,6 +3218,25 @@ function gw_admin_mark_attendance(){
     }
     $badge = function_exists('gw_notif_pending_count') ? gw_notif_pending_count() : 0;
   
+    // ---- Notificaciones: marcar resuelto y devolver badge ----
+  try {
+  $type = (isset($_POST['kind']) && $_POST['kind']==='cap') ? 'CAPACITACION' : 'CHARLA';
+  $uid  = intval($_POST['user_id'] ?? 0);
+  $rid  = 0;
+  if ($type === 'CHARLA') {
+    $ag = get_user_meta($uid, 'gw_charla_agendada', true);
+    if (is_array($ag) && !empty($ag['charla_id'])) $rid = intval($ag['charla_id']);
+  } else {
+    $ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+    if (is_array($ag) && !empty($ag['cap_id'])) $rid = intval($ag['cap_id']);
+    if (!$rid) $rid = intval(get_user_meta($uid,'gw_capacitacion_id',true));
+  }
+  gw_notif_mark_done($type, $uid, $rid);
+  $badge = gw_notif_pending_count();
+  // si ya estabas armando un array $payload, añade $payload['badge'] = $badge;
+  if (isset($payload) && is_array($payload)) { $payload['badge'] = $badge; }
+} catch (\Throwable $e) {}
+
     wp_send_json_success(['done'=>1, 'badge'=>$badge]);
   }
 
