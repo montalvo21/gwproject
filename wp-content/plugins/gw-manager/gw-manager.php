@@ -4748,19 +4748,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                         echo '<p>No hay países registrados aún.</p>';
                     } else {
                       echo '
-                      <style>
-                      .contenedor {
-                          max-width: 700px;
-                      }
-                      
-                      @media (min-width: 1000px) {
-                          .contenedor {
-                              max-width: none;   /* quita límite */
-                              column-count: 2;   /* columnas */
-                              column-gap: 20px;  /* opcional: separación */
-                          }
-                      }
-                      </style>
+
                       
                       <div class="contenedor">';
                       foreach ($paises as $pais) {
