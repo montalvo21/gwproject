@@ -4941,249 +4941,324 @@ function gw_step_8_documentos($user_id) {
             }, 1000);
         }
         
-    <script>
-    (function() {
-        'use strict';
-        
-        function logoutAndRedirect() {
-            window.location.href = '<?php echo home_url(); ?>?gw_logout=1';
-        }
-        
-        function startCountdown(seconds, callback) {
-            const countdownElement = document.getElementById('gw-countdown');
-            if (!countdownElement) return;
+        <script>
+(function() {
+    'use strict';
+    
+    // FUNCIÓN DE COMPRESIÓN
+    function compressImage(file, maxWidth = 1024, maxHeight = 1024, quality = 0.8) {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
             
-            let count = seconds;
+            img.onload = function() {
+                let { width, height } = img;
+                
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(resolve, 'image/jpeg', quality);
+            };
+            
+            img.src = URL.createObjectURL(file);
+        });
+    }
+    
+    // FUNCIONES BÁSICAS
+    function logoutAndRedirect() {
+        window.location.href = '<?php echo home_url(); ?>?gw_logout=1';
+    }
+    
+    function startCountdown(seconds, callback) {
+        const countdownElement = document.getElementById('gw-countdown');
+        if (!countdownElement) return;
+        
+        let count = seconds;
+        countdownElement.textContent = count;
+        
+        const interval = setInterval(() => {
+            count--;
             countdownElement.textContent = count;
             
-            const interval = setInterval(() => {
-                count--;
-                countdownElement.textContent = count;
+            if (count <= 3) {
+                countdownElement.style.color = '#ef4444';
+                countdownElement.style.transform = 'scale(1.1)';
+            } else if (count <= 5) {
+                countdownElement.style.color = '#f59e0b';
+            }
+            
+            if (count <= 0) {
+                clearInterval(interval);
+                if (callback) callback();
+            }
+        }, 1000);
+    }
+    
+    // INICIALIZAR COUNTDOWNS
+    <?php if ($just_submitted): ?>
+        startCountdown(10, logoutAndRedirect);
+    <?php elseif ($todos_aceptados): ?>
+        startCountdown(15, logoutAndRedirect);
+    <?php endif; ?>
+    
+    // MANEJO DEL FORMULARIO DE DOCUMENTOS
+    <?php if (!$just_submitted && !$todos_aceptados): ?>
+    
+    const form = document.getElementById('gw-documents-form');
+    if (!form) return;
+    
+    const submitBtn = document.getElementById('gw-submit-docs');
+    const btnText = submitBtn?.querySelector('.gw-btn-text');
+    const btnLoading = submitBtn?.querySelector('.gw-btn-loading');
+    const fileInputs = form.querySelectorAll('.gw-file-input');
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    
+    // MANEJO DE ARCHIVOS CON COMPRESIÓN
+    fileInputs.forEach(input => {
+        input.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Limpiar mensajes previos
+            const existingError = this.parentNode.querySelector('.gw-file-error');
+            if (existingError) existingError.remove();
+            const existingCompression = this.parentNode.querySelector('.gw-compression-info');
+            if (existingCompression) existingCompression.remove();
+            
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                this.showError('Por favor selecciona un archivo de imagen válido (JPG, PNG, GIF, WEBP)');
+                this.value = '';
+                return;
+            }
+            
+            const maxSize = 10 * 1024 * 1024; // 10MB antes de compresión
+            if (file.size > maxSize) {
+                this.showError('El archivo es demasiado grande (' + (file.size / (1024*1024)).toFixed(1) + 'MB). Máximo 10MB.');
+                this.value = '';
+                return;
+            }
+            
+            // Mostrar compresión en progreso
+            const compressingDiv = document.createElement('div');
+            compressingDiv.className = 'gw-compressing';
+            compressingDiv.style.cssText = 'color: #0066cc; font-size: 12px; margin-top: 5px; padding: 8px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 4px;';
+            compressingDiv.innerHTML = '<span>🔄 Comprimiendo imagen...</span>';
+            this.parentNode.appendChild(compressingDiv);
+            
+            try {
+                // Comprimir imagen
+                const compressedFile = await compressImage(file, 1024, 1024, 0.8);
                 
-                if (count <= 3) {
-                    countdownElement.style.color = '#ef4444';
-                    countdownElement.style.transform = 'scale(1.1)';
-                } else if (count <= 5) {
-                    countdownElement.style.color = '#f59e0b';
-                }
+                // Reemplazar archivo con versión comprimida
+                const dt = new DataTransfer();
+                const compressedFileObj = new File([compressedFile], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                });
+                dt.items.add(compressedFileObj);
+                this.files = dt.files;
                 
-                if (count <= 0) {
-                    clearInterval(interval);
-                    if (callback) callback();
-                }
-            }, 1000);
-        }
-        
-        <?php if ($just_submitted): ?>
-            startCountdown(10, logoutAndRedirect);
-        <?php elseif ($todos_aceptados): ?>
-            startCountdown(15, logoutAndRedirect);
-        <?php endif; ?>
-        
-        <?php if (!$just_submitted && !$todos_aceptados): ?>
-        
-        const form = document.getElementById('gw-documents-form');
-        if (!form) return;
-        
-        const submitBtn = document.getElementById('gw-submit-docs');
-        const btnText = submitBtn?.querySelector('.gw-btn-text');
-        const btnLoading = submitBtn?.querySelector('.gw-btn-loading');
-        const fileInputs = form.querySelectorAll('.gw-file-input');
-        const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-        
-        // Validación mejorada de archivos
-        fileInputs.forEach(input => {
-            input.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
+                // Quitar indicador de compresión
+                compressingDiv.remove();
                 
-                // Limpiar mensajes de error previos
-                const existingError = this.parentNode.querySelector('.gw-file-error');
-                if (existingError) existingError.remove();
+                // Mostrar resultados
+                const originalSize = (file.size / 1024).toFixed(1);
+                const compressedSize = (compressedFile.size / 1024).toFixed(1);
+                const reduction = (((file.size - compressedFile.size) / file.size) * 100).toFixed(1);
                 
-                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-                if (!validTypes.includes(file.type)) {
-                    this.showError('Por favor selecciona un archivo de imagen válido (JPG, PNG, GIF, WEBP)');
-                    this.value = '';
-                    return;
-                }
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'gw-compression-info';
+                infoDiv.style.cssText = 'color: #388e3c; font-size: 12px; margin-top: 5px; padding: 8px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 4px;';
+                infoDiv.innerHTML = `
+                    <div>✅ Imagen comprimida</div>
+                    <div>📦 ${originalSize}KB → ${compressedSize}KB</div>
+                    <div>📈 Reducción: ${reduction}%</div>
+                `;
+                this.parentNode.appendChild(infoDiv);
                 
-                const maxSize = 5 * 1024 * 1024; // 5MB
-                if (file.size > maxSize) {
-                    this.showError('El archivo es demasiado grande (' + (file.size / (1024*1024)).toFixed(1) + 'MB). Máximo 5MB.');
-                    this.value = '';
-                    return;
-                }
-                
-                // Mostrar nombre del archivo seleccionado
+                // Actualizar label
                 const label = this.nextElementSibling;
                 if (label) {
                     const span = label.querySelector('span');
-                    if (span) span.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + 'KB)';
+                    if (span) span.textContent = `${file.name} (${compressedSize}KB)`;
                     label.classList.add('file-selected');
                 }
-            });
-            
-            // Método para mostrar errores
-            input.showError = function(message) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'gw-file-error';
-                errorDiv.style.cssText = 'color: #dc3232; font-size: 12px; margin-top: 5px; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;';
-                errorDiv.textContent = message;
-                this.parentNode.appendChild(errorDiv);
-            };
+                
+            } catch (error) {
+                compressingDiv.remove();
+                this.showError('Error al comprimir la imagen. Inténtalo de nuevo.');
+                console.error('Error comprimiendo imagen:', error);
+            }
         });
         
-        function validateForm() {
-            const consent1 = document.getElementById('consentimiento1');
-            const consent2 = document.getElementById('consentimiento2');
-            
-            let isValid = true;
-            let errors = [];
-            
-            // Verificar documentos obligatorios
-            const doc1Input = document.getElementById('documento_1');
-            const doc2Input = document.getElementById('documento_2');
-            
-            const hasDoc1 = doc1Input?.files.length > 0 || <?php echo $doc1 && $doc1_estado !== 'rechazado' ? 'true' : 'false'; ?>;
-            const hasDoc2 = doc2Input?.files.length > 0 || <?php echo $doc2 && $doc2_estado !== 'rechazado' ? 'true' : 'false'; ?>;
-            
-            if (!hasDoc1) {
-                errors.push('Debes subir el primer documento (Foto 1)');
-                isValid = false;
-            }
-            
-            if (!hasDoc2) {
-                errors.push('Debes subir el segundo documento (Foto 2)');
-                isValid = false;
-            }
-            
-            if (!consent1?.checked) {
-                errors.push('Debes aceptar el consentimiento #1');
-                isValid = false;
-            }
-            
-            if (!consent2?.checked) {
-                errors.push('Debes aceptar el consentimiento #2');
-                isValid = false;
-            }
-            
-            if (!isValid) {
-                alert('Por favor corrige los siguientes errores:\n• ' + errors.join('\n• '));
-            }
-            
-            return isValid;
+        // Método para mostrar errores
+        input.showError = function(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'gw-file-error';
+            errorDiv.style.cssText = 'color: #dc3232; font-size: 12px; margin-top: 5px; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;';
+            errorDiv.textContent = message;
+            this.parentNode.appendChild(errorDiv);
+        };
+    });
+    
+    // VALIDACIÓN DEL FORMULARIO
+    function validateForm() {
+        const consent1 = document.getElementById('consentimiento1');
+        const consent2 = document.getElementById('consentimiento2');
+        
+        let isValid = true;
+        let errors = [];
+        
+        // Verificar documentos obligatorios
+        const doc1Input = document.getElementById('documento_1');
+        const doc2Input = document.getElementById('documento_2');
+        
+        const hasDoc1 = doc1Input?.files.length > 0 || <?php echo $doc1 && $doc1_estado !== 'rechazado' ? 'true' : 'false'; ?>;
+        const hasDoc2 = doc2Input?.files.length > 0 || <?php echo $doc2 && $doc2_estado !== 'rechazado' ? 'true' : 'false'; ?>;
+        
+        if (!hasDoc1) {
+            errors.push('Debes subir el primer documento (Foto 1)');
+            isValid = false;
         }
         
-        if (submitBtn) {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                if (!validateForm()) {
-                    return;
-                }
-                
-                submitBtn.disabled = true;
-                submitBtn.classList.add('loading');
-                if (btnText) btnText.style.display = 'none';
-                if (btnLoading) btnLoading.style.display = 'flex';
-                
-                this.submit();
-            });
+        if (!hasDoc2) {
+            errors.push('Debes subir el segundo documento (Foto 2)');
+            isValid = false;
         }
         
-        // Manejo de checkboxes personalizados
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const customBox = this.nextElementSibling.querySelector('.gw-checkbox-custom');
-                if (customBox) {
-                    if (this.checked) {
-                        customBox.classList.add('checked');
-                    } else {
-                        customBox.classList.remove('checked');
-                    }
-                }
-            });
+        if (!consent1?.checked) {
+            errors.push('Debes aceptar el consentimiento #1');
+            isValid = false;
+        }
+        
+        if (!consent2?.checked) {
+            errors.push('Debes aceptar el consentimiento #2');
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            alert('Por favor corrige los siguientes errores:\n• ' + errors.join('\n• '));
+        }
+        
+        return isValid;
+    }
+    
+    // ENVÍO DEL FORMULARIO
+    if (submitBtn) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
             
-            if (checkbox.checked) {
-                const customBox = checkbox.nextElementSibling.querySelector('.gw-checkbox-custom');
-                if (customBox) {
+            if (!validateForm()) {
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+            if (btnText) btnText.style.display = 'none';
+            if (btnLoading) btnLoading.style.display = 'flex';
+            
+            this.submit();
+        });
+    }
+    
+    // MANEJO DE CHECKBOXES
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const customBox = this.nextElementSibling.querySelector('.gw-checkbox-custom');
+            if (customBox) {
+                if (this.checked) {
                     customBox.classList.add('checked');
+                } else {
+                    customBox.classList.remove('checked');
                 }
             }
         });
         
-        <?php endif; ?>
+        if (checkbox.checked) {
+            const customBox = checkbox.nextElementSibling.querySelector('.gw-checkbox-custom');
+            if (customBox) {
+                customBox.classList.add('checked');
+            }
+        }
+    });
+    
+    <?php endif; ?>
 
-        // === Gate de avance a "Siguiente Charla / Siguiente Capacitación" ===
-        // Deshabilita el botón hasta que el admin marque asistencia en el panel (modal "Asistencias").
-        (function(){
-            try {
-                var ajaxurlGate = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>';
-                var body = 'action=gw_asist_status';
-                fetch(ajaxurlGate, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: body
-                })
-                .then(function(r){ return r.json(); })
-                .then(function(resp){
-                    if (!resp || !resp.success) return;
-                    var st = resp.data || resp; // WP devuelve {success:true, data:{...}}
-                    gateNextButtons(st);
-                })
-                .catch(function(){ /* silencio en caso de error */ });
-            } catch(e) { /* noop */ }
+    // GATE DE AVANCE
+    (function(){
+        try {
+            var ajaxurlGate = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>';
+            var body = 'action=gw_asist_status';
+            fetch(ajaxurlGate, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: body
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(resp){
+                if (!resp || !resp.success) return;
+                var st = resp.data || resp;
+                gateNextButtons(st);
+            })
+            .catch(function(){ /* silencio en caso de error */ });
+        } catch(e) { /* noop */ }
 
-            function gateNextButtons(st){
-                if (!st) return;
+        function gateNextButtons(st){
+            if (!st) return;
 
-                function gate(matchRe, msg){
-                    // Busca enlaces/botones cuyo texto coincida (case-insensitive) con "Siguiente Charla" o "Siguiente Capacitaci..."
-                    var nodes = document.querySelectorAll('a,button');
-                    for (var i=0;i<nodes.length;i++){
-                        var el = nodes[i];
-                        var label = (el.textContent || '').trim();
-                        if (!label) continue;
-                        if (matchRe.test(label)){
-                            // Marcar como gated si no lo está ya
-                            if (el.getAttribute('data-gw-gated') === '1') continue;
-                            el.setAttribute('data-gw-gated','1');
-                            el.setAttribute('aria-disabled','true');
-                            el.disabled = true;
-                            // Si es <a>, quitar href para evitar navegación directa
-                            if (el.tagName === 'A' && el.hasAttribute('href')) {
-                                el.dataset.hrefBackup = el.getAttribute('href');
-                                el.removeAttribute('href');
-                            }
-                            // Mantener clickable para mostrar mensaje
-                            el.style.opacity = '0.6';
-                            el.style.cursor = 'not-allowed';
-                            el.title = msg;
-
-                            // Interceptar click para mostrar alerta clara
-                            el.addEventListener('click', function(ev){
-                                ev.preventDefault();
-                                alert(msg);
-                            });
+            function gate(matchRe, msg){
+                var nodes = document.querySelectorAll('a,button');
+                for (var i=0;i<nodes.length;i++){
+                    var el = nodes[i];
+                    var label = (el.textContent || '').trim();
+                    if (!label) continue;
+                    if (matchRe.test(label)){
+                        if (el.getAttribute('data-gw-gated') === '1') continue;
+                        el.setAttribute('data-gw-gated','1');
+                        el.setAttribute('aria-disabled','true');
+                        el.disabled = true;
+                        if (el.tagName === 'A' && el.hasAttribute('href')) {
+                            el.dataset.hrefBackup = el.getAttribute('href');
+                            el.removeAttribute('href');
                         }
+                        el.style.opacity = '0.6';
+                        el.style.cursor = 'not-allowed';
+                        el.title = msg;
+
+                        el.addEventListener('click', function(ev){
+                            ev.preventDefault();
+                            alert(msg);
+                        });
                     }
                 }
-
-                // Si NO está aprobada charla, bloquear "Siguiente Charla"
-                if (st.charla !== true) {
-                    gate(/siguiente\s*charla/i, 'Tu asistencia a la charla debe ser aprobada por un administrador para continuar.');
-                }
-                // Si NO está aprobada capacitación, bloquear "Siguiente Capacitación"
-                if (st.cap !== true) {
-                    gate(/siguiente\s*capacitaci/i, 'Tu asistencia a la capacitación debe ser aprobada por un administrador para continuar.');
-                }
             }
-        })();
 
+            if (st.charla !== true) {
+                gate(/siguiente\s*charla/i, 'Tu asistencia a la charla debe ser aprobada por un administrador para continuar.');
+            }
+            if (st.cap !== true) {
+                gate(/siguiente\s*capacitaci/i, 'Tu asistencia a la capacitación debe ser aprobada por un administrador para continuar.');
+            }
+        }
     })();
-    </script>
+
+})();
+</script>
     
     <style>
     .gw-rejected-docs-notice {
