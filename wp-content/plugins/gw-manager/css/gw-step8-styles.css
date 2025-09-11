@@ -71,6 +71,8 @@
   .gw-sidebar {
     width: 380px; min-width: 380px; background: gainsboro;
     display: flex; flex-direction: column; padding: 40px; position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
   
   /* Hero logo */

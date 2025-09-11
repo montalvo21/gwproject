@@ -86,6 +86,8 @@ html, body {
     flex-direction: column;
     padding: 40px;
     position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* HEADER DEL SIDEBAR */
