@@ -4315,8 +4315,8 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
 
 
 
-            <!-- TAB PAÍSES -->
-            <div class="gw-admin-tab-content" id="gw-admin-tab-paises" style="display:block;">
+<!-- TAB PAÍSES -->
+<div class="gw-admin-tab-content" id="gw-admin-tab-paises" style="display:block;">
                     <div class="gw-form-header">
                         <h1>Gestión de países</h1>
                         <p>Administra países y asocia charlas disponibles.</p>
@@ -4642,12 +4642,255 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
                     }
 
                     #gw-qr-modal #gw-qr-modal-download:hover {
-
                         border-color: #1e7e34 !important;
                         transform: translateY(-1px);
                     }
 
-                    /* Modal responsive */
+                    /* ========================================
+                       MÓVIL RESPONSIVE - hasta 768px
+                       ======================================== */
+                    @media (max-width: 768px) {
+                        /* Contenedor principal de países */
+                        #gw-admin-tab-paises .gw-form-header h1 {
+                            font-size: 20px !important;
+                            margin-bottom: 4px !important;
+                        }
+                        
+                        #gw-admin-tab-paises .gw-form-header p {
+                            font-size: 12px !important;
+                            margin-bottom: 16px !important;
+                        }
+                        
+                        /* Contenedores de países */
+                        #gw-admin-tab-paises > div[style*="max-width:700px"] {
+                            max-width: 100% !important;
+                            padding: 0 8px !important;
+                        }
+                        
+                        /* Tarjetas de países - más compactas */
+                        #gw-admin-tab-paises div[data-pais-id] {
+                            padding: 10px !important;
+                            margin-bottom: 10px !important;
+                            border-radius: 8px !important;
+                            border: 1px solid #e1e8ed !important;
+                            background: #f8fafc !important;
+                        }
+                        
+                        /* Títulos de países - una sola línea */
+                        #gw-admin-tab-paises div[data-pais-id] h3 {
+                            font-size: 15px !important;
+                            margin-bottom: 10px !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: space-between !important;
+                            gap: 8px !important;
+                            flex-wrap: nowrap !important;
+                        }
+                        
+                        /* Botón "Generar link/QR" en móvil - más compacto */
+                        #gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn {
+                            font-size: 9px !important;
+                            padding: 2px 4px !important;
+                            border-radius: 4px !important;
+                            min-height: auto !important;
+                            height: auto !important;
+                            line-height: 1.2 !important;
+                            flex-shrink: 0 !important;
+                            white-space: nowrap !important;
+                        }
+                        
+                        /* Labels y checkboxes más compactos */
+                        #gw-admin-tab-paises .gw-form-charlas-pais label {
+                            font-size: 11px !important;
+                            margin-bottom: 2px !important;
+                            line-height: 1.2 !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            gap: 4px !important;
+                        }
+                        
+                        #gw-admin-tab-paises .gw-form-charlas-pais label strong {
+                            font-size: 12px !important;
+                            margin-bottom: 4px !important;
+                            display: block !important;
+                        }
+                        
+                        /* Checkboxes más pequeños */
+                        #gw-admin-tab-paises .gw-form-charlas-pais input[type="checkbox"] {
+                            transform: scale(0.8) !important;
+                            margin-right: 2px !important;
+                        }
+                        
+                        /* Botón guardar y texto guardado en línea */
+                        #gw-admin-tab-paises .gw-form-charlas-pais .button.button-primary {
+                            font-size: 11px !important;
+                            padding: 4px 8px !important;
+                            margin-top: 6px !important;
+                            margin-right: 8px !important;
+                            display: inline-block !important;
+                        }
+                        
+                        #gw-admin-tab-paises .gw-charlas-guardado {
+                            font-size: 10px !important;
+                            margin-left: 0 !important;
+                            display: inline !important;
+                        }
+                        
+                        /* Modal QR en móvil */
+                        #gw-qr-modal > div {
+                            max-width: 90% !important;
+                            margin: 5% auto !important;
+                            padding: 12px !important;
+                        }
+                        
+                        #gw-qr-modal h3 {
+                            font-size: 14px !important;
+                            margin-bottom: 10px !important;
+                        }
+                        
+                        #gw-qr-modal-qr img {
+                            max-width: 150px !important;
+                        }
+                        
+                        #gw-qr-modal input {
+                            padding: 6px !important;
+                            font-size: 11px !important;
+                        }
+                        
+                        #gw-qr-modal .button {
+                            font-size: 10px !important;
+                            padding: 4px 6px !important;
+                        }
+                        
+                        #gw-qr-modal > div > div[style*="display:flex"] {
+                            gap: 4px !important;
+                        }
+                        
+                        /* Espaciado mejor entre elementos */
+                        #gw-admin-tab-paises .gw-form-charlas-pais {
+                            margin-top: 6px !important;
+                        }
+                    }
+
+                    /* ========================================
+                       TABLET RESPONSIVE - 768px a 1024px
+                       ======================================== */
+                    @media (max-width: 1024px) and (min-width: 769px) {
+                        /* Contenedor principal de países */
+                        #gw-admin-tab-paises .gw-form-header h1 {
+                            font-size: 28px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        #gw-admin-tab-paises .gw-form-header p {
+                            font-size: 14px;
+                        }
+                        
+                        /* Contenedores de países */
+                        #gw-admin-tab-paises > div[style*="max-width:700px"] {
+                            max-width: 90% !important;
+                        }
+                        
+                        /* Tarjetas de países */
+                        #gw-admin-tab-paises div[data-pais-id] {
+                            padding: 14px !important;
+                            margin-bottom: 16px !important;
+                            border-radius: 8px !important;
+                        }
+                        
+                        /* Títulos de países */
+                        #gw-admin-tab-paises div[data-pais-id] h3 {
+                            font-size: 18px !important;
+                            margin-bottom: 10px !important;
+                            gap: 8px !important;
+                        }
+                        
+                        /* Botón "Generar link/QR" en tablet */
+                        #gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn {
+                            font-size: 11px !important;
+                            padding: 3px 6px !important;
+                            border-radius: 4px;
+                            min-height: auto;
+                        }
+                        
+                        /* Labels y checkboxes */
+                        #gw-admin-tab-paises .gw-form-charlas-pais label {
+                            font-size: 13px !important;
+                            margin-bottom: 4px !important;
+                        }
+                        
+                        #gw-admin-tab-paises .gw-form-charlas-pais label strong {
+                            font-size: 14px;
+                        }
+                        
+                        /* Botón guardar */
+                        #gw-admin-tab-paises .gw-form-charlas-pais .button.button-primary {
+                            font-size: 13px !important;
+                            padding: 6px 12px !important;
+                            margin-top: 8px !important;
+                        }
+                        
+                        /* Texto "Guardado" */
+                        #gw-admin-tab-paises .gw-charlas-guardado {
+                            font-size: 12px !important;
+                            margin-left: 12px !important;
+                        }
+                        
+                        /* Modal QR en tablet */
+                        #gw-qr-modal > div {
+                            max-width: 380px !important;
+                            margin: 3% auto !important;
+                            padding: 16px !important;
+                        }
+                        
+                        #gw-qr-modal h3 {
+                            font-size: 18px !important;
+                            margin-bottom: 16px !important;
+                        }
+                        
+                        #gw-qr-modal-qr img {
+                            max-width: 200px !important;
+                        }
+                        
+                        #gw-qr-modal input {
+                            padding: 6px !important;
+                            font-size: 13px !important;
+                        }
+                        
+                        #gw-qr-modal .button {
+                            font-size: 12px !important;
+                            padding: 6px 10px !important;
+                        }
+                        
+                        #gw-qr-modal > div > div[style*="display:flex"] {
+                            gap: 8px !important;
+                        }
+                    }
+
+                    /* Tablet pequeño - 769px a 900px */
+                    @media (max-width: 900px) and (min-width: 769px) {
+                        #gw-admin-tab-paises .gw-form-header h1 {
+                            font-size: 24px;
+                        }
+                        
+                        #gw-admin-tab-paises div[data-pais-id] {
+                            padding: 12px !important;
+                        }
+                        
+                        #gw-admin-tab-paises div[data-pais-id] h3 {
+                            font-size: 16px !important;
+                            flex-direction: column !important;
+                            align-items: flex-start !important;
+                            gap: 6px !important;
+                        }
+                        
+                        #gw-admin-tab-paises .button.button-secondary.gw-generar-qr-btn {
+                            align-self: flex-start;
+                            margin-top: 4px;
+                        }
+                    }
+
+                    /* Modal responsive para móviles */
                     @media (max-width: 480px) {
                         #gw-qr-modal > div {
                             margin: 2% auto;
@@ -4753,6 +4996,223 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     /* Botones */
     #gw-admin-tab-usuarios .button.button-small.gw-user-toggle{background:#dc3545!important;border-color:#dc3545!important;color:#fff!important;}
     #gw-admin-tab-usuarios .button.button-small.gw-user-history{background:#1e88e5!important;border-color:#1e88e5!important;color:#fff!important;}
+
+    /* ========================================
+       MÓVIL RESPONSIVE - hasta 768px
+       ======================================== */
+    @media (max-width: 768px) {
+        /* Header */
+        #gw-admin-tab-usuarios .gw-form-header h1 {
+            font-size: 20px !important;
+            margin-bottom: 4px !important;
+        }
+        
+        #gw-admin-tab-usuarios .gw-form-header p {
+            font-size: 12px !important;
+            margin-bottom: 16px !important;
+        }
+        
+        /* Toolbar de filtros */
+        .gw-users-toolbar {
+            flex-direction: column !important;
+            gap: 6px !important;
+            margin: 8px 0 12px !important;
+            align-items: stretch !important;
+        }
+        
+        .gw-users-toolbar input[type="text"], 
+        .gw-users-toolbar select {
+            min-width: auto !important;
+            width: 100% !important;
+            padding: 8px 10px !important;
+            font-size: 12px !important;
+            border-radius: 6px !important;
+        }
+        
+        /* Contenedor de tabla responsive */
+        .gw-users-responsive {
+            margin: 0 -8px !important;
+            padding: 0 8px !important;
+        }
+        
+        /* Tabla */
+        table.gw-users {
+            min-width: 600px !important;
+            font-size: 11px !important;
+        }
+        
+        table.gw-users th, 
+        table.gw-users td {
+            padding: 6px 4px !important;
+        }
+        
+        table.gw-users th {
+            font-size: 10px !important;
+            background: #f0f4f8 !important;
+        }
+        
+        /* Badges de estado */
+        table.gw-users td span[style*="background:#e8f5e9"],
+        table.gw-users td span[style*="background:#ffebee"] {
+            padding: 1px 4px !important;
+            font-size: 9px !important;
+            border-radius: 8px !important;
+        }
+        
+        /* Botones de acciones - mejor diseño */
+        table.gw-users .button.button-small {
+            font-size: 9px !important;
+            padding: 3px 6px !important;
+            margin: 1px 0 !important;
+            border-radius: 4px !important;
+            min-height: 20px !important;
+            height: auto !important;
+            line-height: 1.3 !important;
+            display: inline-block !important;
+            white-space: nowrap !important;
+            vertical-align: middle !important;
+        }
+        
+        /* Contenedor de botones para mejor organización */
+        table.gw-users td:last-child {
+            white-space: nowrap !important;
+        }
+        
+        /* Ajustar específicamente cada botón */
+        table.gw-users .gw-user-edit {
+            background: #0073aa !important;
+            border-color: #0073aa !important;
+            color: #fff !important;
+        }
+        
+        table.gw-users .gw-user-toggle {
+            background: #dc3545 !important;
+            border-color: #dc3545 !important;
+            color: #fff !important;
+        }
+        
+        table.gw-users .gw-user-history {
+            background: #1e88e5 !important;
+            border-color: #1e88e5 !important;
+            color: #fff !important;
+        }
+        
+        /* Ocultar algunas columnas en móvil muy pequeño */
+        @media (max-width: 480px) {
+            table.gw-users th:nth-child(4),
+            table.gw-users td:nth-child(4) {
+                display: none !important;
+            }
+        }
+        
+        /* Paginación */
+        #gw-users-pagination {
+            margin-top: 12px !important;
+        }
+        
+        #gw-users-prev, #gw-users-next {
+            font-size: 11px !important;
+            padding: 6px 10px !important;
+        }
+        
+        #gw-users-page-info {
+            font-size: 11px !important;
+            margin: 0 8px !important;
+        }
+        
+        /* Modales */
+        .gw-modal-box {
+            max-width: 95% !important;
+            margin: 2% auto !important;
+            padding: 16px !important;
+        }
+        
+        .gw-modal-close {
+            font-size: 18px !important;
+            right: 10px !important;
+            top: 8px !important;
+        }
+        
+        .gw-user-form label {
+            font-size: 12px !important;
+            margin: 6px 0 3px !important;
+        }
+        
+        .gw-user-form input, 
+        .gw-user-form select {
+            padding: 6px !important;
+            font-size: 12px !important;
+        }
+        
+        .gw-user-form .actions {
+            margin-top: 10px !important;
+            gap: 6px !important;
+            flex-direction: column !important;
+        }
+        
+        .gw-user-form .actions .button {
+            width: 100% !important;
+            font-size: 12px !important;
+            padding: 8px !important;
+        }
+        
+        .gw-log-list {
+            max-height: 200px !important;
+            padding: 6px !important;
+            font-size: 11px !important;
+        }
+        
+        .gw-log-item {
+            padding: 4px 2px !important;
+        }
+        
+        .gw-log-item small {
+            font-size: 9px !important;
+        }
+    }
+
+    /* ========================================
+       TABLET RESPONSIVE - 768px a 1024px
+       ======================================== */
+    @media (max-width: 1024px) and (min-width: 769px) {
+        #gw-admin-tab-usuarios .gw-form-header h1 {
+            font-size: 24px;
+        }
+        
+        #gw-admin-tab-usuarios .gw-form-header p {
+            font-size: 14px;
+        }
+        
+        .gw-users-toolbar {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .gw-users-toolbar input[type="text"], 
+        .gw-users-toolbar select {
+            min-width: 150px;
+            font-size: 13px;
+        }
+        
+        table.gw-users {
+            font-size: 13px;
+        }
+        
+        table.gw-users th, 
+        table.gw-users td {
+            padding: 8px 6px;
+        }
+        
+        table.gw-users .button.button-small {
+            font-size: 10px;
+            padding: 3px 6px;
+        }
+        
+        .gw-modal-box {
+            max-width: 500px;
+            padding: 18px;
+        }
+    }
   </style>
 
   <div class="gw-users-toolbar">
@@ -4856,7 +5316,6 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
   })();
   </script>
 </div>
-
 
 
 <!-- TAB CHARLAS -->
@@ -5145,9 +5604,230 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
         box-shadow: 0 0 0 3px rgba(0,124,186,0.1);
     }
     .gw-charla-wrapper {transition: opacity 0.3s ease;}
+
+    /* ========================================
+       MÓVIL RESPONSIVE - hasta 768px
+       ======================================== */
+    @media (max-width: 768px) {
+        /* Header */
+        #gw-admin-tab-charlas .gw-form-header h1 {
+            font-size: 20px !important;
+            margin-bottom: 4px !important;
+        }
+        
+        #gw-admin-tab-charlas .gw-form-header p {
+            font-size: 12px !important;
+            margin-bottom: 16px !important;
+        }
+        
+        /* Contenedor principal */
+        #gw-admin-tab-charlas > div[style*="max-width:900px"] {
+            max-width: 100% !important;
+            padding: 0 8px !important;
+        }
+        
+        /* Panel de filtros */
+        #gw-admin-tab-charlas > div > div[style*="margin-bottom:20px"] {
+            padding: 12px !important;
+            margin-bottom: 16px !important;
+        }
+        
+        /* Formulario nueva charla */
+        #gw-form-nueva-charla {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+        }
+        
+        #gw-nueva-charla-title {
+            width: 100% !important;
+            padding: 8px !important;
+            font-size: 12px !important;
+        }
+        
+        #gw-form-nueva-charla .button {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+        }
+        
+        /* Filtros */
+        #gw-admin-tab-charlas h4 {
+            font-size: 13px !important;
+            margin-bottom: 8px !important;
+        }
+        
+        #gw-admin-tab-charlas > div > div > div > div[style*="display:flex"] {
+            flex-direction: column !important;
+            gap: 6px !important;
+            align-items: stretch !important;
+        }
+        
+        #gw-filtro-nombre, #gw-filtro-lugar {
+            width: 100% !important;
+            font-size: 11px !important;
+            padding: 6px !important;
+        }
+        
+        #gw-filtro-modalidad {
+            width: 100% !important;
+            font-size: 11px !important;
+            padding: 6px !important;
+        }
+        
+        #gw-limpiar-filtros, #gw-ver-eliminadas {
+            font-size: 10px !important;
+            padding: 6px 8px !important;
+        }
+        
+        /* Tarjetas de charlas */
+        .gw-charla-item {
+            padding: 12px !important;
+            margin-bottom: 12px !important;
+            border-radius: 6px !important;
+        }
+        
+        .gw-charla-item h3 {
+            font-size: 15px !important;
+            margin-bottom: 8px !important;
+            padding-right: 35px !important;
+        }
+        
+        /* Botón eliminar - mejor proporción */
+        .gw-eliminar-charla {
+            width: 24px !important;
+            height: 24px !important;
+            top: 10px !important;
+            right: 10px !important;
+            font-size: 12px !important;
+            border-radius: 4px !important;
+        }
+        
+        .gw-eliminar-charla svg {
+            width: 10px !important;
+            height: 10px !important;
+        }
+        
+        /* Tags de modalidad */
+        .gw-charla-item > div[style*="margin-bottom:8px"] span {
+            font-size: 9px !important;
+            padding: 1px 6px !important;
+        }
+        
+        /* Bloques de sesión */
+        .gw-sesion-block-panel {
+            padding: 8px !important;
+            margin-bottom: 8px !important;
+            border-radius: 6px !important;
+        }
+        
+        .gw-sesion-block-panel label {
+            display: block !important;
+            margin: 4px 0 !important;
+            font-size: 11px !important;
+        }
+        
+        .gw-sesion-block-panel select,
+        .gw-sesion-block-panel input {
+            width: 100% !important;
+            padding: 4px !important;
+            font-size: 11px !important;
+            margin-top: 2px !important;
+        }
+        
+        /* Botones de sesión */
+        .gw-remove-sesion-panel {
+            font-size: 9px !important;
+            padding: 3px 6px !important;
+            margin: 4px 0 0 0 !important;
+        }
+        
+        .gw-add-sesion-panel,
+        .gw-form-sesiones-charla .button.button-primary {
+            font-size: 10px !important;
+            padding: 6px 8px !important;
+            margin: 6px 4px 0 0 !important;
+        }
+        
+        .gw-sesiones-guardado {
+            font-size: 9px !important;
+            margin-left: 4px !important;
+        }
+        
+        /* Panel eliminadas */
+        #gw-charlas-eliminadas-panel {
+            padding: 12px !important;
+            margin-bottom: 16px !important;
+        }
+        
+        #gw-charlas-eliminadas-panel h3 {
+            font-size: 14px !important;
+        }
+        
+        #gw-cerrar-eliminadas {
+            font-size: 10px !important;
+            padding: 4px 6px !important;
+        }
+        
+        /* Paginación */
+        #gw-pagination-container {
+            margin-top: 12px !important;
+        }
+        
+        #gw-prev-page, #gw-next-page {
+            font-size: 10px !important;
+            padding: 6px 8px !important;
+        }
+        
+        #gw-pagination-info {
+            font-size: 10px !important;
+            margin: 0 6px !important;
+        }
+    }
+
+    /* ========================================
+       TABLET RESPONSIVE - 768px a 1024px
+       ======================================== */
+    @media (max-width: 1024px) and (min-width: 769px) {
+        #gw-admin-tab-charlas .gw-form-header h1 {
+            font-size: 24px;
+        }
+        
+        #gw-admin-tab-charlas .gw-form-header p {
+            font-size: 14px;
+        }
+        
+        #gw-form-nueva-charla {
+            flex-wrap: wrap;
+        }
+        
+        #gw-nueva-charla-title {
+            width: 200px;
+            font-size: 13px;
+        }
+        
+        .gw-charla-item {
+            padding: 14px;
+        }
+        
+        .gw-charla-item h3 {
+            font-size: 17px;
+        }
+        
+        .gw-sesion-block-panel {
+            padding: 10px;
+        }
+        
+        .gw-sesion-block-panel label {
+            font-size: 12px;
+        }
+        
+        .gw-sesion-block-panel select,
+        .gw-sesion-block-panel input {
+            font-size: 12px;
+        }
+    }
     </style>
 </div>
-
 
 
 
@@ -5823,63 +6503,350 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     opacity: 1;
 }
 
-/* Responsive */
+/* ========================================
+   MÓVIL RESPONSIVE - hasta 768px
+   ======================================== */
 @media (max-width: 768px) {
-    .gw-proyecto-item {
-        padding: 16px;
-        margin-bottom: 16px;
+    /* Header */
+    #gw-admin-tab-proyectos .gw-form-header h1 {
+        font-size: 20px !important;
+        margin-bottom: 4px !important;
     }
     
-    .gw-proyecto-header {
-        flex-direction: column;
-        gap: 12px;
+    #gw-admin-tab-proyectos .gw-form-header p {
+        font-size: 12px !important;
+        margin-bottom: 16px !important;
     }
     
-    .gw-proyecto-meta {
-        grid-template-columns: 1fr;
-        gap: 8px;
+    /* Panel de filtros */
+    #gw-admin-tab-proyectos > div[style*="background:#f9f9f9"] {
+        padding: 12px !important;
+        margin-bottom: 16px !important;
     }
     
-    .gw-proyecto-acciones {
-        flex-direction: column;
-        align-items: stretch;
+    #gw-admin-tab-proyectos > div > div[style*="display:flex"] {
+        flex-direction: column !important;
+        gap: 8px !important;
+        align-items: stretch !important;
     }
     
-    .gw-proyecto-acciones button {
-        justify-content: center;
+    /* Elementos de filtro */
+    #gw-admin-tab-proyectos div[style*="display:flex"] > div {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
     }
+    
+    #gw-admin-tab-proyectos div[style*="display:flex"] > div label {
+        font-size: 11px !important;
+       margin-bottom: 2px !important;
+   }
+   
+   #gw-admin-tab-proyectos div[style*="display:flex"] > div select,
+   #gw-admin-tab-proyectos div[style*="display:flex"] > div input {
+       width: 100% !important;
+       padding: 8px !important;
+       font-size: 14px !important;
+       margin-left: 0 !important;
+       border: 1px solid #ddd !important;
+       border-radius: 4px !important;
+   }
+   
+   #gw-admin-tab-proyectos #gw-limpiar-filtros {
+       width: 100% !important;
+       padding: 10px !important;
+       font-size: 13px !important;
+       margin-top: 4px !important;
+   }
+   
+   /* Formulario nuevo proyecto */
+   #gw-admin-tab-proyectos > div[style*="background:#fff"] {
+       padding: 16px !important;
+       margin-bottom: 20px !important;
+   }
+   
+   #gw-admin-tab-proyectos form h3 {
+       font-size: 16px !important;
+       margin-bottom: 12px !important;
+   }
+   
+   #gw-admin-tab-proyectos div[style*="display:grid;grid-template-columns:1fr 1fr"] {
+       grid-template-columns: 1fr !important;
+       gap: 12px !important;
+       max-width: none !important;
+   }
+   
+   #gw-admin-tab-proyectos form label {
+       font-size: 12px !important;
+       display: block !important;
+       margin-bottom: 4px !important;
+   }
+   
+   #gw-admin-tab-proyectos form input,
+   #gw-admin-tab-proyectos form select,
+   #gw-admin-tab-proyectos form textarea {
+       width: 100% !important;
+       padding: 10px !important;
+       font-size: 14px !important;
+       margin-top: 2px !important;
+       border: 1px solid #ddd !important;
+       border-radius: 4px !important;
+       box-sizing: border-box !important;
+   }
+   
+   #gw-admin-tab-proyectos form textarea {
+       height: 80px !important;
+   }
+   
+   #gw-admin-tab-proyectos form div[style*="margin-top:15px"] {
+       margin-top: 12px !important;
+   }
+   
+   #gw-admin-tab-proyectos form .button {
+       width: 100% !important;
+       padding: 12px !important;
+       font-size: 14px !important;
+       margin-bottom: 8px !important;
+   }
+   
+   #gw-admin-tab-proyectos form span[id*="proyecto-"] {
+       display: block !important;
+       margin-left: 0 !important;
+       margin-top: 8px !important;
+       text-align: center !important;
+       font-size: 12px !important;
+   }
+   
+   /* Cards de proyectos móvil */
+   .gw-proyecto-item {
+       padding: 16px !important;
+       margin-bottom: 16px !important;
+       border-radius: 12px !important;
+   }
+   
+   .gw-proyecto-eliminado::after {
+       top: 8px !important;
+       right: 8px !important;
+       font-size: 9px !important;
+       padding: 2px 8px !important;
+   }
+   
+   /* Header del proyecto móvil */
+   .gw-proyecto-header {
+       flex-direction: column !important;
+       gap: 8px !important;
+       margin-bottom: 12px !important;
+       align-items: stretch !important;
+   }
+   
+   .gw-proyecto-title {
+       font-size: 16px !important;
+       line-height: 1.3 !important;
+       margin-bottom: 4px !important;
+   }
+   
+   /* Meta información móvil */
+   .gw-proyecto-meta {
+       grid-template-columns: 1fr !important;
+       gap: 8px !important;
+       margin-bottom: 12px !important;
+   }
+   
+   .gw-meta-item {
+       padding: 6px 10px !important;
+       font-size: 12px !important;
+       border-radius: 6px !important;
+   }
+   
+   .gw-meta-icon {
+       width: 14px !important;
+       height: 14px !important;
+   }
+   
+   .gw-proyecto-descripcion {
+       font-size: 12px !important;
+       padding: 8px !important;
+       margin-top: 8px !important;
+       border-radius: 6px !important;
+       line-height: 1.4 !important;
+   }
+   
+   /* Acciones móvil */
+   .gw-proyecto-acciones {
+       padding-top: 12px !important;
+       gap: 6px !important;
+       flex-direction: column !important;
+   }
+   
+   .gw-proyecto-acciones button {
+       width: 100% !important;
+       padding: 10px 12px !important;
+       font-size: 12px !important;
+       min-height: 40px !important;
+       border-radius: 6px !important;
+       justify-content: center !important;
+   }
+   
+   /* Modal de edición móvil */
+   body div[style*="position:fixed"] > div {
+       max-width: 95% !important;
+       width: 95% !important;
+       padding: 20px !important;
+       margin: 10px !important;
+       border-radius: 8px !important;
+       max-height: 90vh !important;
+       overflow-y: auto !important;
+   }
+   
+   body div[style*="position:fixed"] h3 {
+       font-size: 16px !important;
+       margin-bottom: 12px !important;
+   }
+   
+   body div[style*="position:fixed"] label {
+       font-size: 12px !important;
+       margin-bottom: 4px !important;
+   }
+   
+   body div[style*="position:fixed"] input,
+   body div[style*="position:fixed"] select,
+   body div[style*="position:fixed"] textarea {
+       padding: 10px !important;
+       font-size: 14px !important;
+       border: 1px solid #ddd !important;
+       border-radius: 4px !important;
+   }
+   
+   body div[style*="position:fixed"] div[style*="text-align:right"] {
+       text-align: center !important;
+       margin-top: 16px !important;
+   }
+   
+   body div[style*="position:fixed"] .button {
+       width: 48% !important;
+       padding: 10px !important;
+       font-size: 13px !important;
+       margin: 2px !important;
+   }
 }
 
-/* Animación de carga */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* ========================================
+  TABLET RESPONSIVE - 769px a 1024px
+  ======================================== */
+@media (min-width: 769px) and (max-width: 1024px) {
+   /* Formulario más compacto en tablet */
+   #gw-admin-tab-proyectos div[style*="display:grid;grid-template-columns:1fr 1fr"] {
+       grid-template-columns: 1fr 1fr !important;
+       gap: 12px !important;
+   }
+   
+   /* Cards en tablet */
+   .gw-proyecto-item {
+       padding: 20px !important;
+   }
+   
+   .gw-proyecto-meta {
+       grid-template-columns: repeat(2, 1fr) !important;
+       gap: 10px !important;
+   }
+   
+   /* Acciones más compactas */
+   .gw-proyecto-acciones {
+       gap: 6px !important;
+   }
+   
+   .gw-proyecto-acciones button {
+       padding: 6px 12px !important;
+       font-size: 12px !important;
+   }
 }
 
-.gw-proyecto-item {
-    animation: fadeInUp 0.3s ease-out;
+/* ========================================
+  MEJORAS GENERALES DE ACCESIBILIDAD
+  ======================================== */
+/* Focus states mejorados */
+#gw-admin-tab-proyectos input:focus,
+#gw-admin-tab-proyectos select:focus,
+#gw-admin-tab-proyectos textarea:focus,
+#gw-admin-tab-proyectos button:focus {
+   outline: 2px solid #3b82f6 !important;
+   outline-offset: 2px !important;
+   border-color: #3b82f6 !important;
 }
 
-/* Estados de los iconos */
-.gw-proyecto-acciones svg {
-    width: 16px;
-    height: 16px;
-    transition: transform 0.2s ease;
+/* Hover states para móvil */
+@media (hover: hover) {
+   .gw-proyecto-item:hover {
+       transform: translateY(-2px);
+   }
+   
+   .gw-proyecto-acciones button:hover {
+       transform: translateY(-1px);
+   }
 }
 
-.gw-proyecto-acciones button:hover svg {
-    transform: scale(1.1);
+/* Animaciones reducidas para usuarios que prefieren menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+   .gw-proyecto-item,
+   .gw-proyecto-acciones button {
+       transition: none !important;
+       transform: none !important;
+   }
+   
+   .gw-proyecto-item:hover,
+   .gw-proyecto-acciones button:hover {
+       transform: none !important;
+   }
+}
+
+/* Mejoras de contraste para mejor legibilidad */
+.gw-proyecto-title {
+   color: #111827 !important;
+   font-weight: 600 !important;
+}
+
+.gw-meta-item {
+   color: #374151 !important;
+}
+
+.gw-proyecto-descripcion {
+   color: #4b5563 !important;
+}
+
+/* Estados de carga */
+.gw-cargando {
+   opacity: 0.6;
+   pointer-events: none;
+   position: relative;
+}
+
+.gw-cargando::after {
+   content: 'Cargando...';
+   position: absolute;
+   top: 50%;
+   left: 50%;
+   transform: translate(-50%, -50%);
+   background: rgba(255, 255, 255, 0.9);
+   padding: 8px 16px;
+   border-radius: 4px;
+   font-size: 12px;
+   color: #666;
+}
+
+/* Optimizaciones de rendimiento */
+.gw-proyecto-item,
+.gw-proyecto-acciones button {
+   will-change: transform;
+}
+
+/* Scroll suave para modales largos */
+body div[style*="position:fixed"] {
+   scroll-behavior: smooth;
 }
 </style>
 
 
-<!-- TAB CAPACITACIONES (COMPLETO CON NONCE) -->
+<!-- TAB CAPACITACIONES (COMPLETO CON NONCE Y CSS RESPONSIVE) -->
 <div class="gw-admin-tab-content" id="gw-admin-tab-capacitaciones" style="display:none;">
   <div class="gw-form-header">
     <h1>Capacitaciones</h1>
@@ -5897,7 +6864,7 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
       .gw-wizard-form input:focus,.gw-wizard-form select:focus{outline:none;border-color:#31568d;box-shadow:0 0 0 2px rgba(49,86,141,.1)}
       .gw-wizard-form select:disabled{background:#f8f9fa;color:#6c757d;cursor:not-allowed}
       .gw-wizard-sesiones{margin-top:18px}
-      .gw-wizard-sesion{border:1px solid #bfd9f7;border-radius:8px;padding:16px;margin-bottom:12px;grid-template-columns:120px 140px 100px 1fr auto auto;gap:12px;align-items:center;background:#f8f9fa}
+      .gw-wizard-sesion{border:1px solid #bfd9f7;border-radius:8px;padding:16px;margin-bottom:12px;display:grid;grid-template-columns:120px 140px 100px 1fr auto auto;gap:12px;align-items:center;background:#f8f9fa}
       .gw-wizard-sesion input,.gw-wizard-sesion select{width:100%;margin:0}
       .gw-wizard-sesion input[name="sesion_link[]"]{grid-column:span 3}
       .gw-wizard-sesion input[name="sesion_lugar[]"]{grid-column:span 3}
@@ -5921,6 +6888,509 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
       .gw-cap-delete:hover,.gw-cap-delete-forever:hover{background:#dc3545;color:#fff}
       .gw-cap-restore{color:#28a745;border-color:#28a745}
       .gw-cap-restore:hover{background:#28a745;color:#fff}
+
+      /* ========================================
+         CSS RESPONSIVE COMPLETO PARA CAPACITACIONES
+         ======================================== */
+
+      /* ========================================
+         MÓVIL RESPONSIVE - hasta 768px
+         ======================================== */
+      @media (max-width: 768px) {
+          /* Header principal */
+          #gw-admin-tab-capacitaciones .gw-form-header h1 {
+              font-size: 20px !important;
+              margin-bottom: 8px !important;
+          }
+          
+          #gw-admin-tab-capacitaciones .gw-form-header p {
+              font-size: 14px !important;
+              margin-bottom: 16px !important;
+              color: #64748b !important;
+          }
+
+          /* Wizard Steps móvil */
+          .gw-wizard-steps {
+              flex-direction: column !important;
+              gap: 8px !important;
+              margin-bottom: 20px !important;
+              margin-top: 8px !important;
+          }
+          
+          .gw-wizard-step {
+              margin: 0 !important;
+              padding: 10px 8px !important;
+              font-size: 12px !important;
+              border-radius: 6px !important;
+              flex: none !important;
+              width: 100% !important;
+          }
+
+          /* Wizard Form móvil */
+          .gw-wizard-form {
+              padding: 16px 20px !important;
+              margin: 0 8px 20px 8px !important;
+              max-width: none !important;
+              border-radius: 12px !important;
+          }
+          
+          .gw-wizard-form label {
+              font-size: 13px !important;
+              margin-top: 12px !important;
+              margin-bottom: 4px !important;
+          }
+          
+          .gw-wizard-form input,
+          .gw-wizard-form select {
+              padding: 12px !important;
+              font-size: 14px !important;
+              margin-top: 2px !important;
+              border-radius: 8px !important;
+              width: 100% !important;
+              box-sizing: border-box !important;
+          }
+
+          /* Botones de navegación del wizard móvil */
+          .gw-wizard-form .next-step,
+          .gw-wizard-form .prev-step,
+          .gw-wizard-form .button-primary {
+              width: 100% !important;
+              padding: 12px 16px !important;
+              margin-top: 12px !important;
+              margin-bottom: 8px !important;
+              font-size: 14px !important;
+              border-radius: 8px !important;
+              float: none !important;
+              display: block !important;
+          }
+          
+          .gw-wizard-form .prev-step {
+              background: #6c757d !important;
+              color: white !important;
+              border: none !important;
+          }
+
+          /* Contenedor de botones del wizard */
+          .gw-wizard-step-content.step-2 > button,
+          .gw-wizard-step-content.step-3 > button,
+          .gw-wizard-step-content.step-4 > div > button {
+              width: 100% !important;
+              float: none !important;
+              margin: 8px 0 !important;
+          }
+
+          /* Contenedor final de botones paso 4 */
+          .gw-wizard-step-content.step-4 > div:last-child {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 8px !important;
+              margin-top: 16px !important;
+          }
+
+          /* Botón agregar sesión móvil */
+          .gw-wizard-form .add-sesion {
+              width: 100% !important;
+              padding: 12px 16px !important;
+              font-size: 14px !important;
+              border-radius: 8px !important;
+              margin-top: 16px !important;
+          }
+
+          /* Sesiones en móvil */
+          .gw-wizard-sesiones {
+              margin-top: 16px !important;
+          }
+          
+          .gw-wizard-sesion {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 12px !important;
+              padding: 16px !important;
+              margin-bottom: 16px !important;
+              border-radius: 12px !important;
+              background: #f8fafc !important;
+              border: 1px solid #e2e8f0 !important;
+              grid-template-columns: none !important;
+          }
+          
+          .gw-wizard-sesion input,
+          .gw-wizard-sesion select {
+              width: 100% !important;
+              padding: 10px !important;
+              font-size: 14px !important;
+              border-radius: 6px !important;
+              margin: 0 !important;
+              grid-column: auto !important;
+          }
+          
+          /* Botones de sesión móvil */
+          .gw-wizard-sesion .remove-sesion,
+          .gw-wizard-sesion .crear-meet {
+              width: calc(50% - 4px) !important;
+              padding: 10px 8px !important;
+              font-size: 12px !important;
+              border-radius: 6px !important;
+              margin: 0 !important;
+              display: inline-block !important;
+          }
+          
+          .gw-wizard-sesion .remove-sesion {
+              margin-right: 8px !important;
+          }
+
+          /* Lista de capacitaciones móvil */
+          .gw-capacitacion-list {
+              max-width: none !important;
+              margin: 0 8px !important;
+          }
+          
+          .gw-capacitacion-list h3 {
+              font-size: 18px !important;
+              margin-top: 24px !important;
+              margin-bottom: 16px !important;
+              text-align: center !important;
+          }
+
+          /* Filtros móvil */
+          .gw-filtros-container {
+              padding: 12px !important;
+              margin: 0 0 16px 0 !important;
+              border-radius: 12px !important;
+          }
+          
+          .gw-filtros-container > div:first-child {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 8px !important;
+              margin-bottom: 12px !important;
+              grid-template-columns: none !important;
+          }
+          
+          .gw-filtros-container select,
+          .gw-filtros-container input {
+              width: 100% !important;
+              padding: 10px !important;
+              font-size: 14px !important;
+              border-radius: 6px !important;
+              border: 1px solid #ddd !important;
+          }
+          
+          .gw-filtros-container > div:last-child {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 8px !important;
+          }
+          
+          .gw-filtros-container button {
+              width: 100% !important;
+              padding: 10px 16px !important;
+              font-size: 14px !important;
+              border-radius: 6px !important;
+              margin: 0 !important;
+          }
+
+          /* Cards de capacitaciones móvil */
+          .gw-capacitacion-card {
+              padding: 16px !important;
+              margin-bottom: 12px !important;
+              border-radius: 12px !important;
+          }
+          
+          .gw-capacitacion-card:hover {
+              transform: none !important;
+          }
+          
+          .gw-capacitacion-header {
+              flex-direction: column !important;
+              gap: 8px !important;
+              margin-bottom: 12px !important;
+              align-items: stretch !important;
+          }
+          
+          .gw-capacitacion-title {
+              font-size: 16px !important;
+              margin-right: 0 !important;
+              text-align: center !important;
+              margin-bottom: 8px !important;
+          }
+          
+          .gw-capacitacion-status {
+              text-align: center !important;
+          }
+          
+          .gw-status-badge {
+              font-size: 11px !important;
+              padding: 4px 8px !important;
+          }
+
+          /* Meta información móvil */
+          .gw-capacitacion-meta {
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+              margin-bottom: 16px !important;
+          }
+          
+          .gw-meta-item {
+              background: #f8fafc !important;
+              padding: 8px 10px !important;
+              border-radius: 6px !important;
+              font-size: 13px !important;
+              border: 1px solid #e2e8f0 !important;
+          }
+          
+          .gw-meta-icon {
+              width: 14px !important;
+              height: 14px !important;
+          }
+
+          /* Acciones móvil */
+          .gw-capacitacion-actions {
+              flex-direction: column !important;
+              gap: 8px !important;
+              padding-top: 12px !important;
+          }
+          
+          .gw-btn-action {
+              width: 100% !important;
+              padding: 10px 12px !important;
+              font-size: 13px !important;
+              justify-content: center !important;
+              border-radius: 6px !important;
+          }
+
+          /* Estado sin capacitaciones móvil */
+          .gw-no-capacitaciones {
+              padding: 40px 16px !important;
+              margin: 0 !important;
+              border-radius: 12px !important;
+          }
+          
+          .gw-no-cap-icon {
+              width: 60px !important;
+              height: 60px !important;
+              margin-bottom: 16px !important;
+          }
+          
+          .gw-no-capacitaciones h3 {
+              font-size: 18px !important;
+              margin-bottom: 8px !important;
+          }
+          
+          .gw-no-capacitaciones p {
+              font-size: 14px !important;
+          }
+
+          /* Paginación móvil */
+          .gw-pagination-info {
+              flex-direction: column !important;
+              gap: 4px !important;
+              text-align: center !important;
+              padding: 8px 12px !important;
+              font-size: 12px !important;
+              margin-bottom: 16px !important;
+          }
+          
+          /* Botones de paginación móvil */
+          #gw-admin-tab-capacitaciones form[method="post"] {
+              display: block !important;
+              width: 100% !important;
+              margin: 4px 0 !important;
+          }
+          
+          #gw-admin-tab-capacitaciones form[method="post"] button {
+              width: 100% !important;
+              padding: 12px 16px !important;
+              font-size: 14px !important;
+              border-radius: 8px !important;
+              margin: 0 !important;
+          }
+          
+          /* Container de paginación móvil */
+          #gw-admin-tab-capacitaciones > div[style*="margin-top: 32px"] {
+              margin-top: 20px !important;
+              flex-direction: column !important;
+              gap: 8px !important;
+              align-items: stretch !important;
+          }
+          
+          #gw-admin-tab-capacitaciones > div[style*="margin-top: 32px"] span {
+              text-align: center !important;
+              padding: 8px 12px !important;
+              font-size: 13px !important;
+              order: -1 !important;
+          }
+      }
+
+      /* ========================================
+         TABLET RESPONSIVE - 769px a 1024px
+         ======================================== */
+      @media (min-width: 769px) and (max-width: 1024px) {
+          /* Wizard form tablet */
+          .gw-wizard-form {
+              max-width: 90% !important;
+              padding: 20px 24px !important;
+          }
+          
+          /* Wizard steps tablet */
+          .gw-wizard-steps {
+              margin-bottom: 24px !important;
+          }
+          
+          .gw-wizard-step {
+              padding: 10px 8px !important;
+              font-size: 13px !important;
+          }
+          
+          /* Sesiones tablet */
+          .gw-wizard-sesion {
+              grid-template-columns: 100px 120px 80px 1fr auto auto !important;
+              gap: 10px !important;
+          }
+          
+          .gw-wizard-sesion input[name="sesion_link[]"],
+          .gw-wizard-sesion input[name="sesion_lugar[]"] {
+              grid-column: span 2 !important;
+          }
+          
+          /* Capacitaciones list tablet */
+          .gw-capacitacion-list {
+              max-width: 95% !important;
+          }
+          
+          /* Filtros tablet */
+          .gw-filtros-container > div:first-child {
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 10px !important;
+          }
+          
+          /* Cards tablet */
+          .gw-capacitacion-meta {
+              grid-template-columns: 1fr 1fr !important;
+          }
+          
+          .gw-capacitacion-actions {
+              flex-wrap: wrap !important;
+              gap: 6px !important;
+          }
+          
+          .gw-btn-action {
+              flex: 1 !important;
+              min-width: 120px !important;
+          }
+      }
+
+      /* ========================================
+         MEJORAS GENERALES Y ACCESIBILIDAD
+         ======================================== */
+
+      /* Focus states mejorados */
+      #gw-admin-tab-capacitaciones input:focus,
+      #gw-admin-tab-capacitaciones select:focus,
+      #gw-admin-tab-capacitaciones button:focus {
+          outline: 2px solid #31568d !important;
+          outline-offset: 2px !important;
+          border-color: #31568d !important;
+      }
+
+      /* Hover states para dispositivos que lo soportan */
+      @media (hover: hover) {
+          .gw-wizard-step:hover,
+          .gw-capacitacion-card:hover {
+              transform: translateY(-2px);
+          }
+          
+          .gw-btn-action:hover {
+              transform: translateY(-1px);
+          }
+      }
+
+      /* Animaciones reducidas para usuarios que prefieren menos movimiento */
+      @media (prefers-reduced-motion: reduce) {
+          .gw-wizard-step,
+          .gw-capacitacion-card,
+          .gw-btn-action {
+              transition: none !important;
+              transform: none !important;
+          }
+          
+          .gw-wizard-step:hover,
+          .gw-capacitacion-card:hover,
+          .gw-btn-action:hover {
+              transform: none !important;
+          }
+      }
+
+      /* Estados de carga */
+      .gw-loading {
+          opacity: 0.6;
+          pointer-events: none;
+          position: relative;
+      }
+
+      .gw-loading::after {
+          content: 'Cargando...';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(255, 255, 255, 0.95);
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-size: 12px;
+          color: #666;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Optimizaciones de rendimiento */
+      .gw-wizard-step,
+      .gw-capacitacion-card,
+      .gw-btn-action {
+          will-change: transform;
+      }
+
+      /* Scroll suave */
+      html {
+          scroll-behavior: smooth;
+      }
+
+      /* Correcciones específicas móvil pequeño */
+      @media (max-width: 320px) {
+          .gw-wizard-form {
+              margin: 0 4px 16px 4px !important;
+              padding: 12px 16px !important;
+          }
+          
+          .gw-capacitacion-list {
+              margin: 0 4px !important;
+          }
+      }
+
+      /* Mejorar la experiencia en landscape móvil */
+      @media (max-width: 768px) and (orientation: landscape) {
+          .gw-wizard-steps {
+              flex-direction: row !important;
+              gap: 4px !important;
+          }
+          
+          .gw-wizard-step {
+              font-size: 11px !important;
+              padding: 8px 4px !important;
+          }
+      }
+
+      /* Print styles (opcional) */
+      @media print {
+          .gw-wizard-steps,
+          .gw-filtros-container,
+          .gw-capacitacion-actions {
+              display: none !important;
+          }
+          
+          .gw-capacitacion-card {
+              break-inside: avoid !important;
+              margin-bottom: 20px !important;
+          }
+      }
     </style>
 
     <div class="gw-wizard-steps">
