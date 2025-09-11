@@ -8690,7 +8690,7 @@ body div[style*="position:fixed"] {
   </div>
 </div>
 
-<!-- TAB 8: AUSENCIAS DETECTADAS (LISTADO) -->
+<!-- TAB 8: AUSENCIAS DETECTADAS (LISTADO) CON SEGMENTACIÓN -->
 <div class="gw-admin-tab-content" id="gw-admin-tab-ausencias_detectadas" style="display:none;">
   <div class="gw-form-header">
     <h1>Ausencias detectadas</h1>
@@ -8703,8 +8703,51 @@ body div[style*="position:fixed"] {
       
       <?php
       global $wpdb; 
+      $current_user = wp_get_current_user();
+      $user_role = '';
+      $user_country = '';
+      $user_projects = array();
+      
+      // Determinar el rol del usuario actual
+      if (user_can($current_user, 'administrator')) {
+        $user_role = 'administrator';
+      } elseif (in_array('coordinador_pais', $current_user->roles)) {
+        $user_role = 'coordinador_pais';
+        $user_country = get_user_meta($current_user->ID, 'pais', true);
+      } elseif (in_array('coach', $current_user->roles)) {
+        $user_role = 'coach';
+        // Obtener los proyectos asignados al coach
+        $user_projects = get_user_meta($current_user->ID, 'proyectos_asignados', true);
+        if (!is_array($user_projects)) {
+          $user_projects = array();
+        }
+      }
+      
+      // Construir la consulta SQL según el rol
       $table = $wpdb->prefix.'gw_ausencias';
-      $rows = $wpdb->get_results("SELECT * FROM {$table} WHERE hidden=0 ORDER BY updated_at DESC LIMIT 300", ARRAY_A);
+      $where_conditions = array("hidden=0");
+      $join_clauses = "";
+      
+      if ($user_role == 'coordinador_pais' && !empty($user_country)) {
+        // Coordinador de país: solo ausencias de usuarios de su país
+        $join_clauses .= " LEFT JOIN {$wpdb->usermeta} um_pais ON a.user_id = um_pais.user_id AND um_pais.meta_key = 'pais'";
+        $where_conditions[] = $wpdb->prepare("um_pais.meta_value = %s", $user_country);
+        
+      } elseif ($user_role == 'coach' && !empty($user_projects)) {
+        // Coach: solo ausencias de capacitaciones de sus proyectos asignados
+        $project_placeholders = implode(',', array_fill(0, count($user_projects), '%d'));
+        $join_clauses .= " LEFT JOIN {$wpdb->postmeta} pm_proyecto ON a.cap_id = pm_proyecto.post_id AND pm_proyecto.meta_key = 'proyecto_id'";
+        $where_conditions[] = $wpdb->prepare("pm_proyecto.meta_value IN ($project_placeholders)", $user_projects);
+        
+      } elseif ($user_role != 'administrator') {
+        // Si no tiene ningún rol válido, no mostrar nada
+        $where_conditions[] = "1=0";
+      }
+      
+      $where_clause = implode(' AND ', $where_conditions);
+      $query = "SELECT a.* FROM {$table} a {$join_clauses} WHERE {$where_clause} ORDER BY a.updated_at DESC LIMIT 300";
+      
+      $rows = $wpdb->get_results($query, ARRAY_A);
       
       if (!$rows) {
         echo '<div class="gw-no-ausencias">';
@@ -8715,15 +8758,68 @@ body div[style*="position:fixed"] {
         echo '</svg>';
         echo '</div>';
         echo '<h3>No hay ausencias registradas</h3>';
-        echo '<p>Todas las ausencias han sido resueltas o no se han detectado ausencias recientes.</p>';
+        if ($user_role == 'coordinador_pais') {
+          echo '<p>No se han detectado ausencias en tu país ('.esc_html($user_country).') o todas han sido resueltas.</p>';
+        } elseif ($user_role == 'coach') {
+          echo '<p>No se han detectado ausencias en tus proyectos asignados o todas han sido resueltas.</p>';
+        } else {
+          echo '<p>Todas las ausencias han sido resueltas o no se han detectado ausencias recientes.</p>';
+        }
         echo '</div>';
       } else {
+        // Mostrar información del filtro aplicado
+        echo '<div class="gw-filter-info">';
+        if ($user_role == 'coordinador_pais') {
+          echo '<div class="gw-filter-badge gw-filter-coordinador">';
+          echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+          echo '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>';
+          echo '<circle cx="12" cy="10" r="3"></circle>';
+          echo '</svg>';
+          echo 'Mostrando ausencias de: <strong>'.esc_html($user_country).'</strong>';
+          echo '</div>';
+        } elseif ($user_role == 'coach') {
+          $project_names = array();
+          foreach ($user_projects as $project_id) {
+            $project_name = get_the_title($project_id);
+            if ($project_name) {
+              $project_names[] = $project_name;
+            }
+          }
+          echo '<div class="gw-filter-badge gw-filter-coach">';
+          echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+          echo '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>';
+          echo '<circle cx="9" cy="7" r="4"></circle>';
+          echo '<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>';
+          echo '<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>';
+          echo '</svg>';
+          echo 'Mostrando ausencias de tus proyectos: <strong>'.implode(', ', array_slice($project_names, 0, 3));
+          if (count($project_names) > 3) {
+            echo ' y '.(count($project_names) - 3).' más';
+          }
+          echo '</strong>';
+          echo '</div>';
+        } elseif ($user_role == 'administrator') {
+          echo '<div class="gw-filter-badge gw-filter-admin">';
+          echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+          echo '<path d="M12 1l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6z"></path>';
+          echo '</svg>';
+          echo 'Vista de <strong>Administrador</strong> - Todas las ausencias';
+          echo '</div>';
+        }
+        echo '</div>';
+        
         echo '<div class="gw-table-responsive">';
         echo '<table class="gw-ausencias-table">';
         echo '<thead>';
         echo '<tr>';
         echo '<th class="gw-col-usuario">Usuario</th>';
+        if ($user_role == 'administrator' || $user_role == 'coordinador_pais') {
+          echo '<th class="gw-col-pais">País</th>';
+        }
         echo '<th class="gw-col-capacitacion">Capacitación</th>';
+        if ($user_role == 'administrator' || $user_role == 'coach') {
+          echo '<th class="gw-col-proyecto">Proyecto</th>';
+        }
         echo '<th class="gw-col-fecha">Fecha/Hora</th>';
         echo '<th class="gw-col-estado">Estado</th>';
         echo '<th class="gw-col-recordatorios">Recordatorios</th>';
@@ -8736,6 +8832,11 @@ body div[style*="position:fixed"] {
           $u = get_user_by('id', intval($r['user_id']));
           $cap_title = get_the_title(intval($r['cap_id'])) ?: ('ID '.$r['cap_id']);
           
+          // Obtener información adicional
+          $user_country_display = get_user_meta($r['user_id'], 'pais', true) ?: 'No asignado';
+          $proyecto_id = get_post_meta($r['cap_id'], 'proyecto_id', true);
+          $proyecto_name = $proyecto_id ? get_the_title($proyecto_id) : 'No asignado';
+          
           echo '<tr data-aid="'.intval($r['id']).'" class="gw-ausencia-row">';
           echo '<td class="gw-col-usuario">';
           echo '<div class="gw-usuario-info">';
@@ -8746,7 +8847,22 @@ body div[style*="position:fixed"] {
           echo '</div>';
           echo '</td>';
           
+          // Mostrar columna país si corresponde
+          if ($user_role == 'administrator' || $user_role == 'coordinador_pais') {
+            echo '<td class="gw-col-pais">';
+            echo '<span class="gw-pais-badge">'. esc_html($user_country_display) .'</span>';
+            echo '</td>';
+          }
+          
           echo '<td class="gw-col-capacitacion">'. esc_html($cap_title) .'</td>';
+          
+          // Mostrar columna proyecto si corresponde
+          if ($user_role == 'administrator' || $user_role == 'coach') {
+            echo '<td class="gw-col-proyecto">';
+            echo '<span class="gw-proyecto-badge">'. esc_html($proyecto_name) .'</span>';
+            echo '</td>';
+          }
+          
           echo '<td class="gw-col-fecha">'. esc_html($r['fecha']) .'</td>';
           
           echo '<td class="gw-col-estado">';
@@ -8902,9 +9018,159 @@ body div[style*="position:fixed"] {
     }
   });
 })();
+
+// Fix definitivo - forzar display del contenido
+(function(){
+  let ausenciasContent = null;
+  let isContentLoaded = false;
+  
+  // Función para forzar que se muestre el contenido
+  function forzarMostrarContenido() {
+    const tab = document.getElementById('gw-admin-tab-ausencias_detectadas');
+    if (!tab) return;
+    
+    // Forzar que el tab principal se muestre
+    if (tab.style.display === 'none') {
+      tab.style.display = 'block';
+    }
+    
+    // Forzar que el contenido interno se muestre
+    const absList = tab.querySelector('.gw-abs-list');
+    if (absList && absList.style.display === 'none') {
+      absList.style.display = 'block';
+      console.log('Forzando display de gw-abs-list a block');
+    }
+    
+    // Forzar que el container se muestre
+    const container = tab.querySelector('.gw-ausencias-container');
+    if (container && container.style.display === 'none') {
+      container.style.display = 'block';
+    }
+    
+    // Verificar todos los elementos padre que puedan estar ocultos
+    let parent = tab.parentElement;
+    while (parent) {
+      if (parent.style.display === 'none') {
+        parent.style.display = 'block';
+      }
+      parent = parent.parentElement;
+      if (parent === document.body) break;
+    }
+  }
+  
+  // Guardar contenido inicial
+  function guardarContenidoInicial() {
+    forzarMostrarContenido(); // Primero forzar que se muestre
+    
+    const container = document.querySelector('#gw-admin-tab-ausencias_detectadas .gw-ausencias-container');
+    if (container && container.innerHTML.trim() && container.innerHTML.length > 100) {
+      ausenciasContent = container.innerHTML;
+      isContentLoaded = true;
+      console.log('Contenido de ausencias guardado exitosamente');
+    }
+  }
+  
+  // Verificar y mostrar contenido
+  function verificarYMostrar() {
+    const tab = document.getElementById('gw-admin-tab-ausencias_detectadas');
+    if (!tab) return;
+    
+    // Si el tab está "activo" pero no visible, forzar
+    if (tab.classList.contains('active') || 
+        window.location.hash.includes('ausencias') ||
+        tab.style.display !== 'none') {
+      
+      forzarMostrarContenido();
+      
+      const container = tab.querySelector('.gw-ausencias-container');
+      if (container) {
+        const currentContent = container.innerHTML.trim();
+        
+        // Si no hay contenido, restaurar
+        if (!currentContent || currentContent.length < 100) {
+          if (ausenciasContent && isContentLoaded) {
+            container.innerHTML = ausenciasContent;
+            console.log('Contenido restaurado desde memoria');
+          }
+        }
+      }
+    }
+  }
+  
+  // Interceptar TODOS los clicks para detectar cambios de pestaña
+  document.addEventListener('click', function(e) {
+    const target = e.target;
+    
+    // Guardar contenido antes de cualquier acción
+    if (!isContentLoaded) {
+      setTimeout(guardarContenidoInicial, 100);
+    }
+    
+    // Si hace click en algo relacionado con ausencias
+    if (target.textContent && 
+        (target.textContent.toLowerCase().includes('ausencias') ||
+         target.textContent.toLowerCase().includes('detectadas'))) {
+      
+      setTimeout(forzarMostrarContenido, 100);
+      setTimeout(verificarYMostrar, 300);
+      setTimeout(verificarYMostrar, 600);
+      setTimeout(verificarYMostrar, 1000);
+    }
+    
+    // También verificar si hace click en cualquier elemento con data-tab
+    if (target.hasAttribute('data-tab') || target.closest('[data-tab]')) {
+      const tabValue = target.getAttribute('data-tab') || target.closest('[data-tab]').getAttribute('data-tab');
+      if (tabValue && tabValue.includes('ausencias')) {
+        setTimeout(forzarMostrarContenido, 100);
+        setTimeout(verificarYMostrar, 300);
+      }
+    }
+  });
+  
+  // Verificación agresiva cada 2 segundos
+  setInterval(function() {
+    const tab = document.getElementById('gw-admin-tab-ausencias_detectadas');
+    if (tab && (tab.classList.contains('active') || tab.style.display !== 'none')) {
+      verificarYMostrar();
+    }
+  }, 2000);
+  
+  // Cargar contenido inicial
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(guardarContenidoInicial, 1000));
+  } else {
+    setTimeout(guardarContenidoInicial, 1000);
+  }
+  
+  // Verificar cuando la ventana recibe focus
+  window.addEventListener('focus', () => setTimeout(verificarYMostrar, 500));
+  
+  // API de debugging
+  window.gwAusenciasDebug = {
+    forzarMostrar: forzarMostrarContenido,
+    verificar: verificarYMostrar,
+    guardar: guardarContenidoInicial,
+    contenido: () => ausenciasContent,
+    cargado: () => isContentLoaded,
+    estado: function() {
+      const tab = document.getElementById('gw-admin-tab-ausencias_detectadas');
+      const absList = tab ? tab.querySelector('.gw-abs-list') : null;
+      return {
+        tabExists: !!tab,
+        tabDisplay: tab ? tab.style.display : 'N/A',
+        absListExists: !!absList,
+        absListDisplay: absList ? absList.style.display : 'N/A',
+        hasContent: isContentLoaded
+      };
+    }
+  };
+  
+  console.log('Sistema de forzado de display iniciado');
+})();
 </script>
 
-<style>/* Contenedor principal con scroll */
+<style>
+/* Contenedor principal con scroll */
 .gw-ausencias-container {
   background: white;
   border-radius: 12px;
@@ -8917,6 +9183,40 @@ body div[style*="position:fixed"] {
   padding: 24px;
 }
 
+/* NUEVO: Información del filtro aplicado */
+.gw-filter-info {
+  margin-bottom: 20px;
+}
+
+.gw-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid;
+}
+
+.gw-filter-admin {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #f59e0b;
+}
+
+.gw-filter-coordinador {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #3b82f6;
+}
+
+.gw-filter-coach {
+  background: #f0f9ff;
+  color: #0c4a6e;
+  border-color: #0ea5e9;
+}
+
 /* Tabla responsive CON SCROLL HORIZONTAL */
 .gw-table-responsive {
   overflow-x: auto;
@@ -8924,7 +9224,6 @@ body div[style*="position:fixed"] {
   margin-top: 20px;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
-  /* Scrollbar personalizada */
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f1f5f9;
 }
@@ -8948,7 +9247,7 @@ body div[style*="position:fixed"] {
 
 .gw-ausencias-table {
   width: 100%;
-  min-width: 1200px; /* Aumentado para forzar scroll */
+  min-width: 1400px; /* Aumentado por las nuevas columnas */
   border-collapse: collapse;
   font-size: 14px;
   background: white;
@@ -8987,10 +9286,22 @@ body div[style*="position:fixed"] {
   width: 200px;
 }
 
+.gw-col-pais {
+  min-width: 120px;
+  width: 120px;
+  text-align: center;
+}
+
 .gw-col-capacitacion {
   min-width: 150px;
   width: 150px;
   word-wrap: break-word;
+}
+
+.gw-col-proyecto {
+  min-width: 130px;
+  width: 130px;
+  text-align: center;
 }
 
 .gw-col-fecha {
@@ -9026,6 +9337,29 @@ body div[style*="position:fixed"] {
 .gw-usuario-email {
   color: #6b7280;
   font-size: 12px;
+}
+
+/* NUEVO: Badges para país y proyecto */
+.gw-pais-badge,
+.gw-proyecto-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #e0e7ff;
+  color: #3730a3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.gw-proyecto-badge {
+  background: #ecfdf5;
+  color: #166534;
 }
 
 /* Estados */
@@ -9071,7 +9405,7 @@ body div[style*="position:fixed"] {
   text-align: center;
 }
 
-/* Acciones - NUEVOS COLORES */
+/* Acciones */
 .gw-acciones-group {
   display: flex;
   gap: 6px;
@@ -9107,51 +9441,51 @@ body div[style*="position:fixed"] {
 }
 
 /* Botón RESOLVER - Verde */
-.gw-btn-resolver {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: white;
-  border: 1px solid #16a34a;
+.gw-ausencias-table .gw-btn-resolver {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+  color: white !important;
+  border: 1px solid #16a34a !important;
 }
 
-.gw-btn-resolver:hover {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-  border-color: #15803d;
+.gw-ausencias-table .gw-btn-resolver:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+  border-color: #15803d !important;
 }
 
 /* Botón REACTIVAR - Azul */
-.gw-btn-reactivar {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: 1px solid #2563eb;
+.gw-ausencias-table .gw-btn-reactivar {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  color: white !important;
+  border: 1px solid #2563eb !important;
 }
 
-.gw-btn-reactivar:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #1d4ed8;
+.gw-ausencias-table .gw-btn-reactivar:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border-color: #1d4ed8 !important;
 }
 
 /* Botón OCULTAR - Rojo */
-.gw-btn-ocultar {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-  border: 1px solid #dc2626;
+.gw-ausencias-table .gw-btn-ocultar {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: white !important;
+  border: 1px solid #dc2626 !important;
 }
 
-.gw-btn-ocultar:hover {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  border-color: #b91c1c;
+.gw-ausencias-table .gw-btn-ocultar:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #b91c1c !important;
 }
 
 /* Botón ASISTENCIAS - Púrpura */
-.gw-btn-asistencias {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: white;
-  border: 1px solid #7c3aed;
+.gw-ausencias-table .gw-btn-asistencias {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+  color: white !important;
+  border: 1px solid #7c3aed !important;
 }
 
-.gw-btn-asistencias:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  border-color: #6d28d9;
+.gw-ausencias-table .gw-btn-asistencias:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+  border-color: #6d28d9 !important;
 }
 
 /* Botón SUCCESS - Verde claro */
@@ -9233,7 +9567,7 @@ body div[style*="position:fixed"] {
   }
   
   .gw-ausencias-table {
-    min-width: 800px; /* Menor en móvil pero sigue necesitando scroll */
+    min-width: 1000px; /* Ajustado para móvil */
   }
   
   .gw-acciones-group {
@@ -9251,7 +9585,20 @@ body div[style*="position:fixed"] {
     min-width: 280px;
     width: 280px;
   }
-}</style>
+  
+  .gw-filter-badge {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .gw-pais-badge,
+  .gw-proyecto-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+    max-width: 80px;
+  }
+}
+</style>
 
                 
                 <!-- TAB REPORTES -->
