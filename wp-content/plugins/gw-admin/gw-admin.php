@@ -57,7 +57,6 @@ function gw_guardar_documentos_voluntario($user_id, $escuela_id, $file_names, $c
 
  // --- SHORTCODE PRINCIPAL ---
 add_shortcode('gw_portal_voluntario', 'gw_portal_voluntario_shortcode');
-
 function gw_portal_voluntario_shortcode() {
     if (!is_user_logged_in()) {
         return '<p>Debes iniciar sesión con tu cuenta para continuar.</p>';
@@ -182,7 +181,7 @@ function gw_portal_voluntario_shortcode() {
     /* Adaptación específica para tu diseño con sidebar */
     @media (min-width: 1025px) {
         .gw-logout-btn {
-            right: 32px !important;
+            right: 55px !important;
             top: 32px !important;
         }
     }
@@ -346,9 +345,50 @@ function gw_portal_voluntario_shortcode() {
 
     echo '
     <style>
-      /* Bell fixed under logout */
-      #gwv-notif-root{position:fixed;right:20px;top:84px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-      body.admin-bar #gwv-notif-root{top:116px}
+      /* SOLO CAMBIOS DE POSICIÓN - DESKTOP */
+      @media (min-width: 1025px) {
+        #gwv-notif-root{position:fixed;right:200px;top:32px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+        body.admin-bar #gwv-notif-root{top:64px}
+        #gwv-notif-btn{width:64px;height:40px;border-radius:50%;justify-content:center;padding:0;         position: relative;
+            left: -1.3rem;
+        top: -0.6rem;
+        height: 2.8rem;}
+        #gwv-notif-btn .ico{font-size:24px;line-height:1}
+        #gwv-notif-btn span:not(.ico){display:none}
+        #gwv-notif-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;font-size:11px;line-height:20px}
+        #gwv-notif-panel{right:32px;top:120px;width:420px}
+        body.admin-bar #gwv-notif-panel{top: 7rem !important; right: 3.5rem;}
+      }
+      
+      /* TABLET */
+      @media (min-width: 768px) and (max-width: 1024px) {
+        #gwv-notif-root{position:fixed;right:140px;top:24px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+        body.admin-bar #gwv-notif-root{top:56px}
+        #gwv-notif-btn{width:56px;height:40px;border-radius:50%;justify-content:center;padding:0;         position: relative;
+            left: -2rem;
+            top: -0.2rem;}
+        #gwv-notif-btn .ico{font-size:22px;line-height:1}
+        #gwv-notif-btn span:not(.ico){display:none}
+        #gwv-notif-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;font-size:10px;line-height:18px}
+        #gwv-notif-panel{right:24px;top:100px;width:380px;max-width:calc(100vw - 48px)}
+        body.admin-bar #gwv-notif-panel{top:7rem !important;}
+      }
+      
+      /* MÓVIL */
+      @media (max-width: 767px) {
+        #gwv-notif-root{position:fixed;right:80px;top:16px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+        body.admin-bar #gwv-notif-root{top:48px}
+        #gwv-notif-btn{width:48px;height:48px;border-radius:50%;justify-content:center;padding:0; top: -0.1rem;
+            position: relative;
+            left: 1.2rem;}
+        #gwv-notif-btn .ico{font-size:20px;line-height:1}
+        #gwv-notif-btn span:not(.ico){display:none}
+        #gwv-notif-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;font-size:9px;line-height:16px}
+        #gwv-notif-panel{left:16px;right:16px;top:80px;width:auto;border-radius:16px}
+        body.admin-bar #gwv-notif-panel{top:112px}
+      }
+      
+      /* ESTILOS ORIGINALES MANTENIDOS */
       #gwv-notif-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #E5E7EB;box-shadow:0 6px 20px rgba(0,0,0,.08);cursor:pointer;font-weight:700}
       #gwv-notif-btn .ico{font-size:16px;line-height:1}
       #gwv-notif-badge{display:none;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#d5172f;color:#fff;font-size:12px;line-height:18px;text-align:center}
@@ -394,7 +434,53 @@ function gw_portal_voluntario_shortcode() {
 
     <!-- === VOLUNTARIO: BOTÓN DE TICKET (UI) === -->
     <style>
-      /* Botón fijo de Ticket — ubicado bajo la campanita */
+      /* POSICIONAMIENTO HORIZONTAL PARA TODOS LOS DISPOSITIVOS - TICKETS */
+      
+      /* DESKTOP (1025px+) - Tickets en línea perfecta con los otros */
+      @media (min-width: 1025px) {
+        #gwv-ticket-root{position:fixed;right:192px;top:32px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+        body.admin-bar #gwv-ticket-root{top:64px}
+        #gwv-ticket-btn{width:64px;height:64px;border-radius:50%;justify-content:center;padding:0;        left: -17.5rem;
+            top: -6.9rem;
+            height: 2.8rem;
+            position: relative;}
+        #gwv-ticket-btn .ico{font-size:24px;line-height:1}
+        #gwv-ticket-btn span:not(.ico):not(.badge){display:none}
+        #gwv-ticket-btn .badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;font-size:11px;line-height:20px}
+        #gwv-tk-panel{right:32px;top:120px;width:420px}
+        body.admin-bar #gwv-tk-panel{        top: 7rem !important;
+            right: 3.5rem;}
+      }
+      
+      /* TABLET (768px - 1024px) - Tickets en línea perfecta con los otros */
+      @media (min-width: 768px) and (max-width: 1024px) {
+        #gwv-ticket-root{position:fixed;right:168px;top:24px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+        body.admin-bar #gwv-ticket-root{top:56px}
+        #gwv-ticket-btn{width:56px;height:40px;border-radius:50%;justify-content:center;padding:0;         position: relative;
+            left: -14rem;
+            top: -7rem;}
+        #gwv-ticket-btn .ico{font-size:22px;line-height:1}
+        #gwv-ticket-btn span:not(.ico):not(.badge){display:none}
+        #gwv-ticket-btn .badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;font-size:10px;line-height:18px}
+        #gwv-tk-panel{right:24px;top:100px;width:380px;max-width:calc(100vw - 48px)}
+        body.admin-bar #gwv-tk-panel{top:7rem!important}
+      }
+      
+      /* MÓVIL (hasta 767px) - Tickets en línea perfecta con los otros */
+      @media (max-width: 767px) {
+        #gwv-ticket-root{position:fixed;right:128px;top:16px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+        body.admin-bar #gwv-ticket-root{top:48px}
+        #gwv-ticket-btn{width:48px;height:48px;border-radius:50%;justify-content:center;padding:0; top: -7.5rem;
+            position: relative;
+            left: -6rem;}
+        #gwv-ticket-btn .ico{font-size:20px;line-height:1}
+        #gwv-ticket-btn span:not(.ico):not(.badge){display:none}
+        #gwv-ticket-btn .badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;font-size:9px;line-height:16px}
+        #gwv-tk-panel{left:16px;right:16px;top:80px;width:auto;border-radius:16px}
+        body.admin-bar #gwv-tk-panel{top: unset!important;}
+      }
+      
+      /* ESTILOS ORIGINALES MANTENIDOS */
       #gwv-ticket-root{position:fixed;right:20px;top:134px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
       body.admin-bar #gwv-ticket-root{top:166px}
       #gwv-ticket-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #E5E7EB;box-shadow:0 6px 20px rgba(0,0,0,.08);cursor:pointer;font-weight:700}
@@ -838,7 +924,7 @@ function gwv_ticket_mark_read(){
     if ( !wp_verify_nonce($nonce, 'gwv_ticket') ) wp_send_json_error(['msg'=>'Nonce inválido']);
     global $wpdb;
     $t = $wpdb->prefix . 'notificaciones';
-    $wpdb->query( $wpdb->prepare("UPDATE {$t} SET status='READ', read_at=NOW() WHERE user_id=%d AND type='TICKET' AND status='UNREAD'", $uid) );
+    $wpdb->query( $wpdb->prepare("UPDATE {$t} SET status='read', read_at=NOW() WHERE user_id=%d AND type='TICKET' AND status='UNREAD'", $uid) );
     wp_send_json_success(['ok'=>1]);
 }
 
@@ -880,7 +966,7 @@ function gwv_notif_mark_read(){
     global $wpdb;
     $t = $wpdb->prefix . 'notificaciones';
 
-    $wpdb->query( $wpdb->prepare("UPDATE {$t} SET status='READ', read_at=NOW() WHERE user_id=%d AND status='UNREAD'", $uid) );
+    $wpdb->query( $wpdb->prepare("UPDATE {$t} SET status='read', read_at=NOW() WHERE user_id=%d AND status='UNREAD'", $uid) );
     wp_send_json_success(['unread'=>0]);
 }
  
@@ -4515,7 +4601,8 @@ function gw_step_8_documentos($user_id) {
 <?php endif; ?>
 
 
-<style>.gw-classwin-form-wrap {
+<style>/* Estilos base para formulario de preguntas */
+.gw-classwin-form-wrap {
   background: #fff;
   border: 1px solid #e9e9ef;
   border-radius: 16px;
@@ -4530,6 +4617,7 @@ function gw_step_8_documentos($user_id) {
   margin-bottom: 6px;
   color: #111827;
 }
+
 .gw-classwin-header p {
   color: #6b7280;
   font-size: 14px;
@@ -4550,6 +4638,7 @@ function gw_step_8_documentos($user_id) {
   border-radius: 12px;
   padding: 16px;
 }
+
 @media (min-width: 768px) {
   .gw-qa-row {
     grid-template-columns: 1fr 1fr;
@@ -4564,6 +4653,7 @@ function gw_step_8_documentos($user_id) {
   margin-bottom: 6px;
   color: #111827;
 }
+
 .gw-required {
   color: #dc2626;
 }
@@ -4578,11 +4668,14 @@ function gw_step_8_documentos($user_id) {
   color: #111827;
   background: #fff;
   transition: border-color .2s, box-shadow .2s;
+  box-sizing: border-box;
 }
+
 .gw-input::placeholder,
 .gw-textarea::placeholder {
   color: #9ca3af;
 }
+
 .gw-input:focus,
 .gw-textarea:focus {
   border-color: #a78bfa;
@@ -4611,16 +4704,399 @@ function gw_step_8_documentos($user_id) {
   font-size: 15px;
   cursor: pointer;
   transition: background .2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+
 .gw-btn-primary:hover {
   background: #a2a63d;
 }
+
 .gw-btn-loading {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-</style>
+
+/* Estilos para sección de documentos */
+.gw-section {
+  background: #fff;
+  border: 1px solid #e9e9ef;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.06);
+  margin-bottom: 32px;
+}
+
+.gw-section-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #111827;
+}
+
+.gw-section-header p {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+
+/* Grid de documentos - Responsive */
+.gw-documents-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .gw-documents-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Cada upload de documento */
+.gw-document-upload {
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fafafb;
+  transition: border-color 0.2s;
+}
+
+.gw-document-upload:hover {
+  border-color: #c0c34d;
+}
+
+.gw-upload-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #111827;
+}
+
+.gw-label-text {
+  font-size: 14px;
+}
+
+/* Preview de documento */
+.gw-document-preview {
+  position: relative;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.gw-document-preview img {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.gw-document-status {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* File upload */
+.gw-file-upload {
+  position: relative;
+}
+
+.gw-file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0.1px;
+  height: 0.1px;
+  overflow: hidden;
+}
+
+.gw-file-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  min-height: 50px;
+}
+
+.gw-file-label:hover {
+  border-color: #c0c34d;
+  color: #c0c34d;
+  background: #fefefe;
+}
+
+.gw-file-label svg {
+  flex-shrink: 0;
+}
+
+/* Botón agregar fotos */
+.gw-add-photos-section {
+  text-align: center;
+  margin: 20px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.gw-add-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gw-add-photo-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.gw-photo-help {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Sección de consentimientos */
+.gw-consent-section {
+  margin: 24px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.gw-consent-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.gw-consent-item:last-child {
+  margin-bottom: 0;
+}
+
+.gw-consent-item input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.gw-consent-item label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #374151;
+}
+
+.gw-checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #d1d5db;
+  border-radius: 3px;
+  background: #fff;
+  flex-shrink: 0;
+  position: relative;
+  margin-top: 1px;
+  transition: all 0.2s;
+}
+
+.gw-consent-item input[type="checkbox"]:checked + label .gw-checkbox-custom {
+  background: #c0c34d;
+  border-color: #c0c34d;
+}
+
+.gw-consent-item input[type="checkbox"]:checked + label .gw-checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  top: -1px;
+  left: 2px;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Resumen de documentos */
+.gw-documents-summary {
+  margin: 24px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.gw-documents-summary h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.gw-doc-status-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.gw-doc-status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.gw-doc-status-item:last-child {
+  border-bottom: none;
+}
+
+.gw-doc-name {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.gw-doc-state {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Responsivo móvil */
+@media (max-width: 767px) {
+  .gw-classwin-form-wrap,
+  .gw-section {
+    padding: 16px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+  }
+  
+  .gw-classwin-header h2,
+  .gw-section-header h2 {
+    font-size: 18px;
+  }
+  
+  .gw-qa-row {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .gw-documents-grid {
+    gap: 16px;
+  }
+  
+  .gw-document-upload {
+    padding: 12px;
+  }
+  
+  .gw-upload-label {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  
+  .gw-file-label {
+    padding: 10px;
+    font-size: 13px;
+    min-height: 45px;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .gw-file-label svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .gw-form-actions {
+    justify-content: center;
+    margin-top: 16px;
+  }
+  
+  .gw-btn-primary {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 20px;
+    font-size: 14px;
+  }
+  
+  .gw-consent-item label {
+    font-size: 12px;
+  }
+  
+  .gw-add-photo-btn {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  
+  .gw-textarea {
+    min-height: 80px;
+  }
+  
+  .gw-documents-summary,
+  .gw-consent-section,
+  .gw-add-photos-section {
+    margin: 16px 0;
+    padding: 12px;
+  }
+}
+
+/* Mejoras adicionales para móvil pequeño */
+@media (max-width: 480px) {
+  .gw-classwin-form-wrap,
+  .gw-section {
+    padding: 12px;
+    margin: 0 0 16px 0;
+  }
+  
+  .gw-upload-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  
+  .gw-doc-status-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 0;
+  }
+  
+  .gw-consent-item {
+    margin-bottom: 16px;
+  }
+  
+  .gw-file-label span {
+    text-align: center;
+  }
+}</style>
 
 
                         <!-- Formulario de documentos con estados individuales -->
