@@ -392,10 +392,24 @@ function gw_mis_capacitaciones_shortcode() {
 }
 // Shortcode para página de inicio visual con login Nextend Social Login
 if (!function_exists('gw_google_login_url')) {
-    function gw_google_login_url() {
-        // CSRF state
+    /**
+     * Genera el URL de login de Google y guarda en el transient de `state` datos extra
+     * como `gw_pais` (si viene en la query).
+     */
+    function gw_google_login_url($pais_id = 0) {
+        // Intentar tomar gw_pais de la request si no vino por parámetro
+        if (!$pais_id && isset($_REQUEST['gw_pais'])) {
+            $pais_id = intval($_REQUEST['gw_pais']);
+        }
+
+        // CSRF + carry data
         $state = wp_generate_password(24, false, false);
-        set_transient('gw_google_state_'.$state, '1', 10 * MINUTE_IN_SECONDS);
+        // Guardamos un array en el transient (antes era '1')
+        set_transient('gw_google_state_'.$state, [
+            'ok'      => 1,
+            'gw_pais' => intval($pais_id),
+            'ts'      => time(),
+        ], 10 * MINUTE_IN_SECONDS);
 
         $params = [
             'client_id'     => GW_GOOGLE_CLIENT_ID,
@@ -412,7 +426,8 @@ if (!function_exists('gw_google_login_url')) {
 
 // Iniciar flujo OAuth (no logueado)
 add_action('admin_post_nopriv_gw_google_start', function () {
-    wp_redirect(gw_google_login_url());
+    $pais = isset($_GET['gw_pais']) ? intval($_GET['gw_pais']) : 0;
+    wp_redirect( gw_google_login_url($pais) );
     exit;
 });
 
@@ -420,8 +435,11 @@ add_action('admin_post_nopriv_gw_google_start', function () {
 add_action('admin_post_nopriv_gw_google_callback', function () {
     if (!isset($_GET['state'], $_GET['code'])) wp_die('OAuth inválido');
     $state = sanitize_text_field($_GET['state']);
-    if (!get_transient('gw_google_state_'.$state)) wp_die('Estado inválido/expirado');
+    $st = get_transient('gw_google_state_'.$state);
+    if (!$st) wp_die('Estado inválido/expirado');
     delete_transient('gw_google_state_'.$state);
+    // Extra: pais que venía en el QR (si aplica)
+    $pais_from_state = is_array($st) ? intval($st['gw_pais'] ?? 0) : 0;
 
     $code = sanitize_text_field($_GET['code']);
 
@@ -482,11 +500,36 @@ if (empty($data['access_token'])) {
         // Metadatos útiles
         update_user_meta($uid, 'gw_google_sub', $sub);
         update_user_meta($uid, 'gw_active', '1');
+        // Si venía pais_from_state, asignar país y charlas al nuevo usuario
+        if ($pais_from_state > 0) {
+            update_user_meta($uid, 'gw_pais_id', $pais_from_state);
+            $charlas_flujo = get_post_meta($pais_from_state, '_gw_charlas', true);
+            if (is_array($charlas_flujo)) {
+                update_user_meta($uid, 'gw_charlas_asignadas', $charlas_flujo);
+            }
+        }
     }
 
     // 4) Iniciar sesión
     wp_set_auth_cookie($user->ID, true);
     wp_set_current_user($user->ID);
+
+    /** Asignaciones por QR (si el flujo venía con gw_pais) **/
+    if (in_array('voluntario', $user->roles)) {
+        $uid = $user->ID;
+
+        // Si no tiene país y recibimos uno desde el state, asignarlo
+        $curr_pais = get_user_meta($uid, 'gw_pais_id', true);
+        if (!$curr_pais && $pais_from_state > 0) {
+            update_user_meta($uid, 'gw_pais_id', $pais_from_state);
+
+            // Si no tiene charlas asignadas, copiarlas desde el país
+            $charlas_flujo = get_post_meta($pais_from_state, '_gw_charlas', true);
+            if (is_array($charlas_flujo) && !get_user_meta($uid, 'gw_charlas_asignadas', true)) {
+                update_user_meta($uid, 'gw_charlas_asignadas', $charlas_flujo);
+            }
+        }
+    }
 
     // 5) Redirecciones (igual a tu lógica)
     if (in_array('administrator', $user->roles) || in_array('coach', $user->roles) || in_array('coordinador_pais', $user->roles)) {
@@ -505,7 +548,13 @@ if (!function_exists('gw_login_google_button_html')) {
     function gw_login_google_button_html() {
         ob_start(); ?>
         <div class="gw-login-google" style="margin-top:18px; text-align:center;">
-          <a href="<?php echo esc_url( admin_url('admin-post.php?action=gw_google_start') ); ?>"
+          <?php
+            $gw_start = admin_url('admin-post.php?action=gw_google_start');
+            if (isset($_GET['gw_pais'])) {
+                $gw_start = add_query_arg('gw_pais', intval($_GET['gw_pais']), $gw_start);
+            }
+          ?>
+          <a href="<?php echo esc_url( $gw_start ); ?>"
              class="gw-google-btn"
              style="display:inline-flex;align-items:center;gap:10px;justify-content:center;
                     width:100%;max-width:420px;height:44px;border-radius:999px;border:1px solid #d0d7e2;
