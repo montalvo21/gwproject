@@ -340,6 +340,382 @@ function gw_portal_voluntario_shortcode() {
     })();
     </script>';
 
+    // === VOLUNTARIO: Campanita de notificaciones (UI + JS) ===
+    $gwv_ajax  = admin_url('admin-ajax.php');
+    $gwv_nonce = wp_create_nonce('gwv_notif');
+
+    echo '
+    <style>
+      /* Bell fixed under logout */
+      #gwv-notif-root{position:fixed;right:20px;top:84px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+      body.admin-bar #gwv-notif-root{top:116px}
+      #gwv-notif-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #E5E7EB;box-shadow:0 6px 20px rgba(0,0,0,.08);cursor:pointer;font-weight:700}
+      #gwv-notif-btn .ico{font-size:16px;line-height:1}
+      #gwv-notif-badge{display:none;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#d5172f;color:#fff;font-size:12px;line-height:18px;text-align:center}
+      #gwv-notif-panel{position:fixed;right:20px;top:130px;width:360px;max-width:92vw;background:#fff;border:1px solid #E5E7EB;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.18);display:none}
+      #gwv-notif-panel .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eceff4}
+      #gwv-notif-panel .hd .ttl{font-weight:800}
+      #gwv-notif-panel .hd .act{display:flex;gap:8px}
+      #gwv-notif-panel .hd button{border:none;background:#F3F4F6;padding:8px 10px;border-radius:8px;font-weight:600;cursor:pointer}
+      #gwv-notif-list{max-height:58vh;overflow:auto}
+      #gwv-notif-panel .item{padding:12px 14px;border-bottom:1px solid #F1F5F9}
+      #gwv-notif-panel .item:last-child{border-bottom:none}
+      #gwv-notif-panel .item .content{display:flex;gap:10px;align-items:flex-start}
+      #gwv-notif-panel .item .icon{font-size:15px}
+      #gwv-notif-panel .item .title{font-size:14px;font-weight:700;margin-bottom:2px}
+      #gwv-notif-panel .item.unread .title{font-weight:800}
+      #gwv-notif-panel .item .meta{color:#607285;font-size:12px}
+      #gwv-notif-panel .empty{padding:24px;text-align:center;color:#607285}
+    </style>
+
+    <div id="gwv-notif-root" aria-live="polite">
+      <button id="gwv-notif-btn" type="button" aria-haspopup="true" aria-expanded="false">
+        <span class="ico">🔔</span>
+        <span>Notificaciones</span>
+        <span id="gwv-notif-badge">0</span>
+      </button>
+      <div id="gwv-notif-panel" role="dialog" aria-label="Notificaciones">
+        <div class="hd">
+          <div class="ttl">Notificaciones</div>
+          <div class="act">
+            <button id="gwv-notif-mark">Marcar leídas</button>
+            <button id="gwv-notif-close">Cerrar</button>
+          </div>
+        </div>
+        <div id="gwv-notif-list">
+          <div class="empty">
+            <div style="font-size:20px;margin-bottom:6px">🔔</div>
+            <div class="title" style="font-weight:700">No hay notificaciones</div>
+            <div class="meta">Aquí aparecerán tus avisos</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- === VOLUNTARIO: BOTÓN DE TICKET (UI) === -->
+    <style>
+      /* Botón fijo de Ticket — ubicado bajo la campanita */
+      #gwv-ticket-root{position:fixed;right:20px;top:134px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+      body.admin-bar #gwv-ticket-root{top:166px}
+      #gwv-ticket-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #E5E7EB;box-shadow:0 6px 20px rgba(0,0,0,.08);cursor:pointer;font-weight:700}
+      #gwv-ticket-btn .ico{font-size:16px;line-height:1}
+      #gwv-ticket-btn .badge{
+        display:none;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#10b981;color:#fff;font-size:12px;line-height:18px;font-weight:700;
+      }
+      /* Mini panel de tickets (inbox) para voluntario */
+      #gwv-tk-panel{
+        position:fixed;right:20px;top:176px;width:380px;max-width:92vw;background:#fff;border:1px solid #E5E7EB;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.18);display:none;z-index:2147483647;
+      }
+      body.admin-bar #gwv-tk-panel{ top:208px; }
+      #gwv-tk-panel .hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eceff4}
+      #gwv-tk-panel .hd .ttl{font-weight:800}
+      #gwv-tk-panel .hd .act{display:flex;gap:8px}
+      #gwv-tk-panel .hd button{border:none;background:#F3F4F6;padding:8px 10px;border-radius:8px;font-weight:600;cursor:pointer}
+      #gwv-tk-list{max-height:55vh;overflow:auto}
+      #gwv-tk-panel .item{padding:12px 14px;border-bottom:1px solid #F1F5F9}
+      #gwv-tk-panel .item:last-child{border-bottom:none}
+      #gwv-tk-panel .item .title{font-size:14px;font-weight:700;margin-bottom:2px}
+      #gwv-tk-panel .item.unread .title{font-weight:800}
+      #gwv-tk-panel .item .meta{color:#607285;font-size:12px}
+      #gwv-tk-panel .empty{padding:24px;text-align:center;color:#607285}
+      @media(max-width:480px){
+        #gwv-tk-panel{ right:16px; top:160px; width:calc(100vw - 32px); }
+      }
+
+      /* Modal sencillo */
+      #gwv-ticket-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:2147483647}
+      #gwv-ticket-card{background:#fff;border:1px solid #E5E7EB;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.18);width:520px;max-width:92vw}
+      #gwv-ticket-card .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #F1F5F9}
+      #gwv-ticket-card .hd h3{margin:0;font-size:18px}
+      #gwv-ticket-card .bd{padding:14px 16px}
+      #gwv-ticket-card label{display:block;font-weight:700;margin-bottom:6px}
+      #gwv-ticket-card select,#gwv-ticket-card textarea{width:100%;border:1px solid #D1D5DB;border-radius:10px;padding:10px}
+      #gwv-ticket-card textarea{min-height:120px;resize:vertical}
+      #gwv-ticket-card .ft{display:flex;gap:10px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #F1F5F9}
+      #gwv-ticket-card .btn{border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+      #gwv-ticket-cancel{background:#F3F4F6}
+      #gwv-ticket-send{background:#c4c33f;color:#fff}
+      #gwv-ticket-ok{display:none;color:#0f766e;background:#ecfdf5;border:1px solid #99f6e4;padding:10px;border-radius:10px;margin-top:10px}
+    </style>
+
+    <div id="gwv-ticket-root">
+      <button id="gwv-ticket-btn" type="button" aria-haspopup="dialog">
+        <span class="ico">🎫</span><span>Ticket</span><span class="badge" id="gwv-ticket-badge">0</span>
+      </button>
+    </div>
+
+    <div id="gwv-tk-panel" role="dialog" aria-label="Tickets">
+      <div class="hd">
+        <div class="ttl">Tickets</div>
+        <div class="act">
+          <button id="gwv-tk-new" type="button">Crear</button>
+          <button id="gwv-tk-mark" type="button">Marcar leídas</button>
+          <button id="gwv-tk-close" type="button">Cerrar</button>
+        </div>
+      </div>
+      <div id="gwv-tk-list">
+        <div class="empty">
+          <div style="font-size:20px;margin-bottom:6px">🎫</div>
+          <div class="title" style="font-weight:700">Sin novedades</div>
+          <div class="meta">Aquí verás respuestas y estado de tus tickets</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="gwv-ticket-modal" role="dialog" aria-modal="true" aria-labelledby="gwv-ticket-title">
+      <div id="gwv-ticket-card">
+        <div class="hd">
+          <h3 id="gwv-ticket-title">Crear ticket</h3>
+          <button id="gwv-ticket-x" class="btn" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="bd">
+          <div style="margin-bottom:10px">
+            <label for="gwv-tk-topic">¿Sobre qué quieres crear este ticket?</label>
+            <select id="gwv-tk-topic">
+              <option value="Datos personales">Datos personales</option>
+              <option value="Documentos">Documentos</option>
+              <option value="Charlas y capacitaciones">Charlas y capacitaciones</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div>
+            <label for="gwv-tk-msg">Cuéntanos el problema</label>
+            <textarea id="gwv-tk-msg" placeholder="Ejemplo: Me equivoqué al escribir mi edad. Debería decir 24 y puse 42."></textarea>
+          </div>
+          <div id="gwv-ticket-ok">✔️ Su solicitud ha sido enviada. Pronto el equipo se comunicará contigo.</div>
+        </div>
+        <div class="ft">
+          <button id="gwv-ticket-cancel" class="btn" type="button">Cancelar</button>
+          <button id="gwv-ticket-send" class="btn" type="button">Enviar</button>
+        </div>
+      </div>
+    </div>
+    ';
+    ?>
+    <script>
+    (function(){
+      var AJAX  = <?php echo json_encode($gwv_ajax); ?>;
+      var NONCE = <?php echo json_encode($gwv_nonce); ?>;
+
+      var btn    = document.getElementById('gwv-notif-btn');
+      var panel  = document.getElementById('gwv-notif-panel');
+      var list   = document.getElementById('gwv-notif-list');
+      var badge  = document.getElementById('gwv-notif-badge');
+      var closeBt= document.getElementById('gwv-notif-close');
+      var markBt = document.getElementById('gwv-notif-mark');
+      var poller = null;
+
+      function esc(t){
+        if (t == null) return '';
+        return String(t).replace(/[&<>"']/g, function(m){
+          return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]);
+        });
+      }
+      function setBadge(n){
+        n = parseInt(n,10) || 0;
+        if (n > 0) { badge.style.display = 'inline-flex'; badge.textContent = n; }
+        else { badge.style.display = 'none'; badge.textContent = '0'; }
+      }
+
+      function render(items){
+        list.innerHTML = '';
+        if (!items || !items.length){
+          list.innerHTML = '<div class="empty"><div style="font-size:20px;margin-bottom:6px">🔔</div><div class="title" style="font-weight:700">No hay notificaciones</div><div class="meta">Aquí aparecerán tus avisos</div></div>';
+          return;
+        }
+        items.forEach(function(it){
+          var t = (it.type || '').toUpperCase();
+          var ico = (t === 'CHARLA') ? '🗣️' : (t === 'CAPACITACION' ? '🎓' : '📎');
+          var div = document.createElement('div');
+          div.className = 'item' + (String(it.status).toUpperCase() === 'UNREAD' ? ' unread' : '');
+          div.innerHTML =
+            '<div class="content">' +
+              '<div class="icon">' + ico + '</div>' +
+              '<div class="text">' +
+                '<div class="title">' + esc(it.title || 'Notificación') + '</div>' +
+                '<div class="meta">' + esc(it.body || '') +
+                  (it.time_h ? ' · <span class="time">' + esc(it.time_h) + '</span>' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          list.appendChild(div);
+        });
+      }
+
+      function fetchList(){
+        var fd = new FormData();
+        fd.append('action','gwv_notif_fetch');
+        fd.append('nonce', NONCE);
+        return fetch(AJAX, {method:'POST', credentials:'same-origin', body: fd})
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if (!res || !res.success) return;
+            var d = res.data || {};
+            render(d.items || []);
+            setBadge(d.unread || 0);
+          })
+          .catch(function(){});
+      }
+
+      function markRead(){
+        var fd = new FormData();
+        fd.append('action','gwv_notif_mark_read');
+        fd.append('nonce', NONCE);
+        fetch(AJAX, {method:'POST', credentials:'same-origin', body: fd})
+          .then(function(r){ return r.json(); })
+          .then(function(){
+            list.querySelectorAll('.item.unread').forEach(function(n){ n.classList.remove('unread'); });
+            setBadge(0);
+          })
+          .catch(function(){});
+      }
+
+      function openPanel(){ panel.style.display = 'block'; fetchList(); if (!poller) { poller = setInterval(fetchList, 25000); } }
+      function closePanel(){ panel.style.display = 'none'; if (poller){ clearInterval(poller); poller = null; } }
+
+      btn    && btn.addEventListener('click', function(e){ e.stopPropagation(); (panel.style.display === 'block') ? closePanel() : openPanel(); });
+      closeBt&& closeBt.addEventListener('click', closePanel);
+      markBt && markBt.addEventListener('click', markRead);
+      document.addEventListener('click', function(e){ if (!panel.contains(e.target) && !btn.contains(e.target)) closePanel(); });
+
+      // Primera carga para pintar badge
+      fetchList();
+    })();
+    </script>
+    <script>
+    (function(){
+      var AJAX  = <?php echo json_encode($gwv_ajax); ?>;
+      var NONCE = <?php echo json_encode( wp_create_nonce('gwv_ticket') ); ?>;
+
+      var root   = document.getElementById('gwv-ticket-root');
+      var btn    = document.getElementById('gwv-ticket-btn');
+      var modal  = document.getElementById('gwv-ticket-modal');
+      var card   = document.getElementById('gwv-ticket-card');
+      var closeX = document.getElementById('gwv-ticket-x');
+      var cancel = document.getElementById('gwv-ticket-cancel');
+      var send   = document.getElementById('gwv-ticket-send');
+      var topic  = document.getElementById('gwv-tk-topic');
+      var msg    = document.getElementById('gwv-tk-msg');
+      var okBox  = document.getElementById('gwv-ticket-ok');
+
+      // Panel de inbox
+      var tkPanel = document.getElementById('gwv-tk-panel');
+      var tkList  = document.getElementById('gwv-tk-list');
+      var tkBadge = document.getElementById('gwv-ticket-badge');
+      var tkNew   = document.getElementById('gwv-tk-new');
+      var tkClose = document.getElementById('gwv-tk-close');
+      var tkMark  = document.getElementById('gwv-tk-mark');
+      var tkPoll  = null;
+
+      function openM(){ modal.style.display='flex'; msg.focus(); }
+      function closeM(){ modal.style.display='none'; okBox.style.display='none'; msg.value=''; }
+
+      // Ticket panel open/close logic
+      btn && btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var vis = (tkPanel.style.display==='block');
+        if (vis){
+          tkPanel.style.display='none';
+          if (tkPoll){ clearInterval(tkPoll); tkPoll=null; }
+        } else {
+          tkPanel.style.display='block';
+          fetchInbox();
+          if (!tkPoll){ tkPoll = setInterval(fetchInbox, 30000); }
+        }
+      });
+
+      closeX && closeX.addEventListener('click', closeM);
+      cancel && cancel.addEventListener('click', closeM);
+      modal && modal.addEventListener('click', function(e){ if (e.target === modal) closeM(); });
+      document.addEventListener('keydown', function(e){ if (e.key==='Escape') closeM(); });
+
+      function esc(t){ return (t==null?'':String(t)).trim(); }
+
+      function setTkBadge(n){
+        n = parseInt(n,10)||0;
+        if (n>0){ tkBadge.style.display='inline-flex'; tkBadge.textContent = n; }
+        else { tkBadge.style.display='none'; tkBadge.textContent='0'; }
+      }
+      function renderInbox(items){
+        tkList.innerHTML='';
+        if (!items || !items.length){
+          tkList.innerHTML = '<div class="empty"><div style="font-size:20px;margin-bottom:6px">🎫</div><div class="title" style="font-weight:700">Sin novedades</div><div class="meta">Aquí verás respuestas y estado de tus tickets</div></div>';
+          return;
+        }
+        items.forEach(function(it){
+          var div = document.createElement('div');
+          div.className = 'item'+(String(it.status).toUpperCase()==='UNREAD'?' unread':'');
+          div.innerHTML = '<div class="title">'+ (it.title||'Ticket') +'</div>'+
+                          '<div class="meta">'+ (it.body||'') + (it.time_h?(' · <span class="time">'+it.time_h+'</span>'):'') +'</div>';
+          tkList.appendChild(div);
+        });
+      }
+      function fetchInbox(){
+        var fd = new FormData();
+        fd.append('action','gwv_ticket_inbox');
+        fd.append('nonce', NONCE);
+        return fetch(AJAX,{method:'POST',credentials:'same-origin',body:fd})
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if (!res || !res.success) return;
+            renderInbox(res.data.items||[]);
+            setTkBadge(res.data.unread||0);
+          }).catch(function(){});
+      }
+      function markInboxRead(){
+        var fd = new FormData();
+        fd.append('action','gwv_ticket_mark_read');
+        fd.append('nonce', NONCE);
+        fetch(AJAX,{method:'POST',credentials:'same-origin',body:fd})
+          .then(function(r){ return r.json(); })
+          .then(function(){
+            tkList.querySelectorAll('.item.unread').forEach(function(n){ n.classList.remove('unread'); });
+            setTkBadge(0);
+          }).catch(function(){});
+      }
+      // Acciones del panel
+      tkNew   && tkNew.addEventListener('click', function(e){ e.preventDefault(); openM(); });
+      tkClose && tkClose.addEventListener('click', function(){ tkPanel.style.display='none'; if (tkPoll){clearInterval(tkPoll); tkPoll=null;} });
+      tkMark  && tkMark.addEventListener('click', function(){ markInboxRead(); });
+      document.addEventListener('click', function(e){
+        if (tkPanel.style.display==='block' && !tkPanel.contains(e.target) && !btn.contains(e.target)){
+          tkPanel.style.display='none'; if (tkPoll){clearInterval(tkPoll); tkPoll=null;}
+        }
+      });
+      // Precarga del badge al entrar
+      fetchInbox();
+
+      send && send.addEventListener('click', function(){
+        var t = esc(topic.value);
+        var m = esc(msg.value);
+        if (!m){ msg.focus(); msg.reportValidity && msg.reportValidity(); return; }
+
+        send.disabled = true; send.textContent = 'Enviando…';
+
+        var fd = new FormData();
+        fd.append('action','gwv_ticket_create');
+        fd.append('nonce', NONCE);
+        fd.append('topic', t);
+        fd.append('message', m);
+
+        fetch(AJAX, {method:'POST', credentials:'same-origin', body: fd})
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if (res && res.success){
+              okBox.style.display='block';
+              // pequeño feedback y cierre automático
+              setTimeout(closeM, 1600);
+            } else {
+              alert((res && res.data && res.data.msg) ? res.data.msg : 'No se pudo enviar el ticket.');
+            }
+          })
+          .catch(function(){ alert('Error de red'); })
+          .finally(function(){ send.disabled = false; send.textContent = 'Enviar'; });
+      });
+    })();
+    </script>
+    <?php
+
     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
     if ($current_step == 1) {
         echo gw_step_1_registro($user_id);
@@ -378,6 +754,134 @@ function gw_portal_voluntario_shortcode() {
     }
     echo '</div>';
     return ob_get_clean();
+}
+
+// === VOLUNTARIO: AJAX backend de notificaciones Campanita ===
+add_action('wp_ajax_gwv_notif_fetch', 'gwv_notif_fetch');
+add_action('wp_ajax_gwv_notif_mark_read', 'gwv_notif_mark_read');
+
+// === VOLUNTARIO: AJAX crear ticket (se almacena en wp_notificaciones) ===
+add_action('wp_ajax_gwv_ticket_create', 'gwv_ticket_create');
+function gwv_ticket_create(){
+    if ( !is_user_logged_in() ) wp_send_json_error(['msg'=>'No logueado']);
+    $uid = get_current_user_id();
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if ( !wp_verify_nonce($nonce, 'gwv_ticket') ) wp_send_json_error(['msg'=>'Nonce inválido']);
+
+    $topic = sanitize_text_field( $_POST['topic'] ?? '' );
+    $msg   = wp_kses_post( $_POST['message'] ?? '' );
+
+    if ( strlen(trim($msg)) < 5 ){
+        wp_send_json_error(['msg'=>'Describe brevemente tu solicitud.']);
+    }
+
+    global $wpdb;
+    $t = $wpdb->prefix . 'notificaciones';
+
+    // Título y cuerpo amigables
+    $user   = wp_get_current_user();
+    $title  = 'Ticket: ' . ($topic ? $topic : 'Solicitud de ayuda');
+    $body   = $msg;
+    $now    = current_time('mysql');
+
+    // Guardamos como notificación para el staff (user_id = 0 => visible a administración; el panel admin filtrará TICKET)
+    $wpdb->insert($t, [
+        'user_id'    => 0,              // destinatario: administración (se manejará en el panel)
+        'type'       => 'TICKET',
+        'entity_id'  => intval($uid),   // quién lo creó
+        'title'      => $title,
+        'body'       => $body,
+        'status'     => 'UNREAD',
+        'created_at' => $now,
+        'read_at'    => null,
+    ], ['%d','%s','%d','%s','%s','%s','%s','%s']);
+
+    wp_send_json_success(['ok'=>1]);
+}
+
+// === VOLUNTARIO: Inbox de tickets (solo TICKET) ===
+add_action('wp_ajax_gwv_ticket_inbox', 'gwv_ticket_inbox');
+add_action('wp_ajax_gwv_ticket_mark_read', 'gwv_ticket_mark_read');
+
+function gwv_ticket_inbox(){
+    if ( !is_user_logged_in() ) wp_send_json_error(['msg'=>'No logueado']);
+    $uid = get_current_user_id();
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if ( !wp_verify_nonce($nonce, 'gwv_ticket') ) wp_send_json_error(['msg'=>'Nonce inválido']);
+    global $wpdb;
+    $t = $wpdb->prefix . 'notificaciones';
+    $rows = $wpdb->get_results(
+        $wpdb->prepare("SELECT id,type,title,body,status,created_at FROM {$t} WHERE user_id=%d AND type='TICKET' ORDER BY id DESC LIMIT 25", $uid),
+        ARRAY_A
+    );
+    $items=[]; 
+    if (is_array($rows)){
+        foreach($rows as $r){
+            $items[] = [
+                'id'     => intval($r['id']),
+                'type'   => strtoupper((string)$r['type']),
+                'title'  => (string)($r['title'] ?: 'Ticket'),
+                'body'   => (string)($r['body'] ?: ''),
+                'status' => strtoupper((string)$r['status']),
+                'time_h' => date_i18n('Y-m-d H:i', strtotime($r['created_at'] ?: 'now')),
+            ];
+        }
+    }
+    $unread = intval( $wpdb->get_var( $wpdb->prepare("SELECT COUNT(*) FROM {$t} WHERE user_id=%d AND type='TICKET' AND status='UNREAD'", $uid) ) );
+    wp_send_json_success(['items'=>$items,'unread'=>$unread]);
+}
+
+function gwv_ticket_mark_read(){
+    if ( !is_user_logged_in() ) wp_send_json_error(['msg'=>'No logueado']);
+    $uid = get_current_user_id();
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if ( !wp_verify_nonce($nonce, 'gwv_ticket') ) wp_send_json_error(['msg'=>'Nonce inválido']);
+    global $wpdb;
+    $t = $wpdb->prefix . 'notificaciones';
+    $wpdb->query( $wpdb->prepare("UPDATE {$t} SET status='READ', read_at=NOW() WHERE user_id=%d AND type='TICKET' AND status='UNREAD'", $uid) );
+    wp_send_json_success(['ok'=>1]);
+}
+
+function gwv_notif_fetch(){
+    if ( !is_user_logged_in() ) wp_send_json_error(['msg'=>'No logueado']);
+    $uid = get_current_user_id();
+    global $wpdb;
+    $t = $wpdb->prefix . 'notificaciones';
+
+    // Traer últimas 25
+    $rows = $wpdb->get_results(
+        $wpdb->prepare("SELECT id,type,entity_id,title,body,status,created_at FROM {$t} WHERE user_id=%d ORDER BY id DESC LIMIT 25", $uid),
+        ARRAY_A
+    );
+
+    $items = [];
+    if (is_array($rows)) {
+        foreach ($rows as $r) {
+            $items[] = [
+                'id'        => intval($r['id']),
+                'type'      => strtoupper((string)$r['type']),
+                'entity_id' => intval($r['entity_id']),
+                'title'     => (string)$r['title'],
+                'body'      => (string)$r['body'],
+                'status'    => strtoupper((string)$r['status']),
+                'time_h'    => date_i18n('Y-m-d H:i', strtotime($r['created_at'] ?: 'now')),
+            ];
+        }
+    }
+
+    $unread = intval( $wpdb->get_var( $wpdb->prepare("SELECT COUNT(*) FROM {$t} WHERE user_id=%d AND status='UNREAD'", $uid) ) );
+
+    wp_send_json_success(['items'=>$items, 'unread'=>$unread]);
+}
+
+function gwv_notif_mark_read(){
+    if ( !is_user_logged_in() ) wp_send_json_error(['msg'=>'No logueado']);
+    $uid = get_current_user_id();
+    global $wpdb;
+    $t = $wpdb->prefix . 'notificaciones';
+
+    $wpdb->query( $wpdb->prepare("UPDATE {$t} SET status='READ', read_at=NOW() WHERE user_id=%d AND status='UNREAD'", $uid) );
+    wp_send_json_success(['unread'=>0]);
 }
  
 // --- Lógica para saber en qué paso va el usuario ---
