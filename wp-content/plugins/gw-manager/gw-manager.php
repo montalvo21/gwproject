@@ -13094,6 +13094,36 @@ if (is_admin()) {
             set_transient('gw_permisos_verificados', true, HOUR_IN_SECONDS);
         }
     });
+
+    // === Paso 8 (Voluntario) - Guardar preguntas por AJAX ===
+add_action('wp_ajax_gw_step8_save_answers', 'gw_step8_save_answers');
+function gw_step8_save_answers(){
+  if ( !is_user_logged_in() ) {
+    wp_send_json_error(['msg'=>'No logueado'], 401);
+  }
+
+  $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+  if ( ! wp_verify_nonce($nonce, 'gw_step8') ) {
+    wp_send_json_error(['msg'=>'Nonce inválido/expirado'], 400);
+  }
+
+  $uid = get_current_user_id();
+  // answers es un objeto {pregunta_1: "...", pregunta_2: "...", ...}
+  $answers = isset($_POST['answers']) && is_array($_POST['answers']) ? $_POST['answers'] : [];
+
+  // Sanitizar todo
+  $clean = [];
+  foreach ($answers as $k => $v) {
+    $key = sanitize_key($k);
+    // acepta texto multirenglón
+    $clean[$key] = wp_kses_post( (string)$v );
+  }
+
+  update_user_meta($uid, 'gw_step8_respuestas', $clean);
+
+  wp_send_json_success(['msg'=>'Respuestas guardadas']);
+}
+
 }
 
 

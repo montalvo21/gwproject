@@ -827,6 +827,75 @@ function gw_portal_voluntario_shortcode() {
       });
     })();
     </script>
+    <style>
+      /* Miniatura estándar para previews de documentos */
+      .gw-thumb{margin-top:8px;border:1px dashed #d1d5db;border-radius:10px;overflow:hidden;max-height:150px}
+      .gw-thumb img{display:block;width:100%;height:auto;object-fit:cover}
+    </style>
+    <script>
+    (function(){
+      if (window.__gwDocsPreviewInjected) return; // evitar doble inyección
+      window.__gwDocsPreviewInjected = true;
+
+      // Utilidad: enlazar preview a un input file
+      function bindPreview(input){
+        if (!input || input.__gwBound) return;
+        input.__gwBound = true;
+        input.addEventListener('change', function(){
+          var file = input.files && input.files[0];
+          if (!file || !/^image\//.test(file.type||'')) return;
+          var wrap = input.closest('.gw-doc-card, .gw-upload-card, .gw-file-box, .gw-doc-uploader, .gw-field, .gw-documento, .gw-form-group') || input.parentNode;
+          var preview = wrap.querySelector('.gw-thumb');
+          if (!preview){
+            preview = document.createElement('div');
+            preview.className = 'gw-thumb';
+            var img = document.createElement('img');
+            preview.appendChild(img);
+            wrap.appendChild(preview);
+          }
+          var imgEl = preview.querySelector('img');
+          imgEl.src = URL.createObjectURL(file);
+        });
+      }
+
+      // Enlazar a todos los inputs file visibles en la página de documentos
+      Array.prototype.forEach.call(document.querySelectorAll('input[type="file"]'), bindPreview);
+
+      // Buscar el botón "Agregar otra foto" (con o sin "+") aunque no tenga id
+      function findAddBtn(){
+        var byId = document.getElementById('gw-add-photo');
+        if (byId) return byId;
+        var candidates = document.querySelectorAll('button, a');
+        for (var i=0;i<candidates.length;i++){
+          var t = (candidates[i].textContent||'').trim().toLowerCase();
+          if (t === '+ agregar otra foto' || t === 'agregar otra foto'){ return candidates[i]; }
+        }
+        return null;
+      }
+
+      var addBtn = findAddBtn();
+      if (addBtn){
+        addBtn.id = addBtn.id || 'gw-add-photo';
+        addBtn.addEventListener('click', function(ev){
+          ev.preventDefault();
+          // Contenedor cercano donde agregar el nuevo slot
+          var container = addBtn.closest('.gw-form-container, .gw-docs, form, .gw-section') || addBtn.parentNode;
+          var slot = document.createElement('div');
+          slot.className = 'gw-extra-photo';
+          slot.style.cssText = 'margin:10px 0; padding:12px; border:1px dashed #cbd5e1; border-radius:12px';
+          slot.innerHTML = '\n            <label style="display:block;font-weight:600;margin-bottom:6px">Foto adicional</label>\n            <input type="file" name="gw_doc_extra[]" accept="image/*" class="gw-doc-extra-input" style="display:block;margin-bottom:8px;">\n            <div class="gw-thumb" style="display:none"><img/></div>\n          ';
+          // Insertar después del botón o al final del contenedor
+          (addBtn.parentNode.parentNode || addBtn.parentNode).insertBefore(slot, addBtn.parentNode.nextSibling);
+          var fi = slot.querySelector('input[type="file"]');
+          bindPreview(fi);
+          fi.addEventListener('change', function(){
+            var th = slot.querySelector('.gw-thumb');
+            if (fi.files && fi.files[0]){ th.style.display='block'; } else { th.style.display='none'; }
+          });
+        });
+      }
+    })();
+    </script>
     <?php
 
     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
@@ -4624,6 +4693,160 @@ function gw_step_8_documentos($user_id) {
         </button>
       </div>
     </form>
+
+    <script>
+(function(){
+  var form = document.getElementById('gw-classwin-form');
+  if(!form) return;
+
+  var a1 = document.getElementById('classwin_a1');
+  var a2 = document.getElementById('classwin_a2');
+  var a3 = document.getElementById('classwin_a3');
+  var btn = document.getElementById('gw-submit-classwin');
+  var txt = btn ? btn.querySelector('.gw-btn-text') : null;
+  var load = btn ? btn.querySelector('.gw-btn-loading') : null;
+
+  // Mensaje inline bajo el botón
+  var statusEl = document.createElement('div');
+  statusEl.id = 'gw-classwin-inline-status';
+  statusEl.style.cssText = 'margin-top:8px;font-size:13px;color:#059669;font-weight:600;display:none;';
+  var actions = form.querySelector('.gw-form-actions') || form;
+  actions.appendChild(statusEl);
+
+  // Clave de storage por usuario
+  var KEY = 'gw_classwin_' + <?php echo intval($user_id); ?>;
+
+  // Prefill desde localStorage
+  try{
+    var saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if(saved.a1 && !a1.value) a1.value = saved.a1;
+    if(saved.a2 && !a2.value) a2.value = saved.a2;
+    if(saved.a3 && !a3.value) a3.value = saved.a3;
+    if(saved.ts){
+      statusEl.textContent = 'Borrador recuperado ('+ new Date(saved.ts).toLocaleTimeString() +')';
+      statusEl.style.display = 'block';
+    }
+  }catch(e){}
+
+  function showStatus(msg, ok){
+    statusEl.textContent = msg + ' • ' + new Date().toLocaleTimeString();
+    statusEl.style.color = ok===false ? '#b91c1c' : '#059669';
+    statusEl.style.display = 'block';
+  }
+
+  // Autosave (500ms tras escribir)
+  var t;
+  function queueSave(){
+    clearTimeout(t);
+    t = setTimeout(function(){
+      var data = {
+        a1: a1 ? a1.value : '',
+        a2: a2 ? a2.value : '',
+        a3: a3 ? a3.value : '',
+        ts: Date.now()
+      };
+      localStorage.setItem(KEY, JSON.stringify(data));
+      showStatus('Guardado localmente');
+    }, 500);
+  }
+  [a1,a2,a3].forEach(function(el){ el && el.addEventListener('input', queueSave); });
+
+  // Envío AJAX (mantiene tu endpoint)
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    if(!btn) return;
+    if(txt) txt.style.display = 'none';
+    if(load) load.style.display = 'inline-flex';
+    btn.disabled = true;
+
+    var fd = new FormData(form);
+    fd.append('action','gw_step8_save_answers');
+    fd.append('nonce','<?php echo wp_create_nonce('gw_step8'); ?>');
+
+    fetch('<?php echo admin_url('admin-ajax.php'); ?>', {method:'POST', credentials:'same-origin', body: fd})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(txt) txt.style.display = '';
+        if(load) load.style.display = 'none';
+        btn.disabled = false;
+        if(res && res.success){
+          localStorage.removeItem(KEY);
+          showStatus('Respuestas guardadas', true);
+        } else {
+          showStatus('No se pudo guardar', false);
+        }
+      })
+      .catch(function(){
+        if(txt) txt.style.display = '';
+        if(load) load.style.display = 'none';
+        btn.disabled = false;
+        showStatus('Error de red', false);
+      });
+  });
+})();
+</script>
+
+    <script>
+    (function(){
+      var form = document.getElementById('gw-classwin-form');
+      var submitBtn = document.getElementById('gw-submit-classwin');
+      if(!form || !submitBtn) return;
+
+      var AJAX  = "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>";
+      var NONCE = "<?php echo esc_js( wp_create_nonce('gw_step8') ); ?>";
+
+      function setLoading(on){
+        var txt  = submitBtn.querySelector('.gw-btn-text');
+        var load = submitBtn.querySelector('.gw-btn-loading');
+        if(on){
+          if(txt)  txt.style.display = 'none';
+          if(load) load.style.display = 'inline-flex';
+          submitBtn.disabled = true;
+        } else {
+          if(txt)  txt.style.display = '';
+          if(load) load.style.display = 'none';
+          submitBtn.disabled = false;
+        }
+      }
+
+      function toast(msg){
+        var el = document.createElement('div');
+        el.textContent = msg;
+        el.style.cssText = 'position:fixed;top:16px;right:16px;background:#111;color:#fff;padding:10px 14px;border-radius:8px;z-index:999999;opacity:.95';
+        document.body.appendChild(el);
+        setTimeout(function(){ el.remove(); }, 2000);
+      }
+
+      submitBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+
+        var a1 = form.querySelector('[name="classwin_a1"]') ? form.querySelector('[name="classwin_a1"]').value : '';
+        var a2 = form.querySelector('[name="classwin_a2"]') ? form.querySelector('[name="classwin_a2"]').value : '';
+        var a3 = form.querySelector('[name="classwin_a3"]') ? form.querySelector('[name="classwin_a3"]').value : '';
+
+        setLoading(true);
+
+        var fd = new FormData();
+        fd.append('action', 'gw_step8_save_answers');
+        fd.append('nonce', NONCE);
+        fd.append('answers[pregunta_1]', a1);
+        fd.append('answers[pregunta_2]', a2);
+        fd.append('answers[pregunta_3]', a3);
+
+        fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            setLoading(false);
+            if(res && res.success){ toast('Respuestas guardadas'); }
+            else { toast('No se pudieron guardar'); }
+          })
+          .catch(function(){
+            setLoading(false);
+            toast('Error de conexión');
+          });
+      });
+    })();
+    </script>
   </div>
 <?php endif; ?>
 
@@ -5414,36 +5637,6 @@ function gw_step_8_documentos($user_id) {
         </div>
     </div>
     
-        
-        function logoutAndRedirect() {
-            window.location.href = '<?php echo home_url(); ?>?gw_logout=1';
-        }
-        
-        function startCountdown(seconds, callback) {
-            const countdownElement = document.getElementById('gw-countdown');
-            if (!countdownElement) return;
-            
-            let count = seconds;
-            countdownElement.textContent = count;
-            
-            const interval = setInterval(() => {
-                count--;
-                countdownElement.textContent = count;
-                
-                if (count <= 3) {
-                    countdownElement.style.color = '#ef4444';
-                    countdownElement.style.transform = 'scale(1.1)';
-                } else if (count <= 5) {
-                    countdownElement.style.color = '#f59e0b';
-                }
-                
-                if (count <= 0) {
-                    clearInterval(interval);
-                    if (callback) callback();
-                }
-            }, 1000);
-        }
-        
         <script>
 (function() {
     'use strict';
@@ -5528,44 +5721,47 @@ function gw_step_8_documentos($user_id) {
     const btnLoading = submitBtn?.querySelector('.gw-btn-loading');
     const fileInputs = form.querySelectorAll('.gw-file-input');
     const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-    
-    // MANEJO DE ARCHIVOS CON COMPRESIÓN
-    fileInputs.forEach(input => {
+
+    // ========= Enlazador reutilizable para inputs de archivo =========
+    function bindFileInput(input){
+        if (!input || input._gwBound) return;
+        input._gwBound = true;
+
         input.addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             // Limpiar mensajes previos
             const existingError = this.parentNode.querySelector('.gw-file-error');
             if (existingError) existingError.remove();
             const existingCompression = this.parentNode.querySelector('.gw-compression-info');
             if (existingCompression) existingCompression.remove();
-            
+
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
             if (!validTypes.includes(file.type)) {
                 this.showError('Por favor selecciona un archivo de imagen válido (JPG, PNG, GIF, WEBP)');
                 this.value = '';
                 return;
             }
-            
+
             const maxSize = 10 * 1024 * 1024; // 10MB antes de compresión
             if (file.size > maxSize) {
                 this.showError('El archivo es demasiado grande (' + (file.size / (1024*1024)).toFixed(1) + 'MB). Máximo 10MB.');
                 this.value = '';
                 return;
             }
-            
+
             // Mostrar compresión en progreso
             const compressingDiv = document.createElement('div');
             compressingDiv.className = 'gw-compressing';
             compressingDiv.style.cssText = 'color: #0066cc; font-size: 12px; margin-top: 5px; padding: 8px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 4px;';
-            compressingDiv.innerHTML = '<span>🔄 Comprimiendo imagen...</span>';
+            compressingDiv.textContent = '🔄 Comprimiendo imagen...';
             this.parentNode.appendChild(compressingDiv);
-            
+
             try {
                 // Comprimir imagen
                 const compressedFile = await compressImage(file, 1024, 1024, 0.8);
-                
+
                 // Reemplazar archivo con versión comprimida
                 const dt = new DataTransfer();
                 const compressedFileObj = new File([compressedFile], file.name.replace(/\.[^/.]+$/, ".jpg"), {
@@ -5574,25 +5770,25 @@ function gw_step_8_documentos($user_id) {
                 });
                 dt.items.add(compressedFileObj);
                 this.files = dt.files;
-                
+
                 // Quitar indicador de compresión
                 compressingDiv.remove();
-                
+
                 // Mostrar resultados
                 const originalSize = (file.size / 1024).toFixed(1);
                 const compressedSize = (compressedFile.size / 1024).toFixed(1);
                 const reduction = (((file.size - compressedFile.size) / file.size) * 100).toFixed(1);
-                
+
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'gw-compression-info';
                 infoDiv.style.cssText = 'color: #388e3c; font-size: 12px; margin-top: 5px; padding: 8px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 4px;';
                 infoDiv.innerHTML = `
-                    <div>✅ Imagen comprimida</div>
-                    <div>📦 ${originalSize}KB → ${compressedSize}KB</div>
-                    <div>📈 Reducción: ${reduction}%</div>
-                `;
+  <div>✅ Imagen comprimida</div>
+  <div>📦 ${originalSize}KB → ${compressedSize}KB</div>
+  <div>📈 Reducción: ${reduction}%</div>
+`;
                 this.parentNode.appendChild(infoDiv);
-                
+
                 // Actualizar label
                 const label = this.nextElementSibling;
                 if (label) {
@@ -5600,14 +5796,49 @@ function gw_step_8_documentos($user_id) {
                     if (span) span.textContent = `${file.name} (${compressedSize}KB)`;
                     label.classList.add('file-selected');
                 }
-                
+
+                // ===== PREVIEW en la tarjeta del documento =====
+                try {
+                    const wrapper = this.closest('.gw-document-upload');
+                    if (wrapper) {
+                        // Buscar / crear contenedor de preview
+                        let preview = wrapper.querySelector('.gw-document-preview');
+                        if (!preview) {
+                            preview = document.createElement('div');
+                            preview.className = 'gw-document-preview';
+                            preview.innerHTML =
+  '<img alt="Previsualización" />' +
+  '<div class="gw-document-status" style="background:#ffb900;">⏳ En revisión</div>';
+                            // Insertar antes del bloque de subida, si existe
+                            const uploadBlock = wrapper.querySelector('.gw-file-upload');
+                            if (uploadBlock) {
+                                wrapper.insertBefore(preview, uploadBlock);
+                            } else {
+                                wrapper.appendChild(preview);
+                            }
+                        }
+                        const img = preview.querySelector('img');
+                        if (img) {
+                            const objectUrl = URL.createObjectURL(compressedFileObj);
+                            img.src = objectUrl;
+                            img.onload = function(){ URL.revokeObjectURL(objectUrl); };
+                        }
+                        // Asegurar el chip de estado en "En revisión"
+                        const chip = preview.querySelector('.gw-document-status');
+                        if (chip) {
+                            chip.textContent = '⏳ En revisión';
+                            chip.style.background = '#ffb900';
+                        }
+                    }
+                } catch(_e) { /* noop */ }
+
             } catch (error) {
                 compressingDiv.remove();
                 this.showError('Error al comprimir la imagen. Inténtalo de nuevo.');
                 console.error('Error comprimiendo imagen:', error);
             }
         });
-        
+
         // Método para mostrar errores
         input.showError = function(message) {
             const errorDiv = document.createElement('div');
@@ -5616,7 +5847,63 @@ function gw_step_8_documentos($user_id) {
             errorDiv.textContent = message;
             this.parentNode.appendChild(errorDiv);
         };
-    });
+    }
+
+    // Enlazar los inputs de archivo existentes
+    document.querySelectorAll('.gw-file-input').forEach(bindFileInput);
+
+    // ========= Botón "Agregar otra foto" (añade doc_3 y luego doc_4) =========
+    (function(){
+        var addBtn = document.getElementById('add-photo-btn');
+        if (!addBtn) return;
+
+        addBtn.addEventListener('click', function(){
+            var container = document.getElementById('documents-container');
+            if (!container) return;
+
+            // Siguiente slot disponible: 3 primero, luego 4
+            var next = !container.querySelector('#documento_3') ? 3 :
+                       (!container.querySelector('#documento_4') ? 4 : null);
+
+            if (!next){
+                addBtn.disabled = true;
+                addBtn.textContent = 'Has agregado todas las fotos';
+                return;
+            }
+
+            var html = `
+  <div class="gw-document-upload optional-doc" data-doc="${next}" style="display:flex;">
+    <label class="gw-upload-label">
+      <span class="gw-label-text">Documento adicional (Foto ${next})</span>
+      <span style="color:#ffb900;font-size:10px;font-weight:bold;margin-left:10px;">PENDIENTE</span>
+    </label>
+
+    <div class="gw-file-upload">
+      <input type="file" name="documento_${next}" id="documento_${next}" accept="image/*" class="gw-file-input">
+      <label for="documento_${next}" class="gw-file-label">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7,10 12,15 17,10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Seleccionar archivo</span>
+      </label>
+    </div>
+  </div>`;
+
+            container.insertAdjacentHTML('beforeend', html);
+
+            // Enlazar eventos de compresión/preview al nuevo input
+            var newInput = container.querySelector('#documento_' + next);
+            bindFileInput(newInput);
+
+            // Si ya se agregaron 3 y 4, desactivar botón
+            if (container.querySelector('#documento_3') && container.querySelector('#documento_4')){
+                addBtn.disabled = true;
+                addBtn.textContent = 'Has agregado todas las fotos';
+            }
+        });
+    })();
     
     // VALIDACIÓN DEL FORMULARIO
     function validateForm() {
