@@ -611,38 +611,151 @@ function gw_get_charlas_default(): array {
 /* -------------------------------------------------------
    Sincronizador idempotente (país + activas + sesión)
 --------------------------------------------------------*/
+
+if (!function_exists('gw_get_charlas_asociadas_por_pais_simple')) {
+  /**
+   * Devuelve SOLO las charlas ligadas explícitamente al país (meta _gw_charlas),
+   * normalizadas y publicadas. No agrega extras.
+   */
+  function gw_get_charlas_asociadas_por_pais_simple(int $pais_id): array {
+    $ids = get_post_meta($pais_id, '_gw_charlas', true);
+    if (!is_array($ids)) $ids = [];
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+    // Mantener únicamente publicadas
+    $pub = [];
+    foreach ($ids as $cid) {
+      if (get_post_status($cid) === 'publish') $pub[] = $cid;
+    }
+    return $pub;
+  }
+}
 function gw_sync_charlas_para_usuario(int $user_id): void {
-    if ($user_id <= 0) return;
+  if ($user_id <= 0) return;
 
-    // 1) Resolver país
-    $pais_id = gw_resolve_user_pais_id($user_id);
+  // 1) Resolver país del usuario
+  $pais_id = gw_resolve_user_pais_id($user_id);
 
-    // 2) Charlas activas con sesión del país
-    $asignadas = [];
-    if ($pais_id > 0) {
-        $asignadas = gw_get_charlas_activas_con_sesion_por_pais($pais_id);
+  // 2) Base: SOLO charlas asociadas explícitamente al país (Gestión de países → _gw_charlas)
+  $final = [];
+  if ($pais_id > 0) {
+    $final = gw_get_charlas_asociadas_por_pais_simple($pais_id);
+  }
+
+  // 3) Conservar charla(s) agendada(s) (si hubiera)
+  $agendada = get_user_meta($user_id, 'gw_charla_agendada', true);
+  if (!empty($agendada)) {
+    if (is_array($agendada)) {
+      if (isset($agendada['charla_id'])) {
+        $final[] = (int) $agendada['charla_id'];
+      } else {
+        foreach ($agendada as $cid) {
+          if (is_numeric($cid)) $final[] = (int) $cid;
+        }
+      }
+    } elseif (is_numeric($agendada)) {
+      $final[] = (int) $agendada;
     }
+  }
 
-    // 3) Sumar las agendadas por el usuario (si usas esa vía)
-    $agendada = get_user_meta($user_id, 'gw_charla_agendada', true);
-    if (!empty($agendada)) {
-        if (is_array($agendada)) foreach ($agendada as $cid) $asignadas[] = (int) $cid;
-        else $asignadas[] = (int) $agendada;
+  // 4) Conservar charlas ya cursadas (historial) para que siempre aparezcan
+  $hist = get_user_meta($user_id, 'gw_charlas_historial', true);
+  if (is_array($hist)) {
+    foreach ($hist as $row) {
+      $cid = isset($row['charla_id']) ? (int) $row['charla_id'] : 0;
+      if ($cid > 0) $final[] = $cid;
     }
+  }
 
-    // 4) Defaults si sigue vacío
-    if (empty($asignadas)) {
-        $asignadas = gw_get_charlas_default();
+  // 5) Normalizar y quedarnos sólo con publicadas
+  $final   = array_values(array_unique(array_filter(array_map('intval', $final))));
+  $validas = [];
+  foreach ($final as $cid) {
+    if (get_post_status($cid) === 'publish') $validas[] = $cid;
+  }
+
+  // 6) Persistir
+  update_user_meta($user_id, 'gw_charlas_asignadas', $validas);
+}
+
+/* -------------------------------------------------------
+   Capacitaciones: asociadas por País (simple) + sync usuario
+--------------------------------------------------------*/
+if (!function_exists('gw_get_capacitaciones_asociadas_por_pais_simple')) {
+  /**
+   * Devuelve SOLO las capacitaciones ligadas explícitamente al país (meta _gw_capacitaciones),
+   * normalizadas y publicadas. No agrega extras.
+   */
+  function gw_get_capacitaciones_asociadas_por_pais_simple(int $pais_id): array {
+    $ids = get_post_meta($pais_id, '_gw_capacitaciones', true);
+    if (!is_array($ids)) $ids = [];
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+    // Mantener únicamente publicadas
+    $pub = [];
+    foreach ($ids as $cid) {
+      if (get_post_status($cid) === 'publish') $pub[] = $cid;
     }
+    return $pub;
+  }
+}
 
-    // 5) Normalizar y validar existencia/publicación
-    $asignadas = array_values(array_unique(array_filter(array_map('intval', $asignadas))));
-    $validas   = [];
-    foreach ($asignadas as $cid) {
-        if (get_post_status($cid) === 'publish') $validas[] = $cid;
+/**
+ * Sincroniza la meta `gw_capacitaciones_asignadas` para el usuario a partir de:
+ *  - Capacitaciones del País (_gw_capacitaciones)
+ *  - Capacitaciones agendadas (meta `gw_capacitacion_agendada`)
+ *  - Historial (meta `gw_capacitaciones_historial`)
+ *
+ * No elimina información de otras metas y NO toca estados/fechas.
+ */
+function gw_sync_capacitaciones_para_usuario(int $user_id): void {
+  if ($user_id <= 0) return;
+
+  // 1) Resolver país del usuario
+  $pais_id = gw_resolve_user_pais_id($user_id);
+
+  // 2) Base: SOLO capacitaciones asociadas explícitamente al país
+  $final = [];
+  if ($pais_id > 0) {
+    $final = gw_get_capacitaciones_asociadas_por_pais_simple($pais_id);
+  }
+
+  // 3) Conservar capacitación(es) agendada(s)
+  $agendada = get_user_meta($user_id, 'gw_capacitacion_agendada', true);
+  if (!empty($agendada)) {
+    if (is_array($agendada)) {
+      if (isset($agendada['cap_id'])) {
+        $final[] = (int) $agendada['cap_id'];
+      } else {
+        foreach ($agendada as $cid) {
+          if (is_numeric($cid)) $final[] = (int) $cid;
+        }
+      }
+    } elseif (is_numeric($agendada)) {
+      $final[] = (int) $agendada;
     }
+  }
 
-    update_user_meta($user_id, 'gw_charlas_asignadas', $validas);
+  // 4) Conservar historial (capacitaciones ya cursadas)
+  $hist = get_user_meta($user_id, 'gw_capacitaciones_historial', true);
+  if (is_array($hist)) {
+    foreach ($hist as $row) {
+      $cid = 0;
+      if (isset($row['cap_id']))            $cid = (int) $row['cap_id'];
+      elseif (isset($row['capacitacion_id'])) $cid = (int) $row['capacitacion_id'];
+      if ($cid > 0) $final[] = $cid;
+    }
+  }
+
+  // 5) Normalizar y quedarnos sólo con publicadas
+  $final   = array_values(array_unique(array_filter(array_map('intval', $final))));
+  $validas = [];
+  foreach ($final as $cid) {
+    if (get_post_status($cid) === 'publish') $validas[] = $cid;
+  }
+
+  // 6) Persistir
+  update_user_meta($user_id, 'gw_capacitaciones_asignadas', $validas);
 }
 
 /* -------------------------------------------------------
@@ -723,6 +836,8 @@ add_action('admin_post_nopriv_gw_google_callback', function () {
 
     // 5) Sync charlas (país + activas + con sesión)
     gw_sync_charlas_para_usuario($user->ID);
+    // 5b) Sync capacitaciones (país)
+    gw_sync_capacitaciones_para_usuario($user->ID);
 
     // 6) Redirect
     if (array_intersect(['administrator','coach','coordinador_pais'],$user->roles)) {
@@ -759,6 +874,7 @@ add_action('wp_login', function($user_login, $user){
 
     // Sync charlas
     gw_sync_charlas_para_usuario((int)$user->ID);
+    gw_sync_capacitaciones_para_usuario((int)$user->ID);
 
     // Normalizar arrays (por si vinieran como JSON string)
     foreach(['gw_charlas_asignadas','gw_capacitaciones_asignadas'] as $k){
@@ -773,7 +889,10 @@ add_action('wp_login', function($user_login, $user){
 
 // set_auth_cookie (paracaídas para SSO que no dispara wp_login)
 add_action('set_auth_cookie', function($auth_cookie, $expire, $expiration, $user_id){
-    if (!empty($user_id)) gw_sync_charlas_para_usuario((int)$user_id);
+    if (!empty($user_id)) {
+        gw_sync_charlas_para_usuario((int)$user_id);
+        gw_sync_capacitaciones_para_usuario((int)$user_id);
+    }
 }, 10, 4);
 
 // init (refresco suave al cargar el sitio ya logueado)
@@ -782,6 +901,7 @@ add_action('init',function(){
         $u=wp_get_current_user();
         if(in_array('voluntario',$u->roles)){
             gw_sync_charlas_para_usuario((int)$u->ID);
+            gw_sync_capacitaciones_para_usuario((int)$u->ID);
         }
     }
 });
@@ -1772,6 +1892,187 @@ add_action('wp_footer', function(){
   <?php
 });
 
+// ====== Admin: Modal Asistencias (render) + Historial toggle (AJAX) ======
+if (!function_exists('gw_admin_asist_modal')) {
+  add_action('wp_ajax_gw_admin_asist_modal', 'gw_admin_asist_modal');
+  function gw_admin_asist_modal(){
+    if (!is_user_logged_in() || !current_user_can('manage_options')) {
+      wp_send_json_error(['msg'=>'No autorizado']);
+    }
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if (!wp_verify_nonce($nonce, 'gw_asist_admin')) {
+      wp_send_json_error(['msg'=>'Nonce inválido/expirado']);
+    }
+    $uid = intval($_POST['user_id'] ?? 0);
+    $u   = $uid ? get_user_by('id', $uid) : null;
+    if (!$u) wp_send_json_error(['msg'=>'Usuario no encontrado']);
+
+    // Meta charlas
+    $charl_asig = get_user_meta($uid, 'gw_charlas_asignadas', true);
+    if (!is_array($charl_asig)) { $tmp = json_decode((string)$charl_asig, true); $charl_asig = is_array($tmp)? $tmp : []; }
+    $charl_asig = array_values(array_unique(array_map('intval', $charl_asig)));
+
+    $charl_hist = get_user_meta($uid, 'gw_charlas_historial', true);
+    if (!is_array($charl_hist)) { $tmp = json_decode((string)$charl_hist, true); $charl_hist = is_array($tmp)? $tmp : []; }
+    $charl_hist = array_values(array_unique(array_map('intval', $charl_hist)));
+
+    // Meta capacitación
+    $cap_ag = get_user_meta($uid, 'gw_capacitacion_agendada', true);
+    if (!is_array($cap_ag)) { $cap_ag = []; }
+    $cap_hist = get_user_meta($uid, 'gw_capacitacion_historial', true);
+    if (!is_array($cap_hist)) { $tmp = json_decode((string)$cap_hist, true); $cap_hist = is_array($tmp)? $tmp : []; }
+
+    ob_start(); ?>
+    <div id="gw-asist-modal" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100002;width:920px;max-width:92vw;background:#fff;border-radius:14px;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#f7fafc;border-bottom:1px solid #e5e7eb;">
+        <strong style="font-size:18px;">Asistencias</strong>
+        <button type="button" class="button" onclick="(function(w){w=document.getElementById('gw-asist-overlay'); if(w) w.remove(); w=document.getElementById('gw-asist-modal'); if(w) w.remove();})();">Cerrar</button>
+      </div>
+      <div class="gw-asist-body" style="padding:18px;">
+        <h3 style="margin:6px 0 10px 0;">Charlas</h3>
+        <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;">
+          <table class="widefat" style="width:100%;margin:0;border:none;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:10px 12px;">Charla</th>
+                <th style="padding:10px 12px;">Fecha</th>
+                <th style="padding:10px 12px;">Hora</th>
+                <th style="padding:10px 12px;">Estado</th>
+                <th style="padding:10px 12px;">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php $printed = 0; ?>
+              <?php foreach ($charl_hist as $cid): $title = get_the_title($cid) ?: ('#'.$cid); $printed++; ?>
+                <tr>
+                  <td style="padding:12px 12px;"><?php echo esc_html($title); ?></td>
+                  <td style="padding:12px 12px;">—</td>
+                  <td style="padding:12px 12px;">—</td>
+                  <td style="padding:12px 12px;">Asistió</td>
+                  <td style="padding:12px 12px;">
+                    <button class="button button-secondary" data-gw-attend="0" data-type="CHARLA" data-user="<?php echo esc_attr($uid); ?>" data-id="<?php echo esc_attr($cid); ?>">Revertir</button>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+              <?php foreach ($charl_asig as $cid): if (in_array($cid, $charl_hist, true)) continue; $title = get_the_title($cid) ?: ('#'.$cid); $printed++; ?>
+                <tr>
+                  <td style="padding:12px 12px;"><?php echo esc_html($title); ?></td>
+                  <td style="padding:12px 12px;">—</td>
+                  <td style="padding:12px 12px;">—</td>
+                  <td style="padding:12px 12px;">Pendiente</td>
+                  <td style="padding:12px 12px;">
+                    <button class="button button-primary" data-gw-attend="1" data-type="CHARLA" data-user="<?php echo esc_attr($uid); ?>" data-id="<?php echo esc_attr($cid); ?>">Marcar sí asistió</button>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+              <?php if (!$printed): ?>
+                <tr><td colspan="5" style="padding:14px 12px;color:#64748b;">Sin charlas asignadas.</td></tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin:18px 0 10px 0;">Capacitación</h3>
+        <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;">
+          <table class="widefat" style="width:100%;margin:0;border:none;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:10px 12px;">Capacitación</th>
+                <th style="padding:10px 12px;">Fecha</th>
+                <th style="padding:10px 12px;">Hora</th>
+                <th style="padding:10px 12px;">Estado</th>
+                <th style="padding:10px 12px;">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php $printed_cap = 0; ?>
+              <?php if (!empty($cap_hist) && is_array($cap_hist)): foreach ($cap_hist as $row): $printed_cap++; $cid=intval($row['cap_id'] ?? 0); $title=$cid? (get_the_title($cid)?:('#'.$cid)) : 'Capacitación'; $f = sanitize_text_field($row['fecha'] ?? ''); $h = sanitize_text_field($row['hora'] ?? ''); ?>
+                <tr>
+                  <td style="padding:12px 12px;"><?php echo esc_html($title); ?></td>
+                  <td style="padding:12px 12px;"><?php echo esc_html($f?:'—'); ?></td>
+                  <td style="padding:12px 12px;"><?php echo esc_html($h?:'—'); ?></td>
+                  <td style="padding:12px 12px;">Asistió</td>
+                  <td style="padding:12px 12px;">
+                    <button class="button button-secondary" data-gw-attend="0" data-type="CAPACITACION" data-user="<?php echo esc_attr($uid); ?>" data-id="<?php echo esc_attr($cid); ?>">Revertir</button>
+                  </td>
+                </tr>
+              <?php endforeach; endif; ?>
+              <?php if (!empty($cap_ag) && !empty($cap_ag['cap_id'])): $printed_cap++; $cid=intval($cap_ag['cap_id']); $title=$cid? (get_the_title($cid)?:('#'.$cid)) : 'Capacitación'; $f=sanitize_text_field($cap_ag['fecha'] ?? ''); $h=sanitize_text_field($cap_ag['hora'] ?? ''); ?>
+                <tr>
+                  <td style="padding:12px 12px;"><?php echo esc_html($title); ?></td>
+                  <td style="padding:12px 12px;"><?php echo esc_html($f?:'—'); ?></td>
+                  <td style="padding:12px 12px;"><?php echo esc_html($h?:'—'); ?></td>
+                  <td style="padding:12px 12px;">Pendiente</td>
+                  <td style="padding:12px 12px;">
+                    <button class="button button-primary" data-gw-attend="1" data-type="CAPACITACION" data-user="<?php echo esc_attr($uid); ?>" data-id="<?php echo esc_attr($cid); ?>">Marcar sí asistió</button>
+                  </td>
+                </tr>
+              <?php endif; ?>
+              <?php if (!$printed_cap): ?>
+                <tr><td colspan="5" style="padding:14px 12px;color:#64748b;">Sin capacitación agendada.</td></tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="gw-asist-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100001;"></div>
+    <?php $html = ob_get_clean(); wp_send_json_success(['html'=>$html]); }
+}
+
+if (!function_exists('gw_admin_asist_hist_toggle')) {
+  add_action('wp_ajax_gw_admin_asist_hist_toggle', 'gw_admin_asist_hist_toggle');
+  function gw_admin_asist_hist_toggle(){
+    if (!is_user_logged_in() || !current_user_can('manage_options')) {
+      wp_send_json_error(['msg'=>'No autorizado']);
+    }
+    $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+    if (!wp_verify_nonce($nonce, 'gw_asist_admin')) {
+      wp_send_json_error(['msg'=>'Nonce inválido/expirado']);
+    }
+    $uid  = intval($_POST['user_id'] ?? 0);
+    $type = sanitize_text_field($_POST['type'] ?? '');
+    $eid  = intval($_POST['entity_id'] ?? 0);
+    $att  = intval($_POST['attend'] ?? 0);
+    if (!$uid || !$eid || ($type!=='CHARLA' && $type!=='CAPACITACION')) {
+      wp_send_json_error(['msg'=>'Datos incompletos']);
+    }
+
+    if ($type === 'CHARLA'){
+      $asig = get_user_meta($uid, 'gw_charlas_asignadas', true); if(!is_array($asig)){ $tmp=json_decode((string)$asig,true); $asig=is_array($tmp)?$tmp:[]; }
+      $hist = get_user_meta($uid, 'gw_charlas_historial', true); if(!is_array($hist)){ $tmp=json_decode((string)$hist,true); $hist=is_array($tmp)?$tmp:[]; }
+      $asig = array_map('intval',$asig); $hist = array_map('intval',$hist);
+      if ($att===1){ $asig = array_values(array_diff($asig, [$eid])); if(!in_array($eid,$hist,true)) $hist[]=$eid; }
+      else { $hist = array_values(array_diff($hist, [$eid])); if(!in_array($eid,$asig,true)) $asig[]=$eid; }
+      update_user_meta($uid, 'gw_charlas_asignadas', array_values(array_unique($asig)));
+      update_user_meta($uid, 'gw_charlas_historial', array_values(array_unique($hist)));
+      wp_send_json_success(['ok'=>1]);
+    }
+
+    $cap_ag = get_user_meta($uid, 'gw_capacitacion_agendada', true); if(!is_array($cap_ag)) $cap_ag=[];
+    $cap_hi = get_user_meta($uid, 'gw_capacitacion_historial', true); if(!is_array($cap_hi)){ $tmp=json_decode((string)$cap_hi,true); $cap_hi=is_array($tmp)?$tmp:[]; }
+    if ($att===1){
+      if (!empty($cap_ag) && intval($cap_ag['cap_id'] ?? 0) === $eid){
+        $row = [
+          'cap_id' => $eid,
+          'fecha'  => sanitize_text_field($cap_ag['fecha'] ?? ''),
+          'hora'   => sanitize_text_field($cap_ag['hora'] ?? ''),
+          'idx'    => intval($cap_ag['idx'] ?? 0),
+        ];
+        $cap_hi[] = $row;
+        delete_user_meta($uid, 'gw_capacitacion_agendada');
+        update_user_meta($uid, 'gw_capacitacion_historial', array_values($cap_hi));
+        update_user_meta($uid, 'gw_step7_completo', '1');
+      }
+    } else {
+      $kept=[]; $restore=null; foreach ($cap_hi as $r){ $rid=intval($r['cap_id'] ?? 0); if($rid===$eid && !$restore){ $restore=$r; } else { $kept[]=$r; } }
+      if ($restore){ update_user_meta($uid, 'gw_capacitacion_agendada', $restore); update_user_meta($uid, 'gw_capacitacion_historial', array_values($kept)); delete_user_meta($uid, 'gw_step7_completo'); }
+    }
+    wp_send_json_success(['ok'=>1]);
+  }
+}
+// ====== FIN Admin: Modal Asistencias + Toggle ======
+
 // === Panel Administrativo: botón/modal "Asistencias" en Gestión de usuarios ===
 add_action('wp_footer', function(){
   if ( ! is_user_logged_in() ) return;
@@ -1917,6 +2218,159 @@ add_action('wp_footer', function(){
   </script>
   <?php
 });
+
+// Hook JS para manejar [data-gw-attend] dentro del modal y refrescar su contenido
+add_action('wp_footer', function(){
+  if (!is_user_logged_in()) return; $u = wp_get_current_user();
+  if (!( in_array('administrator',$u->roles) || current_user_can('manage_options') )) return;
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req, 'panel-administrativo') === false) return;
+  $nonce = wp_create_nonce('gw_asist_admin');
+  $ajax  = admin_url('admin-ajax.php');
+  ?>
+  <script>
+  (function(){
+    var NONCE = '<?php echo esc_js($nonce); ?>';
+    var AJAX  = '<?php echo esc_js($ajax); ?>';
+
+    function refreshAsistModal(uid){
+      var fd = new FormData();
+      fd.append('action','gw_admin_asist_modal');
+      fd.append('nonce', NONCE);
+      fd.append('user_id', uid);
+      fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if(res && res.success && res.data && res.data.html){
+            var m = document.getElementById('gw-asist-modal');
+            if (m) { m.outerHTML = res.data.html; }
+            else {
+              var tmp = document.createElement('div');
+              tmp.innerHTML = res.data.html;
+              var dlg = tmp.firstElementChild;
+              if (dlg) document.body.appendChild(dlg);
+            }
+          }
+        });
+    }
+
+    document.addEventListener('click', function(ev){
+      var b = ev.target.closest('[data-gw-attend]');
+      if (!b) return;
+      ev.preventDefault(); ev.stopPropagation();
+      var uid = b.getAttribute('data-user');
+      var typ = b.getAttribute('data-type');
+      var eid = b.getAttribute('data-id');
+      var att = b.getAttribute('data-gw-attend');
+
+      var fd  = new FormData();
+      fd.append('action','gw_admin_asist_hist_toggle');
+      fd.append('nonce', NONCE);
+      fd.append('user_id', uid);
+      fd.append('type', typ);
+      fd.append('entity_id', eid);
+      fd.append('attend', att);
+
+      fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if(res && res.success){ refreshAsistModal(uid); }
+          else { alert((res && res.data && res.data.msg) || 'No se pudo guardar el historial'); }
+        })
+        .catch(function(){ alert('Error de red'); });
+    });
+  })();
+  </script>
+  <?php
+});
+
+// ===== Asistencias — Persistencia de Historial (no toca la lógica existente) =====
+// Charlas: cuando un ID sale de 'gw_charlas_asignadas' => lo agrega a 'gw_charlas_historial'.
+//          cuando un ID vuelve a entrar (revertir)     => lo quita de 'gw_charlas_historial'.
+// Capacitación: cuando se limpia 'gw_capacitacion_agendada' => lo agrega a 'gw_capacitacion_historial'.
+add_filter('update_user_metadata', 'gw_att_hist_on_update', 10, 5);
+if (!function_exists('gw_att_hist_on_update')) {
+function gw_att_hist_on_update($check, $user_id, $meta_key, $meta_value, $prev_value){
+
+  // === CHARLAS ===
+  if ($meta_key === 'gw_charlas_asignadas') {
+    $old = get_user_meta($user_id, 'gw_charlas_asignadas', true);
+    $old = is_array($old) ? array_map('intval', $old) : [];
+    $new = is_array($meta_value) ? array_map('intval', $meta_value) : [];
+
+    $removed = array_diff($old, $new); // salieron => asistió
+    $added   = array_diff($new, $old); // entraron => revertido
+
+    if (!empty($removed)) {
+      $hist = get_user_meta($user_id, 'gw_charlas_historial', true);
+      if (!is_array($hist)) $hist = [];
+      $nowTs = current_time('timestamp');
+
+      foreach ($removed as $cid) {
+        $cid = (int) $cid;
+        // evita duplicados
+        $dup = false;
+        foreach ($hist as $row) {
+          if ((int)($row['id'] ?? 0) === $cid) { $dup = true; break; }
+        }
+        if ($dup) continue;
+
+        $hist[] = [
+          'id'     => $cid,
+          'title'  => get_the_title($cid),
+          'fecha'  => date_i18n('Y-m-d', $nowTs),
+          'hora'   => date_i18n('H:i',   $nowTs),
+          'status' => 'asistio',
+          'ts'     => $nowTs,
+        ];
+      }
+      update_user_meta($user_id, 'gw_charlas_historial', array_values($hist));
+    }
+
+    if (!empty($added)) {
+      $hist = get_user_meta($user_id, 'gw_charlas_historial', true);
+      if (is_array($hist) && !empty($hist)) {
+        $keep = [];
+        foreach ($hist as $row) {
+          $rid = (int) ($row['id'] ?? 0);
+          if (!in_array($rid, $added, true)) $keep[] = $row;
+        }
+        update_user_meta($user_id, 'gw_charlas_historial', $keep);
+      }
+    }
+  }
+
+  // === CAPACITACIÓN ===
+  if ($meta_key === 'gw_capacitacion_agendada') {
+    $old = get_user_meta($user_id, 'gw_capacitacion_agendada', true);
+    $old = is_array($old) ? $old : [];
+    $new = is_array($meta_value) ? $meta_value : [];
+
+    $was_set = !empty($old) && !empty($old['cap_id']);
+    $is_set  = !empty($new) && !empty($new['cap_id']);
+
+    // si antes había y ahora no, lo damos por asistido en historial
+    if ($was_set && !$is_set) {
+      $hist = get_user_meta($user_id, 'gw_capacitacion_historial', true);
+      if (!is_array($hist)) $hist = [];
+      $nowTs = current_time('timestamp');
+
+      $cap_id = (int) ($old['cap_id'] ?? 0);
+      $hist[] = [
+        'cap_id' => $cap_id,
+        'title'  => get_the_title($cap_id),
+        'fecha'  => (string) ($old['fecha'] ?? date_i18n('Y-m-d', $nowTs)),
+        'hora'   => (string) ($old['hora']  ?? date_i18n('H:i',   $nowTs)),
+        'status' => 'asistio',
+        'ts'     => $nowTs,
+      ];
+      update_user_meta($user_id, 'gw_capacitacion_historial', array_values($hist));
+    }
+  }
+
+  // No cortocircuitamos la update original
+  return $check;
+}}
 
 // ===== Notificaciones — Tabla dedicada =====
 function gw_notif_table(){
@@ -3359,6 +3813,14 @@ function gw_admin_asist_modal(){
 
     // Cargar historial para fechas/horas de charlas ya aprobadas
     $char_hist = get_user_meta($uid, 'gw_charlas_historial', true);
+    if (!is_array($char_hist)) $char_hist = [];
+    if (empty($char_hist)) {
+    $char_hist_bak = get_user_meta($uid, 'gw_charlas_historial_backup', true);
+    if (is_array($char_hist_bak) && !empty($char_hist_bak)) {
+        update_user_meta($uid, 'gw_charlas_historial', $char_hist_bak);
+        $char_hist = $char_hist_bak;
+    }
+}
     $char_last = [];
     if (is_array($char_hist)) {
     foreach ($char_hist as $row) {
@@ -3373,6 +3835,7 @@ function gw_admin_asist_modal(){
 }
 
     $html .= '<table class="widefat striped"><thead><tr><th>Charla</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead><tbody>';
+    $printed_ids = [];
     foreach ($charlas_asignadas as $i => $key) {
       $charla_id = intval($key);
       $title = get_the_title($charla_id);
@@ -3397,8 +3860,47 @@ function gw_admin_asist_modal(){
                '<td>'.esc_html($estado).'</td>' .
                '<td>'.$btn.'</td>' .
                '</tr>';
+      $printed_ids[] = $charla_id;
     }
-    $html .= '</tbody></table>';
+    // --- Agregar filas desde historial si no están en asignadas ---
+    if (is_array($char_hist) && $char_hist) {
+      foreach ($char_hist as $row) {
+        $cid_hist = intval($row['charla_id'] ?? 0);
+        if (!$cid_hist) continue;
+        if (in_array($cid_hist, $printed_ids, true)) continue; // ya impreso como asignada
+        $title_h = get_the_title($cid_hist) ?: 'Charla';
+        $fh = (string)($row['fecha'] ?? '');
+        $hh = (string)($row['hora']  ?? '');
+        $btn_h = '<button class="button gwAsistRevert" data-kind="charla" data-key="'.esc_attr($cid_hist).'" data-uid="'.esc_attr($uid).'">Revertir</button>';
+        $html .= '<tr>'.
+                 '<td>'.esc_html($title_h).'</td>'.
+                 '<td>'.esc_html($fh ?: '—').'</td>'.
+                 '<td>'.esc_html($hh ?: '—').'</td>'.
+                 '<td>Asistió</td>'.
+                 '<td>'.$btn_h.'</td>'.
+                 '</tr>';
+      }
+    }
+    // Historico: mostrar charlas asistidas que ya no están asignadas
+if (is_array($char_hist) && !empty($char_hist)) {
+  $printed = array_map('intval', $charlas_asignadas);
+  foreach ($char_hist as $row) {
+      $cid = intval($row['charla_id'] ?? 0);
+      if (!$cid || in_array($cid, $printed, true)) continue;
+      $titleH = (string)($row['charla_title'] ?? get_the_title($cid) ?: 'Charla');
+      $fH = (string)($row['fecha'] ?? '');
+      $hH = (string)($row['hora']  ?? '');
+      $btnH = '<button class="button gwAsistRevert" data-kind="charla" data-key="'.esc_attr($cid).'" data-uid="'.esc_attr($uid).'">Revertir</button>';
+      $html .= '<tr>'
+            .  '<td>'.esc_html($titleH).'</td>'
+            .  '<td>'.esc_html($fH ?: '—').'</td>'
+            .  '<td>'.esc_html($hH ?: '—').'</td>'
+            .  '<td>Asistió</td>'
+            .  '<td>'.$btnH.'</td>'
+            .  '</tr>';
+  }
+}
+$html .= '</tbody></table>';
   } else {
     $html .= '<p style="color:#666">Sin charlas asignadas.</p>';
   }
@@ -3497,6 +3999,88 @@ function gw_admin_mark_attendance(){
         'ts'           => current_time('timestamp'),
       ];
       update_user_meta($uid, 'gw_charlas_historial', $hist);
+    
+          // 1.b) Fallback: si no hay charla_agendada, registra igualmente en historial usando la clave (ID) de la charla
+    if (empty($ag)) {
+      $cid = intval($key);
+      if ($cid > 0) {
+          $fecha = '';
+          $hora  = '';
+
+          // Intentar obtener fecha/hora desde meta 'gw_sesiones'
+          $ses = get_post_meta($cid, 'gw_sesiones', true);
+          if (is_array($ses) && !empty($ses)) {
+              $s = end($ses);
+              $ini = is_array($s) ? ($s['inicio'] ?? '') : $s;
+              if ($ini) {
+                  $ts = is_numeric($ini) ? (int)$ini : strtotime((string)$ini);
+                  if ($ts) {
+                      $fecha = date_i18n('Y-m-d', $ts);
+                      $hora  = date_i18n('H:i', $ts);
+                  }
+              }
+          }
+
+          if ($fecha === '') $fecha = date_i18n('Y-m-d');
+          if ($hora  === '') $hora  = date_i18n('H:i');
+
+          $hist = get_user_meta($uid, 'gw_charlas_historial', true);
+          if (!is_array($hist)) $hist = [];
+          $hist[] = [
+              'charla_id'    => $cid,
+              'charla_title' => get_the_title($cid) ?: 'Charla',
+              'fecha'        => $fecha,
+              'hora'         => $hora,
+              'asistio'      => 1,
+              'ts'           => current_time('timestamp'),
+          ];
+
+          update_user_meta($uid, 'gw_charlas_historial', $hist);
+          // Copia de seguridad para evitar borrados accidentales por otros flujos
+          update_user_meta($uid, 'gw_charlas_historial_backup', $hist);
+      }
+        } else {
+      // Mantener copia de seguridad sincronizada cuando sí hubo agendada
+      $hist_bak = get_user_meta($uid, 'gw_charlas_historial', true);
+      if (is_array($hist_bak)) {
+          update_user_meta($uid, 'gw_charlas_historial_backup', $hist_bak);
+      }
+  }
+    }
+    // --- Fallback: si no existe 'gw_charla_agendada', registra igualmente usando el ID de la charla ---
+    if (!is_array($ag) || empty($ag)) {
+      $cid_f = intval($key);
+      if ($cid_f > 0) {
+        $hist = get_user_meta($uid, 'gw_charlas_historial', true);
+        if (!is_array($hist)) $hist = [];
+        // Intentar obtener una fecha/hora razonable (primera sesión futura o ahora)
+        $fecha_f = '';
+        $hora_f  = '';
+        $ses = get_post_meta($cid_f, 'gw_sesiones', true);
+        if (is_array($ses)) {
+          $now_ts = current_time('timestamp');
+          foreach ($ses as $s) {
+            $ini = is_array($s) ? ($s['inicio'] ?? null) : $s;
+            if (!$ini) continue;
+            $ts = is_numeric($ini) ? (int)$ini : strtotime((string)$ini);
+            if ($ts) { $fecha_f = date_i18n('Y-m-d', $ts); $hora_f = date_i18n('H:i', $ts); break; }
+          }
+        }
+        if (!$fecha_f) {
+          $tsn = current_time('timestamp');
+          $fecha_f = date_i18n('Y-m-d', $tsn);
+          $hora_f  = date_i18n('H:i', $tsn);
+        }
+        $hist[] = [
+          'charla_id'    => $cid_f,
+          'charla_title' => (string) get_the_title($cid_f),
+          'fecha'        => $fecha_f,
+          'hora'         => $hora_f,
+          'asistio'      => 1,
+          'ts'           => current_time('timestamp'),
+        ];
+        update_user_meta($uid, 'gw_charlas_historial', $hist);
+      }
     }
   
     // 2) Legacy y flags que desbloquean el flujo
@@ -3601,7 +4185,27 @@ function gw_admin_revert_attendance(){
     // Flags de flujo
     delete_user_meta($uid, 'gw_charla_asistio');
     delete_user_meta($uid, 'gw_charla_asistio_' . $key);
-
+    // Quitar del historial la última ocurrencia de esta charla
+    $cid_rev = intval($key);
+    $hist_r = get_user_meta($uid, 'gw_charlas_historial', true);
+    if (is_array($hist_r) && $hist_r) {
+      $removed = false;
+      $new_hist = [];
+      foreach ($hist_r as $row) {
+        if (!$removed && intval($row['charla_id'] ?? 0) === $cid_rev) { $removed = true; continue; }
+        $new_hist[] = $row;
+      }
+      update_user_meta($uid, 'gw_charlas_historial', $new_hist);
+      update_user_meta($uid, 'gw_charlas_historial_backup', $new_hist);
+    }
+    // Garantiza que vuelva a aparecer como pendiente en asignadas (si tu flujo así lo requiere)
+    $asig_r = get_user_meta($uid, 'gw_charlas_asignadas', true);
+    if (!is_array($asig_r)) $asig_r = [];
+    $ids_asig = array_map('intval', $asig_r);
+    if ($cid_rev > 0 && !in_array($cid_rev, $ids_asig, true)) {
+      $ids_asig[] = $cid_rev;
+      update_user_meta($uid, 'gw_charlas_asignadas', array_values(array_unique($ids_asig)));
+    }
     wp_send_json_success(['done'=>1]);
   }
 
@@ -12703,6 +13307,43 @@ function gw_rechazar_doc_individual_callback() {
     wp_send_json_success(['message' => 'Documento rechazado y usuario notificado', 'status' => 'rechazado']);
 }
 
+// === AJAX: subir documento individual (compat layer) ===
+add_action('wp_ajax_gw_doc_upload', 'gw_ajax_doc_upload'); // requiere login
+
+function gw_ajax_doc_upload(){
+  if (!is_user_logged_in()) wp_send_json_error(['msg'=>'No logueado']);
+  check_ajax_referer('gw_doc_upload', 'nonce');
+
+  $slot = isset($_POST['slot']) ? intval($_POST['slot']) : 0;
+  if ($slot < 1 || $slot > 4) wp_send_json_error(['msg'=>'Slot inválido']);
+
+  if (empty($_FILES['file'])) wp_send_json_error(['msg'=>'Archivo no recibido']);
+
+  require_once ABSPATH.'wp-admin/includes/file.php';
+  require_once ABSPATH.'wp-admin/includes/media.php';
+  require_once ABSPATH.'wp-admin/includes/image.php';
+
+  $user = wp_get_current_user();
+
+  // Sube al Media Library
+  $attachment_id = media_handle_upload('file', 0);
+  if (is_wp_error($attachment_id)) {
+    wp_send_json_error(['msg'=>$attachment_id->get_error_message()]);
+  }
+  $url = wp_get_attachment_url($attachment_id);
+
+  // Guardar compat metas para lectura rápida
+  update_user_meta($user->ID, "gw_doc{$slot}_attachment_id", $attachment_id);
+  update_user_meta($user->ID, "gw_doc{$slot}_url", $url);
+
+  // Mapa de últimos documentos (opcional)
+  $map = (array) get_user_meta($user->ID, 'gw_docs_latest', true);
+  $map[$slot] = ['id'=>$attachment_id, 'url'=>$url];
+  update_user_meta($user->ID, 'gw_docs_latest', $map);
+
+  wp_send_json_success(['slot'=>$slot, 'id'=>$attachment_id, 'url'=>$url]);
+}
+
 // 5. Función para enviar correo de rechazo específico por documento
 function gw_enviar_correo_rechazo_documento($user, $doc_id) {
     $to = $user->user_email;
@@ -13034,18 +13675,163 @@ function gw_obtener_mensaje_error_upload($error_code) {
     }
 }
 
-// Función para crear el archivo index.php de seguridad en el directorio de documentos
-function gw_crear_index_seguridad_documentos() {
-    $upload_info = wp_upload_dir();
-    $docs_dir = $upload_info['basedir'] . '/documentos-voluntarios/';
-    $index_file = $docs_dir . 'index.php';
-    
-    if (file_exists($docs_dir) && !file_exists($index_file)) {
-        $index_content = "<?php\n// Silencio es oro\n";
-        file_put_contents($index_file, $index_content);
+// === Paso 8 (Documentos y escuela): previews + botón "Agregar otra foto" ===
+add_action('wp_footer', function(){
+  if (!is_user_logged_in()) return;
+  $u = wp_get_current_user();
+  if (!in_array('voluntario', (array)$u->roles, true)) return; // sólo voluntarios
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  // Heurística: solo en portal de voluntario / documentos / paso 8
+  if (strpos($req,'portal-voluntario') === false && strpos($req,'paso-8') === false && strpos($req,'documentos') === false) return;
+  ?>
+  <script>
+  (function(){
+    // 1) PREVIEW INSTANTÁNEO (FileReader) — no depende del servidor
+    function isDocInput(el){
+      if (!el || el.type !== 'file') return false;
+      var n = (el.getAttribute('name') || '').toLowerCase();
+      return n.indexOf('gw_doc') === 0 || el.hasAttribute('data-gw-doc');
     }
-}
+    function ensureThumb(input){
+      var wrap = input.closest('.gw-doc-slot') || input.parentNode;
+      var img = wrap.querySelector('.gw-doc-thumb');
+      if (!img){
+        img = document.createElement('img');
+        img.className = 'gw-doc-thumb';
+        img.alt = 'Vista previa';
+        img.style.maxWidth = '180px';
+        img.style.borderRadius = '10px';
+        img.style.display = 'block';
+        img.style.margin = '8px 0';
+        wrap.insertBefore(img, input);
+      }
+      return img;
+    }
+    function handleChange(e){
+      var input = e.target; if (!isDocInput(input) || !input.files || !input.files[0]) return;
+      try{
+        var reader = new FileReader();
+        var img = ensureThumb(input);
+        reader.onload = function(ev){ img.src = ev.target.result; img.style.display = 'block'; };
+        reader.readAsDataURL(input.files[0]);
+      }catch(err){}
+    }
+    document.addEventListener('change', function(e){
+      if (e.target && e.target.matches('input[type="file"]')) handleChange(e);
+    }, true);
 
+    // 2) BOTÓN “+ Agregar otra foto” — crea/revela slots 3 y 4 de forma segura
+    function getDocsContainer(){
+      return document.querySelector('[data-gw-docs-container]') || document.getElementById('gw-docs-form') || document.querySelector('.gw-docs');
+    }
+    function createSlot(n){
+      var c = getDocsContainer(); if (!c) return null;
+      var slot = document.createElement('div');
+      slot.className = 'gw-doc-slot';
+      slot.setAttribute('data-slot', String(n));
+      slot.innerHTML = '<label style="display:block;font-weight:600;margin:8px 0">Documento de identidad (Foto '+n+')</label>'
+                     + '<input type="file" accept="image/*" name="gw_doc'+n+'" data-gw-doc="'+n+'">';
+      c.appendChild(slot);
+      return slot;
+    }
+    function ensureExtraSlots(){
+      var c = getDocsContainer(); if (!c) return;
+      var count = c.querySelectorAll('input[type="file"][name^="gw_doc"]').length;
+      if (count < 3) createSlot(3);
+      if (count < 4) createSlot(4);
+    }
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      var text = (t.textContent || '').trim().toLowerCase();
+      // Soporta diferentes labels/ids sin depender del HTML exacto
+      if (t.id === 'gw-add-photo' || t.getAttribute('data-gw-add-doc') === '1' || text === '+ agregar otra foto' || text === 'agregar otra foto'){
+        e.preventDefault();
+        ensureExtraSlots();
+      }
+    }, true);
+  })();
+  </script>
+  <?php
+});
+
+// === Paso 8 (Documentos y escuela): auto-upload 2.2 ===
+add_action('wp_footer', function(){
+  if (!is_user_logged_in()) return;
+  $u = wp_get_current_user();
+  if (!in_array('voluntario', (array)$u->roles, true)) return; // solo voluntarios
+
+  // Ejecutar solo en el portal/paso 8/documentos
+  $req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+  if (strpos($req,'portal-voluntario') === false && strpos($req,'paso-8') === false && strpos($req,'documentos') === false) return;
+  ?>
+  <script>
+  (function(){
+    var AUTO_UPLOAD = false; // Pon en true si quieres subir automáticamente al elegir archivo
+    if (!AUTO_UPLOAD) return;
+
+    var nonce = "<?php echo esc_js( wp_create_nonce('gw_doc_upload') ); ?>";
+    function isDocInput(el){
+      if (!el || el.type !== 'file') return false;
+      var n = (el.getAttribute('name') || '').toLowerCase();
+      return n.indexOf('gw_doc') === 0 || el.hasAttribute('data-gw-doc');
+    }
+    function getSlot(el){
+      var n = (el.getAttribute('name') || '').match(/gw_doc(\\d)/i);
+      if (n && n[1]) return parseInt(n[1],10);
+      var ds = el.getAttribute('data-gw-doc'); if (ds) return parseInt(ds,10);
+      return 0;
+    }
+
+    document.addEventListener('change', function(e){
+      var input = e.target;
+      if (!isDocInput(input) || !input.files || !input.files[0]) return;
+      var slot = getSlot(input); if (!slot) return;
+
+      var fd = new FormData();
+      fd.append('action', 'gw_doc_upload');
+      fd.append('nonce', nonce);
+      fd.append('slot', slot);
+      fd.append('file', input.files[0]);
+
+      fetch('<?php echo esc_js( admin_url('admin-ajax.php') ); ?>', { method:'POST', credentials:'same-origin', body:fd })
+        .then(r=>r.json())
+        .then(function(resp){
+          if (resp && resp.success && resp.data && resp.data.url){
+            // Si ya existe un <img> de preview, actualiza a la URL definitiva del adjunto
+            var wrap = input.closest('.gw-doc-slot') || input.parentNode;
+            var img = wrap && wrap.querySelector('.gw-doc-thumb');
+            if (img) img.src = resp.data.url;
+          } else {
+            console.warn('Upload documentos (compat) sin éxito', resp);
+          }
+        })
+        .catch(function(err){ console.error('Upload documentos (compat) error', err); });
+    }, true);
+  })();
+  </script>
+  <?php
+});
+
+// Crear el index.php al activar el plugin o cargar el sistema
+// Crea (si no existe) el directorio /documentos-voluntarios y un index.php de seguridad
+if (!function_exists('gw_crear_index_seguridad_documentos')) {
+  function gw_crear_index_seguridad_documentos() {
+    $upload_info = wp_upload_dir();
+    $docs_dir  = trailingslashit($upload_info['basedir']) . 'documentos-voluntarios/';
+
+    // Asegurar que el directorio exista
+    if (!file_exists($docs_dir)) {
+      wp_mkdir_p($docs_dir);
+    }
+
+    // Crear index.php para evitar listado de directorio
+    $index_file = $docs_dir . 'index.php';
+    if (file_exists($docs_dir) && !file_exists($index_file)) {
+      $index_content = "<?php\n// Silence is golden\n";
+      @file_put_contents($index_file, $index_content);
+    }
+  }
+}
 // Crear el index.php al activar el plugin o cargar el sistema
 add_action('init', 'gw_crear_index_seguridad_documentos');
 

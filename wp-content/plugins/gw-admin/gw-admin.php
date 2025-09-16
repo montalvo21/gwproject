@@ -9,47 +9,63 @@ function gw_guardar_documentos_voluntario($user_id, $escuela_id, $file_names, $c
     global $wpdb;
     $table = $wpdb->prefix . 'voluntario_docs';
 
-    // Verifica si ya existe un registro para este usuario y escuela
+    // Normalizar arreglo de archivos a 4 posiciones
+    $f1 = isset($file_names[0]) ? esc_url_raw($file_names[0]) : '';
+    $f2 = isset($file_names[1]) ? esc_url_raw($file_names[1]) : '';
+    $f3 = isset($file_names[2]) ? esc_url_raw($file_names[2]) : '';
+    $f4 = isset($file_names[3]) ? esc_url_raw($file_names[3]) : '';
+
+    // Detectar si la tabla tiene columnas 3/4
+    $has_doc3 = (bool) $wpdb->get_var( $wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", 'documento_3_url') );
+    $has_doc4 = (bool) $wpdb->get_var( $wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", 'documento_4_url') );
+
+    // Construir data y formatos dinámicamente (UPDATE/INSERT comparten lógica)
+    $base_data = [
+        'documento_1_url' => $f1,
+        'documento_2_url' => $f2,
+        'consent_1'       => (int) $cons1,
+        'consent_2'       => (int) $cons2,
+        'status'          => 'pendiente',
+    ];
+    $base_fmt  = ['%s','%s','%d','%d','%s'];
+
+    if ($has_doc3) { $base_data['documento_3_url'] = $f3; $base_fmt[] = '%s'; }
+    if ($has_doc4) { $base_data['documento_4_url'] = $f4; $base_fmt[] = '%s'; }
+
+    // Guardar fallback en user_meta si la tabla no tiene esas columnas
+    if ($f3 && !$has_doc3) { update_user_meta($user_id, 'gw_doc3_url', $f3); }
+    if ($f4 && !$has_doc4) { update_user_meta($user_id, 'gw_doc4_url', $f4); }
+
+    // ¿Existe registro?
     $docs = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM " . ($wpdb->prefix . 'voluntario_docs') . " WHERE user_id = %d AND escuela_id = %d", $user_id, $escuela_id
+        "SELECT * FROM {$table} WHERE user_id = %d AND escuela_id = %d",
+        $user_id, $escuela_id
     ));
 
     if ($docs) {
-        // Actualiza el registro existente
+        // UPDATE
+        $data = $base_data;
+        $data['fecha_revision'] = current_time('mysql', 1);
+        $fmt  = array_merge($base_fmt, ['%s']);
+
         $wpdb->update(
-            $wpdb->prefix . 'voluntario_docs',
-            [
-                'documento_1_url' => esc_url_raw($file_names[0]),
-                'documento_2_url' => esc_url_raw($file_names[1]),
-                'consent_1' => $cons1,
-                'consent_2' => $cons2,
-                'status' => 'pendiente',
-                'fecha_revision' => current_time('mysql', 1)
-            ],
-            [
-                'user_id' => $user_id,
-                'escuela_id' => $escuela_id
-            ],
-            ['%s','%s','%d','%d','%s','%s'],
+            $table,
+            $data,
+            [ 'user_id' => $user_id, 'escuela_id' => $escuela_id ],
+            $fmt,
             ['%d','%d']
         );
     } else {
-        // Inserta un nuevo registro
-        $wpdb->insert(
-            $wpdb->prefix . 'voluntario_docs',
-            [
-                'user_id' => $user_id,
-                'escuela_id' => $escuela_id,
-                'documento_1_url' => esc_url_raw($file_names[0]),
-                'documento_2_url' => esc_url_raw($file_names[1]),
-                'consent_1' => $cons1,
-                'consent_2' => $cons2,
-                'status' => 'pendiente',
-                'fecha_subida' => current_time('mysql', 1),
-                'fecha_revision' => current_time('mysql', 1)
-            ],
-            ['%d','%d','%s','%s','%d','%d','%s','%s','%s']
-        );
+        // INSERT
+        $data = array_merge($base_data, [
+            'user_id'       => $user_id,
+            'escuela_id'    => $escuela_id,
+            'fecha_subida'  => current_time('mysql', 1),
+            'fecha_revision'=> current_time('mysql', 1),
+        ]);
+        $fmt  = array_merge($base_fmt, ['%d','%d','%s','%s']);
+
+        $wpdb->insert($table, $data, $fmt);
     }
 }
 
@@ -833,69 +849,106 @@ function gw_portal_voluntario_shortcode() {
       .gw-thumb img{display:block;width:100%;height:auto;object-fit:cover}
     </style>
     <script>
-    (function(){
-      if (window.__gwDocsPreviewInjected) return; // evitar doble inyección
-      window.__gwDocsPreviewInjected = true;
+(function(){
+  // Evitar doble inyección
+  if (window.__gwDocsPreviewInjectedV2) return;
+  window.__gwDocsPreviewInjectedV2 = true;
 
-      // Utilidad: enlazar preview a un input file
-      function bindPreview(input){
-        if (!input || input.__gwBound) return;
-        input.__gwBound = true;
-        input.addEventListener('change', function(){
-          var file = input.files && input.files[0];
-          if (!file || !/^image\//.test(file.type||'')) return;
-          var wrap = input.closest('.gw-doc-card, .gw-upload-card, .gw-file-box, .gw-doc-uploader, .gw-field, .gw-documento, .gw-form-group') || input.parentNode;
-          var preview = wrap.querySelector('.gw-thumb');
-          if (!preview){
-            preview = document.createElement('div');
-            preview.className = 'gw-thumb';
-            var img = document.createElement('img');
-            preview.appendChild(img);
-            wrap.appendChild(preview);
-          }
-          var imgEl = preview.querySelector('img');
-          imgEl.src = URL.createObjectURL(file);
-        });
+  function isLikelyDocInput(el){
+    if (!el || el.tagName !== 'INPUT' || el.type !== 'file') return false;
+    // Menos restrictivo: cualquier input file entra, pero priorizamos los que parezcan de documentos
+    var n = (el.getAttribute('name')||'').toLowerCase();
+    return !!el.matches('input[type="file"]');
+  }
+
+  function ensureThumb(input){
+    var wrap = input.closest('.gw-doc-slot, .gw-doc-card, .gw-upload-card, .gw-file-box, .gw-doc-uploader, .gw-field, .gw-documento, .gw-form-group') || input.parentNode;
+    var preview = wrap.querySelector('.gw-thumb');
+    if (!preview){
+      preview = document.createElement('div');
+      preview.className = 'gw-thumb';
+      var img = document.createElement('img');
+      preview.appendChild(img);
+      wrap.appendChild(preview);
+    }
+    return preview.querySelector('img');
+  }
+
+  // 1) PREVIEW inmediato — aplicado a CUALQUIER input file (delegado)
+  document.addEventListener('change', function(e){
+    var el = e.target;
+    if (!isLikelyDocInput(el) || !el.files || !el.files[0]) return;
+    var f = el.files[0];
+    if (!/^image\//.test(f.type || '')) return;
+    var img = ensureThumb(el);
+    try { img.src = URL.createObjectURL(f); } catch(_){/* noop */}
+  }, true);
+
+  // 2) Crear slots extra (3 y 4) de forma defensiva
+  function norm(s){ return (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  function getDocsContainer(anchor){
+    // Intenta anclar la inserción cerca del botón pulsado
+    if (anchor) {
+      var near = anchor.closest('.gw-docs-extra, .gw-docs, .gw-documentos, .gw-upload-area, .gw-upload-card, .gw-file-box, .gw-form-group, .gw-section, .gw-card, form');
+      if (near) return near;
+    }
+    // Fallbacks globales
+    return document.querySelector('[data-gw-docs-container]')
+        || document.getElementById('gw-docs-form')
+        || document.querySelector('.gw-docs')
+        || document.querySelector('.gw-form-container')
+        || document.querySelector('form');
+  }
+  function createSlot(n, container, anchor){
+    var c = container || getDocsContainer(anchor); if (!c) return null;
+    // Evitar duplicados si ya existe el input gw_docN en todo el documento
+    if (document.querySelector('input[name="gw_doc'+n+'"]')) return null;
+
+    var slot = document.createElement('div');
+    slot.className = 'gw-doc-slot';
+    slot.setAttribute('data-slot', String(n));
+    slot.innerHTML = '<label style="display:block;font-weight:600;margin:8px 0">Documento de identidad (Foto '+n+')</label>'+
+                     '<input type="file" accept="image/*" name="gw_doc'+n+'" data-gw-doc="'+n+'">';
+
+    // Si tenemos el botón, insertar DENTRO del contenedor del botón para que quede visible en el mismo recuadro (debajo del texto)
+    if (anchor) {
+      var host = anchor.closest('.gw-docs-extra, .gw-upload-area, .gw-file-box, .gw-form-group, .gw-section, .gw-card, .gw-dashed, .gw-dotted, .gw-docs-box');
+      if (host) {
+        host.appendChild(slot); // al final del recuadro, después del texto indicativo
+      } else if (anchor.parentNode) {
+        anchor.parentNode.appendChild(slot);
+      } else {
+        c.appendChild(slot);
       }
+    } else {
+      c.appendChild(slot);
+    }
 
-      // Enlazar a todos los inputs file visibles en la página de documentos
-      Array.prototype.forEach.call(document.querySelectorAll('input[type="file"]'), bindPreview);
+    try { slot.scrollIntoView({behavior:'smooth', block:'nearest'}); } catch(_){}
+    return slot;
+  }
+  function ensureExtraSlots(anchor){
+    var c = getDocsContainer(anchor);
+    createSlot(3, c, anchor);
+    createSlot(4, c, anchor);
+  }
 
-      // Buscar el botón "Agregar otra foto" (con o sin "+") aunque no tenga id
-      function findAddBtn(){
-        var byId = document.getElementById('gw-add-photo');
-        if (byId) return byId;
-        var candidates = document.querySelectorAll('button, a');
-        for (var i=0;i<candidates.length;i++){
-          var t = (candidates[i].textContent||'').trim().toLowerCase();
-          if (t === '+ agregar otra foto' || t === 'agregar otra foto'){ return candidates[i]; }
-        }
-        return null;
-      }
-
-      var addBtn = findAddBtn();
-      if (addBtn){
-        addBtn.id = addBtn.id || 'gw-add-photo';
-        addBtn.addEventListener('click', function(ev){
-          ev.preventDefault();
-          // Contenedor cercano donde agregar el nuevo slot
-          var container = addBtn.closest('.gw-form-container, .gw-docs, form, .gw-section') || addBtn.parentNode;
-          var slot = document.createElement('div');
-          slot.className = 'gw-extra-photo';
-          slot.style.cssText = 'margin:10px 0; padding:12px; border:1px dashed #cbd5e1; border-radius:12px';
-          slot.innerHTML = '\n            <label style="display:block;font-weight:600;margin-bottom:6px">Foto adicional</label>\n            <input type="file" name="gw_doc_extra[]" accept="image/*" class="gw-doc-extra-input" style="display:block;margin-bottom:8px;">\n            <div class="gw-thumb" style="display:none"><img/></div>\n          ';
-          // Insertar después del botón o al final del contenedor
-          (addBtn.parentNode.parentNode || addBtn.parentNode).insertBefore(slot, addBtn.parentNode.nextSibling);
-          var fi = slot.querySelector('input[type="file"]');
-          bindPreview(fi);
-          fi.addEventListener('change', function(){
-            var th = slot.querySelector('.gw-thumb');
-            if (fi.files && fi.files[0]){ th.style.display='block'; } else { th.style.display='none'; }
-          });
-        });
-      }
-    })();
-    </script>
+  // 3) Hook del botón “+ Agregar otra foto” (delegado y tolerante a variaciones)
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    var label = norm(t.textContent || t.value || '');
+    if (
+      t.id === 'gw-add-photo' ||
+      t.getAttribute('data-gw-add-doc') === '1' ||
+      /(^|\s)[+]?\s*agregar\s+otra\s+foto(\s|$)/.test(label) ||
+      /(^|\s)agregar\s+foto(s)?(\s|$)/.test(label)
+    ){
+      e.preventDefault();
+      ensureExtraSlots(t);
+    }
+  }, true);
+})();
+</script>
     <?php
 
     // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
@@ -5858,7 +5911,9 @@ function gw_step_8_documentos($user_id) {
         if (!addBtn) return;
 
         addBtn.addEventListener('click', function(){
-            var container = document.getElementById('documents-container');
+            // Preferimos insertar dentro del recuadro punteado del botón
+            var hostSection = document.getElementById('add-photo-btn') ? document.getElementById('add-photo-btn').closest('.gw-add-photos-section') : null;
+            var container = hostSection || document.getElementById('documents-container');
             if (!container) return;
 
             // Siguiente slot disponible: 3 primero, luego 4
@@ -5891,14 +5946,16 @@ function gw_step_8_documentos($user_id) {
     </div>
   </div>`;
 
+            // Insertar al final del recuadro punteado, debajo del texto de ayuda
             container.insertAdjacentHTML('beforeend', html);
 
             // Enlazar eventos de compresión/preview al nuevo input
             var newInput = container.querySelector('#documento_' + next);
             bindFileInput(newInput);
 
-            // Si ya se agregaron 3 y 4, desactivar botón
-            if (container.querySelector('#documento_3') && container.querySelector('#documento_4')){
+            // Si ya se agregaron 3 y 4, desactivar botón (buscar dentro del mismo contenedor)
+            var scope = hostSection || container;
+            if (scope.querySelector('#documento_3') && scope.querySelector('#documento_4')){
                 addBtn.disabled = true;
                 addBtn.textContent = 'Has agregado todas las fotos';
             }
