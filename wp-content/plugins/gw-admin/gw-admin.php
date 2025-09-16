@@ -950,37 +950,34 @@ function gw_portal_voluntario_shortcode() {
 })();
 </script>
     <?php
-
-    // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
-    if ($current_step == 1) {
-        echo gw_step_1_registro($user_id);
-    }
-    // ===== PASO 2: FORMULARIO DE DATOS =====
-    elseif ($current_step == 2) {
-        echo gw_step_2_form_datos($user_id);
-    }
-    // ===== PASO 3: VIDEO INTRODUCTORIO =====
-    elseif ($current_step == 3) {
-        echo gw_step_3_video_intro($user_id);
-    }
-    // ===== PASO 4: FORMULARIO DE INDUCCIÓN =====
-
-    // ===== PASO 5: CHARLA/PRIMERA SESIÓN EN VIVO =====
-    elseif ($current_step == 5) {
-        echo gw_step_5_charla($user_id);
-    }
-    // ===== PASO 6: SELECCIÓN DE PROYECTO =====
-    elseif ($current_step == 6) {
-        echo gw_step_6_proyecto($user_id);
-    }
-    // ===== PASO 7: CAPACITACIONES =====
-    elseif ($current_step == 7) {
-        echo gw_step_7_capacitacion($user_id);
-    }
-    // ===== PASO 8: CONTROLADOR (selección escuela/horario -> página extra -> documentos) =====
-    elseif ($current_step == 8) {
-        echo gw_step_8_controller($user_id);
-    }
+// ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
+if ($current_step == 1) {
+    echo gw_step_1_registro($user_id);
+}
+// ===== PASO 2: FORMULARIO DE DATOS =====
+elseif ($current_step == 2) {
+    echo gw_step_2_form_datos($user_id);
+}
+// ===== PASO 3: VIDEO INTRODUCTORIO =====
+elseif ($current_step == 3) {
+    echo gw_step_3_video_intro($user_id);
+}
+// ===== PASO 4: CHARLA/PRIMERA SESIÓN EN VIVO (anteriormente paso 5) =====
+elseif ($current_step == 4) {
+    echo gw_step_5_charla($user_id);
+}
+// ===== PASO 5: SELECCIÓN DE PROYECTO (anteriormente paso 6) =====
+elseif ($current_step == 5) {
+    echo gw_step_6_proyecto($user_id);
+}
+// ===== PASO 6: CAPACITACIONES (anteriormente paso 7) =====
+elseif ($current_step == 6) {
+    echo gw_step_7_capacitacion($user_id);
+}
+// ===== PASO 7: CONTROLADOR (anteriormente paso 8) =====
+elseif ($current_step == 7) {
+    echo gw_step_8_controller($user_id);
+}
     // ===== FLUJO COMPLETADO =====
     else {
         echo '<div class="notice notice-success"><p>¡Bienvenido/a! Has completado tu onboarding. Ya puedes participar en todas las actividades.</p></div>';
