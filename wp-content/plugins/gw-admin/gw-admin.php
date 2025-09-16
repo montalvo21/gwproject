@@ -964,9 +964,7 @@ function gw_portal_voluntario_shortcode() {
         echo gw_step_3_video_intro($user_id);
     }
     // ===== PASO 4: FORMULARIO DE INDUCCIÓN =====
-    elseif ($current_step == 4) {
-        echo gw_step_4_form_induccion($user_id);
-    }
+
     // ===== PASO 5: CHARLA/PRIMERA SESIÓN EN VIVO =====
     elseif ($current_step == 5) {
         echo gw_step_5_charla($user_id);
@@ -1308,26 +1306,19 @@ function gw_get_voluntario_step($user_id) {
                 <div class="gw-step-item">
                     <div class="gw-step-number">3</div>
                     <div class="gw-step-content">
-                        <h3>Registro para inducción</h3>
-                        <p>Completa tu información para la inducción.</p>
-                    </div>
-                </div>
-                <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
-                    <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
                     </div>
                 </div>
                 <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
                     </div>
                 </div>
                 <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -1336,7 +1327,7 @@ function gw_get_voluntario_step($user_id) {
 
                       <!-- Paso 7 -->
                     <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -1522,18 +1513,10 @@ function gw_get_voluntario_step($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 3 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">3</div>
-                    <div class="gw-step-content">
-                        <h3>Verificación de identidad</h3>
-                        <p>Confirma tus datos para mantener tu cuenta segura.</p>
-                    </div>
-                    </div>
 
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
+                    <div class="gw-step-number">3</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -1542,7 +1525,7 @@ function gw_get_voluntario_step($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -1551,7 +1534,7 @@ function gw_get_voluntario_step($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -1560,7 +1543,7 @@ function gw_get_voluntario_step($user_id) {
 
                       <!-- Paso 8 -->
                     <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -1741,17 +1724,11 @@ function gw_step_3_video_intro($user_id) {
                     </div>
 
                     <!-- Paso 3 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">3</div>
-                    <div class="gw-step-content">
-                        <h3>Verificación de identidad</h3>
-                        <p>Confirma tus datos para mantener tu cuenta segura.</p>
-                    </div>
-                    </div>
+
 
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
+                    <div class="gw-step-number">3</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -1760,7 +1737,7 @@ function gw_step_3_video_intro($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -1769,7 +1746,7 @@ function gw_step_3_video_intro($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -1778,7 +1755,7 @@ function gw_step_3_video_intro($user_id) {
 
                       <!-- Paso 8 -->
                     <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -1912,429 +1889,7 @@ function gw_step_3_video_intro($user_id) {
     <?php
     return ob_get_clean();
 }
-function gw_step_4_form_induccion($user_id) {
-    // Si ya está completo, redirige
-    if (get_user_meta($user_id, 'gw_step4_completo', true)) {
-        return '<meta http-equiv="refresh" content="0">';
-    }
 
-    $error = '';
-    $nombre = $motivo = $edad = $pais = '';
-    $mostrar_exito = false; // Variable para controlar la pantalla de éxito
-
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gw_induccion_nonce']) && wp_verify_nonce($_POST['gw_induccion_nonce'], 'gw_form_induccion')) {
-        $nombre = sanitize_text_field($_POST['nombre']);
-        $motivo = sanitize_textarea_field($_POST['motivo']);
-        $edad = intval($_POST['edad']);
-        $pais = sanitize_text_field($_POST['pais']);
-
-        if (!$nombre || !$motivo || !$edad || !$pais) {
-            $error = 'Por favor completa todos los campos requeridos.';
-        } elseif ($edad < 15 || $edad > 99) {
-            $error = 'La edad debe estar entre 15 y 99 años.';
-        } elseif (strlen($motivo) < 10) {
-            $error = 'El motivo debe tener al menos 10 caracteres.';
-        } else {
-            update_user_meta($user_id, 'gw_induccion_nombre', $nombre);
-            update_user_meta($user_id, 'gw_induccion_motivo', $motivo);
-            update_user_meta($user_id, 'gw_induccion_edad', $edad);
-            update_user_meta($user_id, 'gw_induccion_pais', $pais);
-            update_user_meta($user_id, 'gw_step4_completo', 1);
-            
-            // Cancela recordatorios
-            gw_cancelar_recordatorios_aspirante($user_id);
-            
-            // En lugar de redirigir inmediatamente, mostrar pantalla de éxito
-            $mostrar_exito = true;
-        }
-    } else {
-        // Cargar datos existentes si los hay
-        $nombre = get_user_meta($user_id, 'gw_induccion_nombre', true);
-        $motivo = get_user_meta($user_id, 'gw_induccion_motivo', true);
-        $edad = get_user_meta($user_id, 'gw_induccion_edad', true);
-        $pais = get_user_meta($user_id, 'gw_induccion_pais', true);
-    }
-
-    // Obtener lista de países (CPT 'pais')
-    $paises = get_posts([
-        'post_type' => 'pais',
-        'post_status' => 'publish',
-        'numberposts' => -1,
-        'orderby' => 'title',
-        'order' => 'ASC',
-    ]);
-
-    // Si no hay países en el CPT, usar lista básica
-    if (empty($paises)) {
-        $paises_basicos = [
-            'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica', 
-            'Cuba', 'Ecuador', 'El Salvador', 'España', 'Guatemala', 'Honduras', 
-            'México', 'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'Puerto Rico', 
-            'República Dominicana', 'Uruguay', 'Venezuela'
-        ];
-    }
-
-    ob_start();
-    ?>
-<link rel="stylesheet" href="<?php echo plugins_url('gw-manager/css/gw-step4-styles.css?v=' . time()); ?>">
-    <div class="gw-modern-wrapper">
-        <div class="gw-form-wrapper">
-            <!-- Panel lateral con pasos -->
-            <div class="gw-sidebar">
-            <div class="gw-hero-logo2">
-                <img src="https://glasswing.org/es/wp-content/uploads/2023/08/Logo-Glasswing-02.png" alt="Logo Glasswing">
-            </div> 
-
-                <div class="gw-steps-container">
-                    <!-- Paso 1 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Información personal</h3>
-                        <p>Cuéntanos quién eres para empezar.</p>
-                    </div>
-                    </div>
-
-                    <!-- Paso 2 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Video introductorio</h3>
-                        <p>Mira este breve video para conocer Glasswing y tu rol.</p>
-                    </div>
-                    </div>
-
-                    <!-- Paso 3 -->
-                    <div class="gw-step-item active">
-                    <div class="gw-step-number"><?php echo $mostrar_exito ? '✓' : '3'; ?></div>
-                    <div class="gw-step-content">
-                        <h3>Registro para inducción</h3>
-                        <p>Completa tu información para la inducción.</p>
-                    </div>
-                    </div>
-
-                    <!-- Paso 5 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">4</div>
-                    <div class="gw-step-content">
-                        <h3>Charlas</h3>
-                        <p>Regístrate en la charla asignada y participa.</p>
-                    </div>
-                    </div>
-
-                    <!-- Paso 6 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
-                    <div class="gw-step-content">
-                        <h3>Selección de proyecto</h3>
-                        <p>Elige el proyecto en el que participarás.</p>
-                    </div>
-                    </div>
-
-                    <!-- Paso 7 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
-                    <div class="gw-step-content">
-                        <h3>Capacitaciones</h3>
-                        <p>Inscríbete y marca tu asistencia para continuar.</p>
-                    </div>
-                    </div>
-
-                    <!-- Paso 8 -->
-                    <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
-                        <div class="gw-step-content">
-                            <h3>Documentos y escuela</h3>
-                            <p>Selecciona tu escuela y sube tus documentos.</p>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div class="gw-sidebar-footer">
-                    <div class="gw-help-section">
-                    <div class="gw-help-text">
-                        <h4>Conoce más sobre Glasswing</h4>
-                        <p>
-                            Visita nuestro sitio oficial  
-                            <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">
-                            Ve a glasswing.org
-                            </a>
-                        </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contenido principal -->
-            <div class="gw-main-content">
-                <div class="gw-form-container">
-
-                    <?php if ($mostrar_exito): ?>
-                        <!-- PANTALLA DE ÉXITO -->
-                        <div class="gw-form-header">
-                            <h1>¡Registro completado!</h1>
-                        </div>
-                        
-                        <div class="gw-success-registration">
-                            <div class="gw-success-icon">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 12l2 2 4-4"/>
-                                    <circle cx="12" cy="12" r="10"/>
-                                </svg>
-                            </div>
-                            <h2 class="gw-success-title">¡Gracias por completar tu registro para la inducción!</h2>
-                            <p class="gw-success-description">
-                                Hemos guardado tu información correctamente, <strong><?php echo esc_html($nombre); ?></strong>.
-                                <br>Ya estás registrado para el proceso de inducción y puedes continuar con las charlas.
-                            </p>
-                            <div class="gw-loading-spinner"></div>
-                        </div>
-                        
-                        <!-- Redirección automática después de 3 segundos -->
-                        <meta http-equiv="refresh" content="3;url=<?php echo esc_url(site_url('/index.php/portal-voluntario/')); ?>">
-                        
-                    <?php else: ?>
-                        <!-- FORMULARIO NORMAL -->
-                        <div class="gw-form-header">
-                            <h1>Registro para inducción</h1>
-                            <p>Completa tu información para el proceso de inducción.</p>
-                        </div>
-
-                        <?php if ($error): ?>
-                            <div class="gw-error-message">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="15" y1="9" x2="9" y2="15"/>
-                                    <line x1="9" y1="9" x2="15" y2="15"/>
-                                </svg>
-                                <span><?php echo esc_html($error); ?></span>
-                            </div>
-                        <?php endif; ?>
-
-                        <form method="post" class="gw-form" id="gw-induction-form" novalidate>
-                            <?php wp_nonce_field('gw_form_induccion', 'gw_induccion_nonce'); ?>
-                            
-                            <div class="gw-form-grid">
-                                <div class="gw-form-group gw-full-width">
-                                    <label for="nombre">Nombre completo<span class="gw-required">*</span></label>
-                                    <input type="text" 
-                                           name="nombre" 
-                                           id="nombre" 
-                                           value="<?php echo esc_attr($nombre); ?>" 
-                                           placeholder="Ingresa tu nombre completo" 
-                                           required
-                                           minlength="2"
-                                           maxlength="100"
-                                           autocomplete="name">
-                                </div>
-                                
-                                <div class="gw-form-group">
-                                    <label for="edad">Edad<span class="gw-required">*</span></label>
-                                    <input type="number" 
-                                           name="edad" 
-                                           id="edad" 
-                                           min="15" 
-                                           max="99" 
-                                           value="<?php echo esc_attr($edad); ?>" 
-                                           placeholder="Tu edad"
-                                           required>
-                                    <small class="gw-field-help">Debes tener entre 15 y 99 años para participar</small>
-                                </div>
-
-                                <div class="gw-form-group">
-                                    <label for="pais">País de residencia<span class="gw-required">*</span></label>
-                                    <select name="pais" id="pais" required>
-                                        <option value="">Selecciona tu país</option>
-                                        <?php if (!empty($paises)): ?>
-                                            <?php foreach($paises as $p): ?>
-                                                <option value="<?php echo esc_attr($p->post_title); ?>" <?php selected($pais, $p->post_title); ?>>
-                                                    <?php echo esc_html($p->post_title); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        <?php else: ?>
-                                            <?php foreach($paises_basicos as $pais_basico): ?>
-                                                <option value="<?php echo esc_attr($pais_basico); ?>" <?php selected($pais, $pais_basico); ?>>
-                                                    <?php echo esc_html($pais_basico); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </select>
-                                </div>
-
-                                <div class="gw-form-group gw-full-width">
-                                    <label for="motivo">Motivo de inscripción<span class="gw-required">*</span></label>
-                                    <textarea name="motivo" 
-                                              id="motivo" 
-                                              rows="4" 
-                                              required
-                                              minlength="10"
-                                              maxlength="500"
-                                              placeholder="Cuéntanos por qué te interesa participar en este programa..."><?php echo esc_textarea($motivo); ?></textarea>
-                                    <small class="gw-char-counter">
-                                        <span id="motivo-count"><?php echo strlen($motivo); ?></span>/500 caracteres
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <div class="gw-form-actions">
-                                <button type="submit" class="gw-btn-primary" id="gw-submit-btn">
-                                    <span class="gw-btn-text">Guardar y continuar</span>
-                                    <span class="gw-btn-loading" style="display: none;">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        Guardando...
-                                    </span>
-                                </button>
-                            </div>
-                        </form>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <?php if (!$mostrar_exito): ?>
-    <script>
-    (function() {
-        'use strict';
-        
-        // Elementos del DOM
-        const form = document.getElementById('gw-induction-form');
-        const submitBtn = document.getElementById('gw-submit-btn');
-        const btnText = submitBtn.querySelector('.gw-btn-text');
-        const btnLoading = submitBtn.querySelector('.gw-btn-loading');
-        const motivoTextarea = document.getElementById('motivo');
-        const motivoCounter = document.getElementById('motivo-count');
-        
-        // Contador de caracteres para el textarea
-        if (motivoTextarea && motivoCounter) {
-            motivoTextarea.addEventListener('input', function() {
-                const count = this.value.length;
-                motivoCounter.textContent = count;
-                
-                // Cambiar color según proximidad al límite
-                const counter = motivoCounter.parentElement;
-                counter.classList.remove('near-limit', 'at-limit');
-                
-                if (count >= 450) {
-                    counter.classList.add('at-limit');
-                } else if (count >= 400) {
-                    counter.classList.add('near-limit');
-                }
-            });
-        }
-        
-        // Validación en tiempo real
-        const inputs = form.querySelectorAll('input[required], textarea[required], select[required]');
-        inputs.forEach(input => {
-            input.addEventListener('blur', validateField);
-            input.addEventListener('input', clearErrors);
-        });
-        
-        function validateField(e) {
-            const field = e.target;
-            const value = field.value.trim();
-            
-            // Remover clases de error previas
-            field.classList.remove('error');
-            
-            // Validaciones específicas
-            if (field.name === 'nombre' && value.length < 2) {
-                showFieldError(field, 'El nombre debe tener al menos 2 caracteres');
-                return false;
-            }
-            
-            if (field.name === 'motivo' && value.length < 10) {
-                showFieldError(field, 'El motivo debe tener al menos 10 caracteres');
-                return false;
-            }
-            
-            if (field.name === 'edad') {
-                const edad = parseInt(value);
-                if (edad < 15 || edad > 99) {
-                    showFieldError(field, 'La edad debe estar entre 15 y 99 años');
-                    return false;
-                }
-            }
-            
-            if (!value && field.hasAttribute('required')) {
-                showFieldError(field, 'Este campo es requerido');
-                return false;
-            }
-            
-            return true;
-        }
-        
-        function showFieldError(field, message) {
-            field.classList.add('error');
-            
-            // Mostrar mensaje de error
-            let errorMsg = field.parentElement.querySelector('.error-message');
-            if (!errorMsg) {
-                errorMsg = document.createElement('small');
-                errorMsg.className = 'error-message';
-                field.parentElement.appendChild(errorMsg);
-            }
-            errorMsg.textContent = message;
-        }
-        
-        function clearErrors(e) {
-            const field = e.target;
-            field.classList.remove('error');
-            const errorMsg = field.parentElement.querySelector('.error-message');
-            if (errorMsg) {
-                errorMsg.remove();
-            }
-        }
-        
-        // Manejo del envío del formulario
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Validar todos los campos
-            let isValid = true;
-            inputs.forEach(input => {
-                if (!validateField({target: input})) {
-                    isValid = false;
-                }
-            });
-            
-            if (!isValid) {
-                // Scroll al primer campo con error
-                const firstError = form.querySelector('.error');
-                if (firstError) {
-                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    firstError.focus();
-                }
-                return;
-            }
-            
-            // Mostrar estado de carga
-            submitBtn.disabled = true;
-            submitBtn.classList.add('loading');
-            btnText.style.display = 'none';
-            btnLoading.style.display = 'flex';
-            
-            // Enviar formulario
-            this.submit();
-        });
-        
-        // Prevenir envío doble
-        let isSubmitting = false;
-        form.addEventListener('submit', function() {
-            if (isSubmitting) {
-                return false;
-            }
-            isSubmitting = true;
-        });
-    })();
-    </script>
-    <?php endif; ?>
-    <?php
-    return ob_get_clean();
-}
 // FLUJO SECUENCIAL: voluntario solo ve y completa UNA charla a la vez.
 // Solo admin puede usar atajos o regresar.
 function gw_step_5_charla($user_id) {
@@ -2417,16 +1972,9 @@ function gw_step_5_charla($user_id) {
                     </div>
                     </div>
 
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Registro para inducción</h3>
-                        <p>Completa tu información para la inducción.</p>
-                    </div>
-                    </div>
 
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">4</div>
+                    <div class="gw-step-number">3</div>
                     <div class="gw-step-content">
                         <h3>Charlas</h3>
                         <p>Regístrate en la charla asignada y participa.</p>
@@ -2434,7 +1982,7 @@ function gw_step_5_charla($user_id) {
                     </div>
 
                     <div class="gw-step-item">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -2442,7 +1990,7 @@ function gw_step_5_charla($user_id) {
                     </div>
 
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -2451,7 +1999,7 @@ function gw_step_5_charla($user_id) {
 
                                           <!-- Paso 8 -->
                                           <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -3045,14 +2593,7 @@ function gw_step_6_proyecto($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 3 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Registro para inducción</h3>
-                        <p>Completa tu información para la inducción.</p>
-                    </div>
-                    </div>
+
 
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
@@ -3074,7 +2615,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -3083,7 +2624,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 8 -->
                     <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -3172,13 +2713,7 @@ function gw_step_6_proyecto($user_id) {
                     </div>
 
                     <!-- Paso 3 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Registro para inducción</h3>
-                        <p>Completa tu información para la inducción.</p>
-                    </div>
-                    </div>
+
 
 
                     <!-- Paso 5 -->
@@ -3192,7 +2727,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -3201,7 +2736,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -3210,7 +2745,7 @@ function gw_step_6_proyecto($user_id) {
 
                                           <!-- Paso 8 -->
                                           <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -3309,14 +2844,7 @@ function gw_step_6_proyecto($user_id) {
                     </div>
                     </div>
 
-                    <!-- Paso 3 -->
-                    <div class="gw-step-item">
-                    <div class="gw-step-number">✓</div>
-                    <div class="gw-step-content">
-                        <h3>Registro para inducción</h3>
-                        <p>Completa tu información para la inducción.</p>
-                    </div>
-                    </div>
+
 
                     <!-- Paso 5 -->
                     <div class="gw-step-item">
@@ -3329,7 +2857,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 6 -->
                     <div class="gw-step-item active">
-                    <div class="gw-step-number">5</div>
+                    <div class="gw-step-number">4</div>
                     <div class="gw-step-content">
                         <h3>Selección de proyecto</h3>
                         <p>Elige el proyecto en el que participarás.</p>
@@ -3338,7 +2866,7 @@ function gw_step_6_proyecto($user_id) {
 
                     <!-- Paso 7 -->
                     <div class="gw-step-item">
-                    <div class="gw-step-number">6</div>
+                    <div class="gw-step-number">5</div>
                     <div class="gw-step-content">
                         <h3>Capacitaciones</h3>
                         <p>Inscríbete y marca tu asistencia para continuar.</p>
@@ -3347,7 +2875,7 @@ function gw_step_6_proyecto($user_id) {
 
                                           <!-- Paso 8 -->
                                           <div class="gw-step-item">
-                        <div class="gw-step-number">7</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
@@ -3538,11 +3066,10 @@ function gw_get_session_timestamp($sesion) {
       <div class="gw-steps-container">
         <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Información personal</h3><p>Cuéntanos quién eres para empezar.</p></div></div>
         <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Video introductorio</h3><p>Mira este breve video para conocer Glasswing y tu rol.</p></div></div>
-        <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Registro para inducción</h3><p>Completa tu información para la inducción.</p></div></div>
-        <div class="gw-step-item"><div class="gw-step-number">4</div><div class="gw-step-content"><h3>Charlas</h3><p>Regístrate en la charla asignada y participa.</p></div></div>
-        <div class="gw-step-item"><div class="gw-step-number">5</div><div class="gw-step-content"><h3>Selección de proyecto</h3><p>Elige el proyecto en el que participarás.</p></div></div>
-        <div class="gw-step-item active"><div class="gw-step-number">6</div><div class="gw-step-content"><h3>Capacitaciones</h3><p>Inscríbete y marca tu asistencia para continuar.</p></div></div>
-        <div class="gw-step-item"><div class="gw-step-number">7</div><div class="gw-step-content"><h3>Documentos y escuela</h3><p>Selecciona tu escuela y sube tus documentos.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Charlas</h3><p>Regístrate en la charla asignada y participa.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">✓</div><div class="gw-step-content"><h3>Selección de proyecto</h3><p>Elige el proyecto en el que participarás.</p></div></div>
+        <div class="gw-step-item active"><div class="gw-step-number">5</div><div class="gw-step-content"><h3>Capacitaciones</h3><p>Inscríbete y marca tu asistencia para continuar.</p></div></div>
+        <div class="gw-step-item"><div class="gw-step-number">6</div><div class="gw-step-content"><h3>Documentos y escuela</h3><p>Selecciona tu escuela y sube tus documentos.</p></div></div>
       </div>
       <div class="gw-sidebar-footer"><div class="gw-help-section"><div class="gw-help-text"><h4>Conoce más sobre Glasswing</h4><p>Visita nuestro sitio oficial <a href="https://glasswing.org/" target="_blank" rel="noopener noreferrer">Ve a glasswing.org</a></p></div></div></div>
     </div>
@@ -4425,13 +3952,7 @@ function gw_step_8_documentos($user_id) {
                             <p>Mira este breve video para conocer Glasswing.</p>
                         </div>
                     </div>
-                    <div class="gw-step-item">
-                        <div class="gw-step-number">✓</div>
-                        <div class="gw-step-content">
-                            <h3>Registro para inducción</h3>
-                            <p>Completa tu información para la inducción.</p>
-                        </div>
-                    </div>
+
                     <div class="gw-step-item">
                         <div class="gw-step-number">✓</div>
                         <div class="gw-step-content">
@@ -4454,7 +3975,7 @@ function gw_step_8_documentos($user_id) {
                         </div>
                     </div>
                     <div class="gw-step-item active">
-                        <div class="gw-step-number">8</div>
+                        <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
                             <p>Selecciona tu escuela y sube tus documentos.</p>
