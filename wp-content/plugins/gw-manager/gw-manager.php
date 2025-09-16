@@ -6794,50 +6794,391 @@ $css_url = plugin_dir_url(__FILE__) . 'css/gw-admin.css';
     </div>
 
     <script>
-    (function(){
-        // ===================
-        // Paginación simple
-        // ===================
-        function initPaginacionCharlas() {
-            var charlas = document.querySelectorAll('.gw-charla-wrapper');
-            if (!charlas.length) return;
-            var porPagina = 4;
-            var paginaActual = 1;
-            var totalPaginas = Math.ceil(charlas.length / porPagina);
+// Asegurar que ajaxurl esté definido
+if (typeof ajaxurl === 'undefined') {
+    window.ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+}
 
-            function mostrarPagina(pagina) {
-                charlas.forEach((c, i) => {
-                    c.style.display = (i >= (pagina - 1) * porPagina && i < pagina * porPagina) ? '' : 'none';
-                });
-
-                document.getElementById('gw-prev-page').disabled = pagina === 1;
-                document.getElementById('gw-next-page').disabled = pagina === totalPaginas;
-                document.getElementById('gw-pagination-info').textContent = "Página " + pagina + " de " + totalPaginas;
+jQuery(document).ready(function($) {
+    
+    // =============================================
+    // 1. AGREGAR NUEVA CHARLA
+    // =============================================
+    $('#gw-form-nueva-charla').on('submit', function(e) {
+        e.preventDefault();
+        
+        var titulo = $('#gw-nueva-charla-title').val().trim();
+        if (!titulo) {
+            alert('Por favor ingresa un nombre para la charla');
+            return;
+        }
+        
+        var $btn = $(this).find('button[type="submit"]');
+        var $guardado = $('#gw-charla-guardado');
+        
+        $btn.prop('disabled', true).text('Guardando...');
+        
+        $.post(ajaxurl, {
+            action: 'gw_agregar_charla',
+            titulo: titulo
+        }, function(response) {
+            if (response.success) {
+                $('#gw-nueva-charla-title').val('');
+                $guardado.show().delay(2000).fadeOut();
+                
+                // Actualizar listado
+                $('#gw-listado-charlas').html(response.data.html);
+                initPaginacionCharlas();
+                initCharlasEventos();
+                
+                // Actualizar contador de eliminadas
+                actualizarContadorEliminadas();
+            } else {
+                alert('Error: ' + (response.data.msg || 'No se pudo agregar la charla'));
             }
+        }).fail(function() {
+            alert('Error de conexión');
+        }).always(function() {
+            $btn.prop('disabled', false).text('Agregar charla');
+        });
+    });
 
-            if (document.getElementById('gw-pagination-container')) {
-                mostrarPagina(paginaActual);
-
-                document.getElementById('gw-prev-page').addEventListener('click', function(){
-                    if (paginaActual > 1) {
-                        paginaActual--;
-                        mostrarPagina(paginaActual);
-                    }
+    // =============================================
+    // 2. ELIMINAR CHARLA
+    // =============================================
+    function eliminarCharla(charlaId) {
+        if (!confirm('¿Estás seguro de que quieres eliminar esta charla?')) {
+            return;
+        }
+        
+        $.post(ajaxurl, {
+            action: 'gw_eliminar_charla',
+            charla_id: charlaId
+        }, function(response) {
+            if (response.success) {
+                // Remover del DOM
+                $('.gw-eliminar-charla[data-charla-id="' + charlaId + '"]').closest('.gw-charla-wrapper').fadeOut(function() {
+                    $(this).remove();
+                    initPaginacionCharlas();
                 });
-
-                document.getElementById('gw-next-page').addEventListener('click', function(){
-                    if (paginaActual < totalPaginas) {
-                        paginaActual++;
-                        mostrarPagina(paginaActual);
-                    }
-                });
+                
+                // Actualizar contador
+                actualizarContadorEliminadas();
+            } else {
+                alert('Error: ' + (response.data.msg || 'No se pudo eliminar la charla'));
             }
+        }).fail(function() {
+            alert('Error de conexión');
+        });
+    }
+
+    // =============================================
+    // 3. GUARDAR SESIONES DE CHARLA
+    // =============================================
+    function guardarSesiones($form) {
+        var charlaId = $form.data('charla');
+        var formData = $form.serialize() + '&action=gw_guardar_sesiones_charla&charla_id=' + charlaId;
+        
+        var $btn = $form.find('button[type="submit"]');
+        var $guardado = $form.find('.gw-sesiones-guardado');
+        
+        $btn.prop('disabled', true).text('Guardando...');
+        
+        $.post(ajaxurl, formData, function(response) {
+            if (response.success) {
+                $guardado.show().delay(2000).fadeOut();
+            } else {
+                alert('Error: ' + (response.data.msg || 'No se pudieron guardar las sesiones'));
+            }
+        }).fail(function() {
+            alert('Error de conexión');
+        }).always(function() {
+            $btn.prop('disabled', false).text('Guardar sesiones');
+        });
+    }
+
+    // =============================================
+    // 4. AGREGAR/ELIMINAR SESIONES
+    // =============================================
+    function agregarSesion($container) {
+        var nuevaSesion = `
+            <div class="gw-sesion-block-panel" style="border:1px solid #ccc;padding:12px;margin-bottom:12px;border-radius:8px;">
+                <label>Modalidad:
+                    <select name="sesion_modalidad[]" class="gw-sesion-modalidad-panel" required>
+                        <option value="Presencial">Presencial</option>
+                        <option value="Virtual">Virtual</option>
+                    </select>
+                </label>
+                <label style="margin-left:18px;">Fecha:
+                    <input type="date" name="sesion_fecha[]" required>
+                </label>
+                <label style="margin-left:18px;">Hora:
+                    <input type="time" name="sesion_hora[]" required>
+                </label>
+                <label class="gw-lugar-label-panel" style="margin-left:18px;">
+                    Lugar físico:
+                    <input type="text" name="sesion_lugar[]">
+                </label>
+                <label class="gw-link-label-panel" style="margin-left:18px;display:none;">
+                    Link:
+                    <input type="url" name="sesion_link[]" disabled>
+                </label>
+                <button type="button" class="gw-remove-sesion-panel button button-small" style="margin-left:18px;">Eliminar</button>
+            </div>
+        `;
+        $container.append(nuevaSesion);
+    }
+
+    // =============================================
+    // 5. GESTIÓN DE CHARLAS ELIMINADAS
+    // =============================================
+    function actualizarContadorEliminadas() {
+        $.post(ajaxurl, {
+            action: 'gw_contar_eliminadas'
+        }, function(response) {
+            if (response.success) {
+                $('#gw-count-eliminadas').text(response.data.count);
+            }
+        });
+    }
+
+    function mostrarCharlasEliminadas() {
+        $.post(ajaxurl, {
+            action: 'gw_obtener_eliminadas'
+        }, function(response) {
+            if (response.success) {
+                $('#gw-listado-eliminadas').html(response.data.html);
+                $('#gw-charlas-eliminadas-panel').show();
+                initEliminadasEventos();
+            }
+        });
+    }
+
+    function restaurarCharla(charlaId) {
+        $.post(ajaxurl, {
+            action: 'gw_restaurar_charla',
+            charla_id: charlaId
+        }, function(response) {
+            if (response.success) {
+                // Actualizar vista
+                mostrarCharlasEliminadas();
+                actualizarContadorEliminadas();
+                location.reload(); // Recargar para mostrar charla restaurada
+            } else {
+                alert('Error: ' + (response.data.msg || 'No se pudo restaurar la charla'));
+            }
+        });
+    }
+
+    function eliminarDefinitivo(charlaId) {
+        if (!confirm('¿Estás seguro? Esta acción no se puede deshacer.')) {
+            return;
+        }
+        
+        $.post(ajaxurl, {
+            action: 'gw_eliminar_definitivo',
+            charla_id: charlaId
+        }, function(response) {
+            if (response.success) {
+                mostrarCharlasEliminadas();
+                actualizarContadorEliminadas();
+            } else {
+                alert('Error: ' + (response.data.msg || 'No se pudo eliminar la charla'));
+            }
+        });
+    }
+
+    // =============================================
+    // 6. INICIALIZAR EVENTOS DE CHARLAS
+    // =============================================
+    function initCharlasEventos() {
+        // Eliminar charla
+        $(document).off('click', '.gw-eliminar-charla').on('click', '.gw-eliminar-charla', function() {
+            var charlaId = $(this).data('charla-id');
+            eliminarCharla(charlaId);
+        });
+
+        // Guardar sesiones
+        $(document).off('submit', '.gw-form-sesiones-charla').on('submit', '.gw-form-sesiones-charla', function(e) {
+            e.preventDefault();
+            guardarSesiones($(this));
+        });
+
+        // Agregar sesión
+        $(document).off('click', '.gw-add-sesion-panel').on('click', '.gw-add-sesion-panel', function() {
+            var charlaId = $(this).closest('.gw-form-sesiones-charla').data('charla');
+            var $container = $('#gw-sesiones-list-' + charlaId);
+            agregarSesion($container);
+        });
+
+        // Eliminar sesión
+        $(document).off('click', '.gw-remove-sesion-panel').on('click', '.gw-remove-sesion-panel', function() {
+            if ($('.gw-sesion-block-panel').length > 1) {
+                $(this).closest('.gw-sesion-block-panel').remove();
+            } else {
+                alert('Debe haber al menos una sesión');
+            }
+        });
+
+        // Cambio de modalidad
+        $(document).off('change', '.gw-sesion-modalidad-panel').on('change', '.gw-sesion-modalidad-panel', function() {
+            var $sesion = $(this).closest('.gw-sesion-block-panel');
+            var modalidad = $(this).val().toLowerCase();
+            
+            if (modalidad === 'virtual') {
+                $sesion.find('.gw-lugar-label-panel').hide();
+                $sesion.find('.gw-link-label-panel').show();
+                $sesion.find('input[name="sesion_lugar[]"]').prop('disabled', true);
+                $sesion.find('input[name="sesion_link[]"]').prop('disabled', false);
+            } else {
+                $sesion.find('.gw-lugar-label-panel').show();
+                $sesion.find('.gw-link-label-panel').hide();
+                $sesion.find('input[name="sesion_lugar[]"]').prop('disabled', false);
+                $sesion.find('input[name="sesion_link[]"]').prop('disabled', true);
+            }
+        });
+    }
+
+    // =============================================
+    // 7. EVENTOS DE CHARLAS ELIMINADAS
+    // =============================================
+    function initEliminadasEventos() {
+        $(document).off('click', '.gw-restaurar-charla').on('click', '.gw-restaurar-charla', function() {
+            var charlaId = $(this).data('charla-id');
+            restaurarCharla(charlaId);
+        });
+
+        $(document).off('click', '.gw-eliminar-definitivo').on('click', '.gw-eliminar-definitivo', function() {
+            var charlaId = $(this).data('charla-id');
+            eliminarDefinitivo(charlaId);
+        });
+    }
+
+    // =============================================
+    // 8. FILTROS DE BÚSQUEDA
+    // =============================================
+    function aplicarFiltros() {
+        var nombre = $('#gw-filtro-nombre').val().toLowerCase();
+        var modalidad = $('#gw-filtro-modalidad').val();
+        var lugar = $('#gw-filtro-lugar').val().toLowerCase();
+
+        $('.gw-charla-wrapper').each(function() {
+            var $charla = $(this);
+            var $item = $charla.find('.gw-charla-item');
+            
+            var nombreCharla = $item.data('nombre') || '';
+            var modalidades = ($item.data('modalidades') || '').toString();
+            var lugares = ($item.data('lugares') || '').toString().toLowerCase();
+            
+            var mostrar = true;
+            
+            // Filtro por nombre
+            if (nombre && nombreCharla.indexOf(nombre) === -1) {
+                mostrar = false;
+            }
+            
+            // Filtro por modalidad
+            if (modalidad) {
+                if (modalidad === 'Mixta') {
+                    if (modalidades.indexOf('Presencial') === -1 || modalidades.indexOf('Virtual') === -1) {
+                        mostrar = false;
+                    }
+                } else {
+                    if (modalidades.indexOf(modalidad) === -1) {
+                        mostrar = false;
+                    }
+                }
+            }
+            
+            // Filtro por lugar
+            if (lugar && lugares.indexOf(lugar) === -1) {
+                mostrar = false;
+            }
+            
+            $charla.toggle(mostrar);
+        });
+        
+        // Reinicializar paginación después de filtrar
+        initPaginacionCharlas();
+    }
+
+    // =============================================
+    // 9. PAGINACIÓN (MEJORADA CON JQUERY)
+    // =============================================
+    function initPaginacionCharlas() {
+        var $charlas = $('.gw-charla-wrapper:visible');
+        if (!$charlas.length) return;
+        
+        var porPagina = 4;
+        var paginaActual = 1;
+        var totalPaginas = Math.ceil($charlas.length / porPagina);
+
+        function mostrarPagina(pagina) {
+            $charlas.each(function(i) {
+                var mostrar = (i >= (pagina - 1) * porPagina && i < pagina * porPagina);
+                $(this).toggle(mostrar);
+            });
+
+            $('#gw-prev-page').prop('disabled', pagina === 1);
+            $('#gw-next-page').prop('disabled', pagina === totalPaginas);
+            $('#gw-pagination-info').text("Página " + pagina + " de " + totalPaginas);
         }
 
-        // Inicializar al cargar
-        initPaginacionCharlas();
-    })();
-    </script>
+        if ($('#gw-pagination-container').length) {
+            mostrarPagina(paginaActual);
+
+            $('#gw-prev-page').off('click').on('click', function() {
+                if (paginaActual > 1) {
+                    paginaActual--;
+                    mostrarPagina(paginaActual);
+                }
+            });
+
+            $('#gw-next-page').off('click').on('click', function() {
+                if (paginaActual < totalPaginas) {
+                    paginaActual++;
+                    mostrarPagina(paginaActual);
+                }
+            });
+        }
+    }
+
+    // =============================================
+    // 10. EVENTOS PRINCIPALES
+    // =============================================
+    
+    // Ver charlas eliminadas
+    $('#gw-ver-eliminadas').on('click', function() {
+        mostrarCharlasEliminadas();
+    });
+
+    // Cerrar panel de eliminadas
+    $('#gw-cerrar-eliminadas').on('click', function() {
+        $('#gw-charlas-eliminadas-panel').hide();
+    });
+
+    // Limpiar filtros
+    $('#gw-limpiar-filtros').on('click', function() {
+        $('#gw-filtro-nombre, #gw-filtro-lugar').val('');
+        $('#gw-filtro-modalidad').val('');
+        aplicarFiltros();
+    });
+
+    // Eventos de filtros
+    $('#gw-filtro-nombre, #gw-filtro-lugar').on('input', aplicarFiltros);
+    $('#gw-filtro-modalidad').on('change', aplicarFiltros);
+
+    // =============================================
+    // 11. INICIALIZACIÓN
+    // =============================================
+    
+    // Inicializar eventos al cargar
+    initCharlasEventos();
+    initPaginacionCharlas();
+    actualizarContadorEliminadas();
+    
+});
+</script>
     
     <style>
     /* Botón primario "Guardar sesiones" en la pestaña de charlas: azul */
@@ -11676,6 +12017,16 @@ add_action('wp_ajax_gw_obtener_coaches_por_pais', function() {
     wp_send_json_success($resultado);
 });
 
+
+
+
+
+
+//CHARLAS DEFINITIVO
+//CHARLAS DEFINITIVO
+//CHARLAS DEFINITIVO
+
+
 // AJAX handler para eliminar charla
 add_action('wp_ajax_gw_eliminar_charla', function() {
     if (!current_user_can('manage_options')) wp_send_json_error();
@@ -12511,6 +12862,8 @@ add_action('wp_login', function ($user_login, $user) {
   }
 }, 10, 2);
 
+
+
 // --- Helpers para asignación segura de charlas/capacitaciones ---
 if (!function_exists('gw_assign_charla_to_user')) {
   function gw_assign_charla_to_user($user_id, $charla_id) {
@@ -12526,6 +12879,12 @@ if (!function_exists('gw_assign_charla_to_user')) {
     }
   }
 }
+
+
+
+
+
+
 if (!function_exists('gw_assign_cap_to_user')) {
   function gw_assign_cap_to_user($user_id, $cap_id) {
     $arr = get_user_meta($user_id, 'gw_capacitaciones_asignadas', true);
