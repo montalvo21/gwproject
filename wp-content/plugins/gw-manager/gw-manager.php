@@ -4484,7 +4484,7 @@ function mostrar_tabla_progreso_admin() {
     // Aprobar documentos
     $(document).on('click', '.gw-aprobar-doc', function(e){
       e.preventDefault();
-      var docId  = $(this).data('doc-id');  // Cambio: usar doc-id
+      var docId  = $(this).data('doc-id');
       var userId = $(this).data('user-id');
       var nonce  = $(this).data('nonce');
 
@@ -4518,7 +4518,7 @@ function mostrar_tabla_progreso_admin() {
     // Rechazar documentos
     $(document).on('click', '.gw-rechazar-doc', function(e){
       e.preventDefault();
-      var docId  = $(this).data('doc-id');  // Cambio: usar doc-id
+      var docId  = $(this).data('doc-id');
       var userId = $(this).data('user-id');
       var nonce  = $(this).data('nonce');
 
@@ -4552,22 +4552,20 @@ function mostrar_tabla_progreso_admin() {
   });
   </script>
 
-  <style>/* Scroll horizontal SOLO para la tabla de Progreso */
+  <style>
+/* Scroll horizontal SOLO para la tabla de Progreso */
 #gw-admin-tab-progreso .gw-progreso-table-wrap{
-  overflow-x: auto;           /* habilita scroll L⇄R */
-  overflow-y: visible;        /* sin scroll vertical extra */
+  overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Haz que la tabla sea más ancha que el contenedor
-   para que aparezca la barra horizontal cuando sea necesario */
 #gw-admin-tab-progreso .gw-progreso-table-wrap .widefat{
-  min-width: 1200px;          /* ajusta el mínimo a tu gusto */
+  min-width: 1200px;
   table-layout: auto;
   border-collapse: collapse;
 }
 
-/* Evita que el contenido se parta: favorece el scroll */
 #gw-admin-tab-progreso .gw-progreso-table-wrap .widefat th,
 #gw-admin-tab-progreso .gw-progreso-table-wrap .widefat td{
   white-space: nowrap;
@@ -4605,7 +4603,237 @@ function mostrar_tabla_progreso_admin() {
   return ob_get_clean();
 }
 
+// =============================================================================
+// FUNCIONES AJAX PARA EL ADMIN
+// =============================================================================
 
+// Función para obtener documentos del voluntario
+add_action('wp_ajax_gw_obtener_docs_voluntario', 'gw_obtener_docs_voluntario_ajax');
+function gw_obtener_docs_voluntario_ajax() {
+    $user_id = intval($_POST['user_id']);
+    if (!$user_id) {
+        wp_die('User ID requerido');
+    }
+
+    global $wpdb;
+    
+    // Obtener documentos de la tabla
+    $docs = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}voluntario_docs WHERE user_id = %d", 
+        $user_id
+    ), ARRAY_A);
+
+    // Obtener estados individuales de documentos
+    $doc1_estado = get_user_meta($user_id, 'gw_doc1_estado', true) ?: 'pendiente';
+    $doc2_estado = get_user_meta($user_id, 'gw_doc2_estado', true) ?: 'pendiente';
+    $doc3_estado = get_user_meta($user_id, 'gw_doc3_estado', true) ?: 'pendiente';
+    $doc4_estado = get_user_meta($user_id, 'gw_doc4_estado', true) ?: 'pendiente';
+
+    $nonce = wp_create_nonce('gw_docs_admin');
+
+    ob_start();
+    ?>
+    <div class="gw-docs-admin-grid">
+        
+        <?php 
+        // Array de documentos para iterar
+        $documentos = [
+            1 => ['url' => ($docs['documento_1_url'] ?? ''), 'estado' => $doc1_estado],
+            2 => ['url' => ($docs['documento_2_url'] ?? ''), 'estado' => $doc2_estado],
+            3 => ['url' => ($docs['documento_3_url'] ?? ''), 'estado' => $doc3_estado],
+            4 => ['url' => ($docs['documento_4_url'] ?? ''), 'estado' => $doc4_estado]
+        ];
+
+        $hay_documentos = false;
+        foreach ($documentos as $num => $doc): 
+            if (empty($doc['url'])) continue; // Solo mostrar docs que existen
+            $hay_documentos = true;
+            
+            $color = '';
+            $texto = '';
+            switch ($doc['estado']) {
+                case 'aceptado': $color = '#46b450'; $texto = 'APROBADO'; break;
+                case 'rechazado': $color = '#dc3232'; $texto = 'RECHAZADO'; break;
+                default: $color = '#ffb900'; $texto = 'PENDIENTE'; break;
+            }
+        ?>
+        
+        <div class="gw-doc-admin-card">
+            <div class="gw-doc-header">
+                <h4>Documento <?php echo $num; ?></h4>
+                <span class="gw-doc-status" style="background: <?php echo $color; ?>; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                    <?php echo $texto; ?>
+                </span>
+            </div>
+            
+            <div class="gw-doc-preview">
+                <img src="<?php echo esc_url($doc['url']); ?>" alt="Documento <?php echo $num; ?>" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;">
+            </div>
+            
+            <div class="gw-doc-actions">
+                <button type="button" class="button gw-ver-archivo" data-url="<?php echo esc_attr($doc['url']); ?>" data-tipo="image">
+                    Ver completo
+                </button>
+                
+                <?php if ($doc['estado'] !== 'aceptado'): ?>
+                <button type="button" class="button button-primary gw-aprobar-doc" 
+                        data-doc-id="<?php echo $num; ?>" 
+                        data-user-id="<?php echo $user_id; ?>" 
+                        data-nonce="<?php echo $nonce; ?>">
+                    Aprobar
+                </button>
+                <?php endif; ?>
+                
+                <?php if ($doc['estado'] !== 'rechazado'): ?>
+                <button type="button" class="button gw-rechazar-doc" 
+                        data-doc-id="<?php echo $num; ?>" 
+                        data-user-id="<?php echo $user_id; ?>" 
+                        data-nonce="<?php echo $nonce; ?>">
+                    Rechazar
+                </button>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <?php endforeach; ?>
+        
+        <?php if (!$hay_documentos): ?>
+            <p>No hay documentos subidos para este voluntario.</p>
+        <?php endif; ?>
+    </div>
+
+    <style>
+    .gw-docs-admin-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 15px;
+    }
+    
+    .gw-doc-admin-card {
+        border: 1px solid #e1e1e1;
+        border-radius: 8px;
+        padding: 15px;
+        background: #fff;
+    }
+    
+    .gw-doc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .gw-doc-header h4 {
+        margin: 0;
+        font-size: 14px;
+    }
+    
+    .gw-doc-preview {
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .gw-doc-preview img {
+        max-height: 200px;
+    }
+    
+    .gw-doc-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .gw-doc-actions .button {
+        font-size: 12px;
+        padding: 4px 8px;
+        height: auto;
+    }
+
+    /* Botones del admin - Colores mejorados */
+    .gw-doc-actions .button.gw-ver-archivo {
+        background: #2196F3 !important;
+        border-color: #2196F3 !important;
+        color: white !important;
+    }
+
+    .gw-doc-actions .button.gw-ver-archivo:hover {
+        background: #1976D2 !important;
+        border-color: #1976D2 !important;
+    }
+
+    .gw-doc-actions .button.button-primary.gw-aprobar-doc {
+        background: #4CAF50 !important;
+        border-color: #4CAF50 !important;
+        color: white !important;
+    }
+
+    .gw-doc-actions .button.button-primary.gw-aprobar-doc:hover {
+        background: #45a049 !important;
+        border-color: #45a049 !important;
+    }
+
+    .gw-doc-actions .button.gw-rechazar-doc {
+        background: #f44336 !important;
+        border-color: #f44336 !important;
+        color: white !important;
+    }
+
+    .gw-doc-actions .button.gw-rechazar-doc:hover {
+        background: #da190b !important;
+        border-color: #da190b !important;
+    }
+
+    /* Estados deshabilitados */
+    .gw-doc-actions .button:disabled {
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
+    }
+    </style>
+    
+    <?php
+    wp_die(ob_get_clean());
+}
+
+// Función para aprobar documento individual
+add_action('wp_ajax_gw_aprobar_doc', 'gw_aprobar_doc_ajax');
+function gw_aprobar_doc_ajax() {
+    if (!wp_verify_nonce($_POST['nonce'], 'gw_docs_admin')) {
+        wp_die(json_encode(['success' => false, 'data' => ['message' => 'Nonce inválido']]));
+    }
+
+    $doc_id = intval($_POST['doc_id']);
+    $user_id = intval($_POST['user_id']);
+
+    if (!$doc_id || !$user_id) {
+        wp_die(json_encode(['success' => false, 'data' => ['message' => 'Datos faltantes']]));
+    }
+
+    // Actualizar estado del documento específico
+    update_user_meta($user_id, "gw_doc{$doc_id}_estado", 'aceptado');
+
+    wp_die(json_encode(['success' => true]));
+}
+
+// Función para rechazar documento individual
+add_action('wp_ajax_gw_rechazar_doc', 'gw_rechazar_doc_ajax');
+function gw_rechazar_doc_ajax() {
+    if (!wp_verify_nonce($_POST['nonce'], 'gw_docs_admin')) {
+        wp_die(json_encode(['success' => false, 'data' => ['message' => 'Nonce inválido']]));
+    }
+
+    $doc_id = intval($_POST['doc_id']);
+    $user_id = intval($_POST['user_id']);
+
+    if (!$doc_id || !$user_id) {
+        wp_die(json_encode(['success' => false, 'data' => ['message' => 'Datos faltantes']]));
+    }
+
+    // Actualizar estado del documento específico
+    update_user_meta($user_id, "gw_doc{$doc_id}_estado", 'rechazado');
+
+    wp_die(json_encode(['success' => true]));
+}
 
 // Mostrar solo el progreso (para voluntario)
 function mostrar_progreso_voluntario($user) {

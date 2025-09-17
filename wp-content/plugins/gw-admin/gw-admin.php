@@ -848,108 +848,24 @@ function gw_portal_voluntario_shortcode() {
       .gw-thumb{margin-top:8px;border:1px dashed #d1d5db;border-radius:10px;overflow:hidden;max-height:150px}
       .gw-thumb img{display:block;width:100%;height:auto;object-fit:cover}
     </style>
-    <script>
-(function(){
-  // Evitar doble inyección
-  if (window.__gwDocsPreviewInjectedV2) return;
-  window.__gwDocsPreviewInjectedV2 = true;
 
-  function isLikelyDocInput(el){
-    if (!el || el.tagName !== 'INPUT' || el.type !== 'file') return false;
-    // Menos restrictivo: cualquier input file entra, pero priorizamos los que parezcan de documentos
-    var n = (el.getAttribute('name')||'').toLowerCase();
-    return !!el.matches('input[type="file"]');
-  }
-
-  function ensureThumb(input){
-    var wrap = input.closest('.gw-doc-slot, .gw-doc-card, .gw-upload-card, .gw-file-box, .gw-doc-uploader, .gw-field, .gw-documento, .gw-form-group') || input.parentNode;
-    var preview = wrap.querySelector('.gw-thumb');
-    if (!preview){
-      preview = document.createElement('div');
-      preview.className = 'gw-thumb';
-      var img = document.createElement('img');
-      preview.appendChild(img);
-      wrap.appendChild(preview);
-    }
-    return preview.querySelector('img');
-  }
-
-  // 1) PREVIEW inmediato — aplicado a CUALQUIER input file (delegado)
-  document.addEventListener('change', function(e){
-    var el = e.target;
-    if (!isLikelyDocInput(el) || !el.files || !el.files[0]) return;
-    var f = el.files[0];
-    if (!/^image\//.test(f.type || '')) return;
-    var img = ensureThumb(el);
-    try { img.src = URL.createObjectURL(f); } catch(_){/* noop */}
-  }, true);
-
-  // 2) Crear slots extra (3 y 4) de forma defensiva
-  function norm(s){ return (s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-  function getDocsContainer(anchor){
-    // Intenta anclar la inserción cerca del botón pulsado
-    if (anchor) {
-      var near = anchor.closest('.gw-docs-extra, .gw-docs, .gw-documentos, .gw-upload-area, .gw-upload-card, .gw-file-box, .gw-form-group, .gw-section, .gw-card, form');
-      if (near) return near;
-    }
-    // Fallbacks globales
-    return document.querySelector('[data-gw-docs-container]')
-        || document.getElementById('gw-docs-form')
-        || document.querySelector('.gw-docs')
-        || document.querySelector('.gw-form-container')
-        || document.querySelector('form');
-  }
-  function createSlot(n, container, anchor){
-    var c = container || getDocsContainer(anchor); if (!c) return null;
-    // Evitar duplicados si ya existe el input gw_docN en todo el documento
-    if (document.querySelector('input[name="gw_doc'+n+'"]')) return null;
-
-    var slot = document.createElement('div');
-    slot.className = 'gw-doc-slot';
-    slot.setAttribute('data-slot', String(n));
-    slot.innerHTML = '<label style="display:block;font-weight:600;margin:8px 0">Documento de identidad (Foto '+n+')</label>'+
-                     '<input type="file" accept="image/*" name="gw_doc'+n+'" data-gw-doc="'+n+'">';
-
-    // Si tenemos el botón, insertar DENTRO del contenedor del botón para que quede visible en el mismo recuadro (debajo del texto)
-    if (anchor) {
-      var host = anchor.closest('.gw-docs-extra, .gw-upload-area, .gw-file-box, .gw-form-group, .gw-section, .gw-card, .gw-dashed, .gw-dotted, .gw-docs-box');
-      if (host) {
-        host.appendChild(slot); // al final del recuadro, después del texto indicativo
-      } else if (anchor.parentNode) {
-        anchor.parentNode.appendChild(slot);
-      } else {
-        c.appendChild(slot);
-      }
-    } else {
-      c.appendChild(slot);
-    }
-
-    try { slot.scrollIntoView({behavior:'smooth', block:'nearest'}); } catch(_){}
-    return slot;
-  }
-  function ensureExtraSlots(anchor){
-    var c = getDocsContainer(anchor);
-    createSlot(3, c, anchor);
-    createSlot(4, c, anchor);
-  }
-
-  // 3) Hook del botón “+ Agregar otra foto” (delegado y tolerante a variaciones)
-  document.addEventListener('click', function(e){
-    var t = e.target;
-    var label = norm(t.textContent || t.value || '');
-    if (
-      t.id === 'gw-add-photo' ||
-      t.getAttribute('data-gw-add-doc') === '1' ||
-      /(^|\s)[+]?\s*agregar\s+otra\s+foto(\s|$)/.test(label) ||
-      /(^|\s)agregar\s+foto(s)?(\s|$)/.test(label)
-    ){
-      e.preventDefault();
-      ensureExtraSlots(t);
-    }
-  }, true);
-})();
-</script>
     <?php
+
+
+
+
+
+
+
+
+
+
+
+
+// ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
+// CONTROLADOR PRINCIPAL CORREGIDO
+$current_step = gw_get_voluntario_step($user_id);
+
 // ===== PASO 1: REGISTRO EN "ASPIRANTES" + AGENDAR RECORDATORIOS =====
 if ($current_step == 1) {
     echo gw_step_1_registro($user_id);
@@ -962,7 +878,7 @@ elseif ($current_step == 2) {
 elseif ($current_step == 3) {
     echo gw_step_3_video_intro($user_id);
 }
-// ===== PASO 4: CHARLA/PRIMERA SESIÓN EN VIVO (anteriormente paso 5) =====
+// ===== PASO 4: CHARLAS (anteriormente paso 5) =====
 elseif ($current_step == 4) {
     echo gw_step_5_charla($user_id);
 }
@@ -974,14 +890,14 @@ elseif ($current_step == 5) {
 elseif ($current_step == 6) {
     echo gw_step_7_capacitacion($user_id);
 }
-// ===== PASO 7: CONTROLADOR (anteriormente paso 8) =====
+// ===== PASO 7: DOCUMENTOS Y ESCUELA (anteriormente paso 8) =====
 elseif ($current_step == 7) {
     echo gw_step_8_controller($user_id);
 }
-    // ===== FLUJO COMPLETADO =====
-    else {
-        echo '<div class="notice notice-success"><p>¡Bienvenido/a! Has completado tu onboarding. Ya puedes participar en todas las actividades.</p></div>';
-    }
+// ===== FLUJO COMPLETADO =====
+else {
+    echo '<div class="notice notice-success"><p>¡Bienvenido/a! Has completado tu onboarding. Ya puedes participar en todas las actividades.</p></div>';
+}
     echo '</div>';
     return ob_get_clean();
 }
@@ -1240,25 +1156,49 @@ function gw_step_8_extra_form($user_id) {
     return ob_get_clean();
 }
 function gw_get_voluntario_step($user_id) {
-    // Flujo de pasos:
-    // 1: Registro
-    // 2: Formulario de datos
+    // NUEVO FLUJO SIN STEP 4:
+    // 1: Registro en aspirantes
+    // 2: Formulario de datos personales  
     // 3: Video introductorio
-    // 4: Formulario de inducción
-    // 5: Charlas
-    // 6: Selección de proyecto
-    // 7: Capacitaciones
-    // 8: Finalizado
-    if (!get_user_meta($user_id, 'gw_step1_completo', true)) return 1;
-    if (!get_user_meta($user_id, 'gw_step2_completo', true)) return 2;
-    if (!get_user_meta($user_id, 'gw_step3_completo', true)) return 3;
-    if (!get_user_meta($user_id, 'gw_step4_completo', true)) return 4;
-    if (!get_user_meta($user_id, 'gw_step5_completo', true)) return 5;
-    if (!get_user_meta($user_id, 'gw_proyecto_id', true)) return 6;
-    if (!get_user_meta($user_id, 'gw_step7_completo', true)) return 7; // opcional: marcar como completo al final de capacitaciones
-    return 8;
+    // 4: Charlas (era paso 5)
+    // 5: Selección de proyecto (era paso 6)
+    // 6: Capacitaciones (era paso 7)
+    // 7: Documentos y escuela (era paso 8)
+    
+    // Paso 1: Registro
+    if (!get_user_meta($user_id, 'gw_step1_completo', true)) {
+        return 1;
+    }
+    
+    // Paso 2: Formulario de datos
+    if (!get_user_meta($user_id, 'gw_step2_completo', true)) {
+        return 2;
+    }
+    
+    // Paso 3: Video introductorio
+    if (!get_user_meta($user_id, 'gw_step3_completo', true)) {
+        return 3;
+    }
+    
+    // Paso 4: Charlas (antes era paso 5)
+    if (!get_user_meta($user_id, 'gw_step5_completo', true)) {
+        return 4;
+    }
+    
+    // Paso 5: Selección de proyecto (antes era paso 6)
+    if (!get_user_meta($user_id, 'gw_proyecto_id', true)) {
+        return 5;
+    }
+    
+    // Paso 6: Capacitaciones (antes era paso 7)
+    if (!get_user_meta($user_id, 'gw_step7_completo', true)) {
+        return 6;
+    }
+    
+    // Paso 7: Documentos y escuela (antes era paso 8)
+    // Si llegamos aquí, va al paso final
+    return 7;
 }
- 
  
  // --- Aquí van las funciones gw_step_1_registro, gw_step_2_form_datos, etc. ---
  function gw_step_1_registro($user_id) {
@@ -1890,8 +1830,8 @@ function gw_step_3_video_intro($user_id) {
 // FLUJO SECUENCIAL: voluntario solo ve y completa UNA charla a la vez.
 // Solo admin puede usar atajos o regresar.
 function gw_step_5_charla($user_id) {
-    // Lógica de menú forzado
-    $forzar_menu_paso5 = isset($_GET['paso5_menu']) && $_GET['paso5_menu'] == 1;
+    // CORRECCIÓN: Cambiar paso5_menu por paso4_menu (ahora charlas es paso 4)
+    $forzar_menu_paso4 = isset($_GET['paso4_menu']) && $_GET['paso4_menu'] == 1;
 
     // --- Bloque para asignar charlas manualmente por el admin ---
     $admin_assign_output = '';
@@ -1939,7 +1879,7 @@ function gw_step_5_charla($user_id) {
         }
     }
 
-    // Helper para el layout
+    // Helper para el layout - CORREGIR números de pasos
     $render_layout = function($title, $subtitle, $content) {
         ob_start();
         ?>
@@ -1969,7 +1909,6 @@ function gw_step_5_charla($user_id) {
                     </div>
                     </div>
 
-
                     <div class="gw-step-item active">
                     <div class="gw-step-number">3</div>
                     <div class="gw-step-content">
@@ -1994,8 +1933,7 @@ function gw_step_5_charla($user_id) {
                     </div>
                     </div>
 
-                                          <!-- Paso 8 -->
-                                          <div class="gw-step-item">
+                    <div class="gw-step-item">
                         <div class="gw-step-number">6</div>
                         <div class="gw-step-content">
                             <h3>Documentos y escuela</h3>
@@ -2150,7 +2088,7 @@ function gw_step_5_charla($user_id) {
     }
 
     // ========== PANTALLA 4: CHARLA REGISTRADA (RECORDATORIO) ==========
-    if ($charla_agendada && !$forzar_menu_paso5) {
+    if ($charla_agendada && !$forzar_menu_paso4) {
         $ya_ocurrio = strtotime($charla_agendada['fecha'].' '.$charla_agendada['hora']) < time();
         
         $content = '
@@ -2184,6 +2122,7 @@ function gw_step_5_charla($user_id) {
         $already_completed_current = ($cid_current && in_array($cid_current, array_map('intval', (array)$charlas_completadas), true));
         $predicted_completadas = count((array)$charlas_completadas) + ($already_completed_current ? 0 : 1);
         $has_more = count((array)$charlas_asignadas) > $predicted_completadas;
+        // CORRECCIÓN: Cambiar el texto del botón
         $button_label = $has_more ? 'Siguiente charla' : 'Ir a Selección de proyecto';
         
         $content .= '
@@ -2257,7 +2196,7 @@ function gw_step_5_charla($user_id) {
             exit;
         }
 
-        // Procesar marcar asistencia
+        // CORRECCIÓN CRÍTICA: Procesar marcar asistencia
         if (
             $_SERVER['REQUEST_METHOD'] === 'POST'
             && isset($_POST['gw_charla_asistencia_nonce'])
@@ -2279,11 +2218,8 @@ function gw_step_5_charla($user_id) {
             }
             if (!$quedan) update_user_meta($user_id, 'gw_step5_completo', 1);
             
-            if (!empty($charlas_completadas) && count($charlas_asignadas) > count($charlas_completadas)) {
-                wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
-            } else {
-                wp_safe_redirect(site_url('/index.php/portal-voluntario/?paso5_menu=1'));
-            }
+            // CORRECCIÓN: Simplificar redirecciones - siempre ir al portal principal
+            wp_safe_redirect(site_url('/index.php/portal-voluntario/'));
             exit;
         }
         
@@ -2301,12 +2237,12 @@ function gw_step_5_charla($user_id) {
                     <path d="M9 12l2 2 4-4"></path>
                     <circle cx="12" cy="12" r="10"></circle>
                 </svg>
-                <span>¡Excelente trabajo! Ahora puedes continuar a las capacitaciones.</span>
+                <span>¡Excelente trabajo! Ahora puedes continuar a la selección de proyecto.</span>
             </div>
             
             <div class="gw-form-actions">
-                <a href="' . esc_url(site_url('/index.php/portal-voluntario/?paso5_menu=1')) . '" class="gw-btn-primary">
-                    Ir a capacitaciones
+                <a href="' . esc_url(site_url('/index.php/portal-voluntario/')) . '" class="gw-btn-primary">
+                    Ir a selección de proyecto
                 </a>
             </div>';
 
@@ -2401,8 +2337,7 @@ function gw_step_5_charla($user_id) {
     }
     
     if ($is_admin) $content .= gw_step_5_charla_admin_form($user_id, $charlas_asignadas, $admin_assign_output);
-    // Cambiar el título y subtítulo para mostrar el nombre específico de la charla y un subtítulo más descriptivo
-        return $render_layout($charla_actual->post_title, 'Selecciona una de las sesiones disponibles', $content);
+    return $render_layout($charla_actual->post_title, 'Selecciona una de las sesiones disponibles', $content);
 }
 
 // Mini formulario para asignar IDs de charla manualmente (solo admin)
@@ -3279,7 +3214,7 @@ function gw_get_session_timestamp($sesion) {
             $hora  = isset($ses['hora']) ? $ses['hora'] : '';
             if (!$fecha || !$hora) continue;
             $ts = strtotime($fecha.' '.$hora);
-            if ($ts && $ts > time()) {
+            if ($ts) {
                 $cap_sesiones[] = [
                     'cap_id'    => $cap_actual->ID,
                     'cap_title' => $cap_actual->post_title,
@@ -3735,6 +3670,11 @@ function gw_step_8_documentos($user_id) {
         if ($escuela && isset($horarios[$horario_idx])) {
             update_user_meta($user_id, 'gw_escuela_seleccionada', $escuela_id);
             update_user_meta($user_id, 'gw_escuela_horario', $horarios[$horario_idx]);
+            
+            // AGREGAR ESTAS DOS LÍNEAS:
+            $escuela_id = $escuela_id; // Actualizar variable local
+            $horario = $horarios[$horario_idx]; // Actualizar variable local
+            
             $success = '¡Escuela y horario seleccionados correctamente!';
         } else {
             $error = 'Error al seleccionar la escuela. Inténtalo de nuevo.';
@@ -4000,80 +3940,167 @@ function gw_step_8_documentos($user_id) {
                 <div class="gw-form-container">
                     
                     <?php if ($just_submitted): ?>
-                        <!-- Pantalla de confirmación -->
-                        <div class="gw-submission-success">
-                            <div class="gw-success-animation">
-                                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                    <polyline points="22,4 12,14.01 9,11.01"/>
-                                </svg>
-                            </div>
-                            <h1>¡Documentos enviados exitosamente!</h1>
-                            <p class="gw-thank-you-message">
-                                Gracias por completar todos los pasos del proceso de registro como voluntario. 
-                                Tus documentos han sido enviados y están siendo revisados por nuestro equipo.
-                            </p>
-                            <div class="gw-info-box">
-                                <h3>¿Qué sigue ahora?</h3>
-                                <ul>
-                                    <li>📋 Nuestro equipo revisará tus documentos individualmente</li>
-                                    <li>📧 Recibirás notificaciones específicas por cada documento</li>
-                                    <li>🔄 Podrás volver a subir solo los documentos rechazados</li>
-                                    <li>🎉 Comenzarás tu voluntariado una vez todos sean aprobados</li>
-                                </ul>
-                            </div>
-                            <div class="gw-countdown-section">
-                                <p>Cerrando sesión automáticamente en:</p>
-                                <div class="gw-countdown" id="gw-countdown">10</div>
-                                <p class="gw-countdown-text">segundos</p>
-                            </div>
-                        </div>
-                    
-                    <?php elseif ($todos_aceptados): ?>
-                        <!-- Todos los documentos aceptados -->
-                        <div class="gw-approved-status">
-                            <div class="gw-success-icon">
-                                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                    <polyline points="22,4 12,14.01 9,11.01"/>
-                                </svg>
-                            </div>
-                            <h1>¡Documentos aprobados!</h1>
-                            <p>Tus documentos han sido validados exitosamente. Tu voluntariado está confirmado y puedes comenzar a participar en las actividades programadas.</p>
-                            <div class="gw-countdown-section">
-                                <p>Cerrando sesión automáticamente en:</p>
-                                <div class="gw-countdown" id="gw-countdown">15</div>
-                                <p class="gw-countdown-text">segundos</p>
-                            </div>
-                        </div>
-                    
-                    <?php else: ?>
-                        <!-- Formulario principal -->
-                        <div class="gw-form-header">
-                            <h1>Documentos y escuela</h1>
-                            <p>Selecciona tu escuela, horario y sube los documentos requeridos.</p>
-                        </div>
+    <!-- Pantalla de confirmación -->
+    <div class="gw-submission-success">
+        <div class="gw-success-animation">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22,4 12,14.01 9,11.01"/>
+            </svg>
+        </div>
+        <h1>¡Documentos enviados exitosamente!</h1>
+        <p class="gw-thank-you-message">
+            Gracias por completar todos los pasos del proceso de registro como voluntario. 
+            Tus documentos han sido enviados y están siendo revisados por nuestro equipo.
+        </p>
+        <div class="gw-info-box">
+            <h3>¿Qué sigue ahora?</h3>
+            <ul>
+                <li>📋 Nuestro equipo revisará tus documentos individualmente</li>
+                <li>📧 Recibirás notificaciones específicas por cada documento</li>
+                <li>🔄 Podrás volver a subir solo los documentos rechazados</li>
+                <li>🎉 Comenzarás tu voluntariado una vez todos sean aprobados</li>
+            </ul>
+        </div>
+        <div class="gw-countdown-section">
+            <p>Cerrando sesión automáticamente en:</p>
+            <div class="gw-countdown" id="gw-countdown">10</div>
+            <p class="gw-countdown-text">segundos</p>
+        </div>
+    </div>
 
-                        <?php if ($error): ?>
-                            <div class="gw-error-message">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="15" y1="9" x2="9" y2="15"/>
-                                    <line x1="9" y1="9" x2="15" y2="15"/>
-                                </svg>
-                                <span><?php echo wp_kses_post($error); ?></span>
-                            </div>
-                        <?php endif; ?>
+    <!-- SCRIPT DEL COUNTDOWN PARA DOCUMENTOS ENVIADOS -->
+    <script>
+    (function(){
+        var countdownEl = document.getElementById('gw-countdown');
+        if (!countdownEl) return;
 
-                        <?php if ($success && !$just_submitted): ?>
-                            <div class="gw-success-message">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                    <polyline points="22,4 12,14.01 9,11.01"/>
-                                </svg>
-                                <span><?php echo esc_html($success); ?></span>
-                            </div>
-                        <?php endif; ?>
+        var timeLeft = parseInt(countdownEl.textContent) || 10;
+
+        function updateDisplay() {
+            countdownEl.textContent = timeLeft;
+            
+            if (timeLeft <= 3) {
+                countdownEl.style.color = '#dc2626';
+                countdownEl.style.transform = 'scale(1.15)';
+                countdownEl.style.animation = 'pulse 0.8s infinite';
+            } else if (timeLeft <= 5) {
+                countdownEl.style.color = '#f59e0b';
+                countdownEl.style.transform = 'scale(1.05)';
+            } else {
+                countdownEl.style.color = '#059669';
+                countdownEl.style.transform = 'scale(1)';
+                countdownEl.style.animation = 'none';
+            }
+        }
+
+        function countdown() {
+            timeLeft--;
+            updateDisplay();
+
+            if (timeLeft <= 0) {
+                countdownEl.textContent = '0';
+                countdownEl.style.color = '#dc2626';
+                countdownEl.style.transform = 'scale(1.3)';
+                
+                setTimeout(function() {
+                    window.location.href = '<?php echo wp_logout_url(home_url()); ?>';
+                }, 1000);
+            } else {
+                setTimeout(countdown, 1000);
+            }
+        }
+
+        updateDisplay();
+        setTimeout(countdown, 1000);
+    })();
+    </script>
+
+
+
+<?php elseif ($todos_aceptados): ?>
+    <!-- Todos los documentos aceptados -->
+    <div class="gw-approved-status">
+        <div class="gw-success-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22,4 12,14.01 9,11.01"/>
+            </svg>
+        </div>
+        <h1>¡Documentos aprobados!</h1>
+        <p>Tus documentos han sido validados exitosamente. Tu voluntariado está confirmado y puedes comenzar a participar en las actividades programadas.</p>
+        <div class="gw-countdown-section">
+            <p>Cerrando sesión automáticamente en:</p>
+            <div class="gw-countdown" id="gw-countdown">15</div>
+            <p class="gw-countdown-text">segundos</p>
+        </div>
+    </div>
+
+    <!-- SCRIPT DEL COUNTDOWN PARA DOCUMENTOS APROBADOS -->
+    <script>
+    (function(){
+        var countdownEl = document.getElementById('gw-countdown');
+        if (!countdownEl) return;
+
+        var timeLeft = parseInt(countdownEl.textContent) || 15;
+
+        function updateDisplay() {
+            countdownEl.textContent = timeLeft;
+            
+            if (timeLeft <= 3) {
+                countdownEl.style.color = '#dc2626';
+                countdownEl.style.transform = 'scale(1.15)';
+                countdownEl.style.animation = 'pulse 0.8s infinite';
+            } else if (timeLeft <= 5) {
+                countdownEl.style.color = '#f59e0b';
+                countdownEl.style.transform = 'scale(1.05)';
+            } else {
+                countdownEl.style.color = '#059669';
+                countdownEl.style.transform = 'scale(1)';
+                countdownEl.style.animation = 'none';
+            }
+        }
+
+        function countdown() {
+            timeLeft--;
+            updateDisplay();
+
+            if (timeLeft <= 0) {
+                countdownEl.textContent = '0';
+                countdownEl.style.color = '#dc2626';
+                countdownEl.style.transform = 'scale(1.3)';
+                
+                setTimeout(function() {
+                    window.location.href = '<?php echo wp_logout_url(home_url()); ?>';
+                }, 1000);
+            } else {
+                setTimeout(countdown, 1000);
+            }
+        }
+
+        updateDisplay();
+        setTimeout(countdown, 1000);
+    })();
+    </script>
+
+<?php else: ?>
+    <!-- Formulario principal -->
+    <div class="gw-form-header">
+        <h1>Documentos y escuela</h1>
+        <p>Selecciona tu escuela, horario y sube los documentos requeridos.</p>
+    </div>
+
+    <?php if ($error): ?>
+        <div class="gw-error-message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <span><?php echo wp_kses_post($error); ?></span>
+        </div>
+    <?php endif; ?>
+
 
                         <!-- Estado individual de documentos rechazados -->
                         <?php 
@@ -4127,54 +4154,211 @@ function gw_step_8_documentos($user_id) {
                         <?php else: ?>
                             <!-- Formulario de selección de escuela -->
                             <div class="gw-section">
-                                <div class="gw-section-header">
-                                    <h2>Selecciona tu escuela y horario</h2>
-                                    <p>Elige la escuela y el horario donde vas a realizar tu voluntariado.</p>
-                                </div>
-                                <?php if (!empty($escuelas)): ?>
-                                    <form method="post" class="gw-school-form">
-                                        <?php wp_nonce_field('gw_step8_seleccion', 'gw_step8_nonce'); ?>
-                                        <div class="gw-schools-grid">
-                                            <?php foreach ($escuelas as $esc): 
-                                                $horarios = get_post_meta($esc->ID, '_gw_escuela_horarios', true);
-                                                if (!is_array($horarios) || empty($horarios)) continue;
-                                            ?>
-                                                <div class="gw-school-card">
-                                                    <div class="gw-school-header">
-                                                        <h3><?php echo esc_html($esc->post_title); ?></h3>
-                                                    </div>
-                                                    <div class="gw-school-schedules">
-                                                        <?php foreach ($horarios as $idx => $h): 
-                                                            if (!$h['dia'] && !$h['hora']) continue;
-                                                        ?>
-                                                            <div class="gw-schedule-option">
-                                                                <input type="radio" 
-                                                                       name="escuela_id" 
-                                                                       value="<?php echo esc_attr($esc->ID); ?>" 
-                                                                       id="schedule_<?php echo esc_attr($esc->ID . '_' . $idx); ?>"
-                                                                       data-horario="<?php echo esc_attr($idx); ?>"
-                                                                       required>
-                                                                <label for="schedule_<?php echo esc_attr($esc->ID . '_' . $idx); ?>" class="gw-schedule-label">
-                                                                    <div class="gw-schedule-info">
-                                                                        <span class="gw-day"><?php echo esc_html($h['dia']); ?></span>
-                                                                        <span class="gw-time"><?php echo esc_html($h['hora']); ?></span>
-                                                                    </div>
-                                                                    <button type="submit" 
-                                                                            name="horario_idx" 
-                                                                            value="<?php echo esc_attr($idx); ?>" 
-                                                                            class="gw-select-btn">
-                                                                        Seleccionar
-                                                                    </button>
-                                                                </label>
-                                                            </div>
-                                                        <?php endforeach; ?>
-                                                    </div>
-                                                </div>
-                                            <?php endforeach; ?>
+    <div class="gw-section-header">
+        <h2>Selecciona tu escuela y horario</h2>
+        <p>Elige la escuela y el horario donde vas a realizar tu voluntariado.</p>
+    </div>
+    <?php if (!empty($escuelas)): ?>
+        <form method="post" class="gw-school-form" id="gw-school-selection-form">
+            <?php wp_nonce_field('gw_step8_seleccion', 'gw_step8_nonce'); ?>
+            <input type="hidden" name="escuela_id" id="selected_escuela_id">
+            <input type="hidden" name="horario_idx" id="selected_horario_idx">
+            
+            <div class="gw-schools-grid">
+                <?php foreach ($escuelas as $esc): 
+                    $horarios = get_post_meta($esc->ID, '_gw_escuela_horarios', true);
+                    if (!is_array($horarios) || empty($horarios)) continue;
+                ?>
+                    <div class="gw-school-card">
+                        <div class="gw-school-header">
+                            <h3><?php echo esc_html($esc->post_title); ?></h3>
+                        </div>
+                        <div class="gw-school-schedules">
+                            <?php foreach ($horarios as $idx => $h): 
+                                if (!$h['dia'] && !$h['hora']) continue;
+                            ?>
+                                <div class="gw-schedule-option gw-clickable-schedule" 
+                                     data-escuela-id="<?php echo esc_attr($esc->ID); ?>"
+                                     data-horario-idx="<?php echo esc_attr($idx); ?>">
+                                    <div class="gw-schedule-content">
+                                        <div class="gw-schedule-info">
+                                            <span class="gw-day"><?php echo esc_html($h['dia']); ?></span>
+                                            <span class="gw-time"><?php echo esc_html($h['hora']); ?></span>
                                         </div>
-                                    </form>
-                                <?php endif; ?>
-                            </div>
+                                        <div class="gw-schedule-action">
+                                            <span class="gw-select-text">Clic para seleccionar</span>
+                                            <span class="gw-selected-text">✓ Seleccionado</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div class="gw-form-actions">
+                <button type="submit" class="gw-continue-btn" id="gw-continue-btn" disabled>
+                    Continuar con esta selección
+                </button>
+            </div>
+        </form>
+        
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('gw-school-selection-form');
+            const scheduleOptions = document.querySelectorAll('.gw-clickable-schedule');
+            const continueBtn = document.getElementById('gw-continue-btn');
+            const escuelaIdInput = document.getElementById('selected_escuela_id');
+            const horarioIdxInput = document.getElementById('selected_horario_idx');
+            
+            scheduleOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remover selección previa
+                    scheduleOptions.forEach(opt => opt.classList.remove('selected'));
+                    
+                    // Seleccionar actual
+                    this.classList.add('selected');
+                    
+                    // Actualizar campos ocultos
+                    escuelaIdInput.value = this.dataset.escuelaId;
+                    horarioIdxInput.value = this.dataset.horarioIdx;
+                    
+                    // Habilitar botón continuar
+                    continueBtn.disabled = false;
+                });
+            });
+        });
+        </script>
+        
+        <style>
+        .gw-schools-grid {
+            display: grid;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .gw-school-card {
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            background: white;
+        }
+        
+        .gw-school-header h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.2em;
+        }
+        
+        .gw-school-schedules {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .gw-clickable-schedule {
+            padding: 15px;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f9f9f9;
+        }
+        
+        .gw-clickable-schedule:hover {
+            border-color: #b8d442;
+            background: #f5f8e8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(184, 212, 66, 0.2);
+        }
+        
+        .gw-clickable-schedule.selected {
+            border-color: #b8d442;
+            background: linear-gradient(135deg, #c4c33f 0%, #c4c33f 100%);
+            color: white;
+        }
+        
+        .gw-schedule-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .gw-schedule-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .gw-day {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .gw-time {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .gw-selected-text {
+            display: none;
+            font-weight: bold;
+        }
+        
+        .gw-select-text {
+            font-size: 0.85em;
+            opacity: 0.7;
+        }
+        
+        .gw-clickable-schedule.selected .gw-selected-text {
+            display: inline;
+        }
+        
+        .gw-clickable-schedule.selected .gw-select-text {
+            display: none;
+        }
+        
+        .gw-form-actions {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .gw-continue-btn {
+            background: #b8d442;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .gw-continue-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .gw-continue-btn:not(:disabled):hover {
+            background: #a5c23a;
+            transform: translateY(-2px);
+        }
+        
+        /* Responsive */
+        @media (min-width: 768px) {
+            .gw-schools-grid {
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+            
+            .gw-school-schedules {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+        }
+        </style>
+    <?php endif; ?>
+</div>
                         <?php endif; ?>
 
 
@@ -4183,78 +4367,122 @@ function gw_step_8_documentos($user_id) {
 <?php if ($escuela_id && $horario): ?>
   <div class="gw-section gw-classwin-form-wrap">
     <div class="gw-classwin-header">
-      <h2>Preguntas sobre Glasswing</h2>
-      <p>Responde las siguientes preguntas. (Preguntas de ejemplo con “lor en ipsu”)</p>
+      <div class="gw-header-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 11H5a2 2 0 0 0-2 2v3c0 1.1.9 2 2 2h4l3 3V8l-3 3z"/>
+          <path d="M22 9a5 5 0 0 1-5 5"/>
+          <path d="M20 5a9 9 0 0 1-9 9"/>
+        </svg>
+      </div>
+      <h2>Cuéntanos sobre ti como voluntario</h2>
+      <p>Estas preguntas nos ayudan a conocerte mejor y preparar la mejor experiencia de voluntariado para ti.</p>
     </div>
 
     <form method="post" class="gw-classwin-form" id="gw-classwin-form">
       <?php wp_nonce_field('gw_classwin_qa', 'gw_classwin_nonce'); ?>
 
       <div class="gw-qa-grid">
-        <!-- Q1 -->
+        <!-- Pregunta 1: Motivación -->
         <div class="gw-qa-row">
-          <div>
-            <p class="gw-field-label">Pregunta 1: <span class="gw-required">*</span></p>
-            <p class="gw-question-text">Lor en ipsu dolor sit amet, ¿ejemplo de pregunta 1?</p>
+          <div class="gw-question-side">
+            <div class="gw-question-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </div>
+            <div class="gw-question-content">
+              <p class="gw-field-label">¿Qué te motiva a ser voluntario? <span class="gw-required">*</span></p>
+              <p class="gw-question-text">Cuéntanos qué te inspira a dedicar tu tiempo para ayudar a otros y cómo esperas que esta experiencia impacte tu vida.</p>
+            </div>
           </div>
-          <div>
+          <div class="gw-answer-side">
             <label class="gw-field-label" for="classwin_a1">
-              Respuesta 1 <span class="gw-required">*</span>
+              Tu motivación <span class="gw-required">*</span>
             </label>
             <textarea
               id="classwin_a1"
               name="classwin_a1"
               class="gw-textarea"
-              placeholder="Escribe tu respuesta aquí..."
+              placeholder="Ejemplo: Quiero contribuir a la educación porque creo que todos los niños merecen oportunidades..."
               required
             ></textarea>
+            <div class="gw-char-counter">
+              <span id="count_a1">0</span>/500 caracteres
+            </div>
           </div>
         </div>
 
-        <!-- Q2 -->
+        <!-- Pregunta 2: Habilidades -->
         <div class="gw-qa-row">
-          <div>
-            <p class="gw-field-label">Pregunta 2: <span class="gw-required">*</span></p>
-            <p class="gw-question-text">Lor en ipsu dolor sit amet, ¿ejemplo de pregunta 2?</p>
+          <div class="gw-question-side">
+            <div class="gw-question-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </div>
+            <div class="gw-question-content">
+              <p class="gw-field-label">¿Qué habilidades o talentos puedes aportar? <span class="gw-required">*</span></p>
+              <p class="gw-question-text">Describe las destrezas, conocimientos o experiencias que podrías compartir con los estudiantes y la comunidad educativa.</p>
+            </div>
           </div>
-          <div>
+          <div class="gw-answer-side">
             <label class="gw-field-label" for="classwin_a2">
-              Respuesta 2 <span class="gw-required">*</span>
+              Tus habilidades <span class="gw-required">*</span>
             </label>
             <textarea
               id="classwin_a2"
               name="classwin_a2"
               class="gw-textarea"
-              placeholder="Escribe tu respuesta aquí..."
+              placeholder="Ejemplo: Tengo experiencia en matemáticas, me gusta el arte, soy bueno explicando conceptos..."
               required
             ></textarea>
+            <div class="gw-char-counter">
+              <span id="count_a2">0</span>/500 caracteres
+            </div>
           </div>
         </div>
 
-        <!-- Q3 -->
+        <!-- Pregunta 3: Expectativas -->
         <div class="gw-qa-row">
-          <div>
-            <p class="gw-field-label">Pregunta 3: <span class="gw-required">*</span></p>
-            <p class="gw-question-text">Lor en ipsu dolor sit amet, ¿ejemplo de pregunta 3?</p>
+          <div class="gw-question-side">
+            <div class="gw-question-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
+                <path d="M9 18h6"/>
+                <path d="M10 22h4"/>
+              </svg>
+            </div>
+            <div class="gw-question-content">
+              <p class="gw-field-label">¿Qué esperas aprender de esta experiencia? <span class="gw-required">*</span></p>
+              <p class="gw-question-text">Reflexiona sobre cómo esta experiencia de voluntariado podría enriquecer tu desarrollo personal y profesional.</p>
+            </div>
           </div>
-          <div>
+          <div class="gw-answer-side">
             <label class="gw-field-label" for="classwin_a3">
-              Respuesta 3 <span class="gw-required">*</span>
+              Tus expectativas <span class="gw-required">*</span>
             </label>
             <textarea
               id="classwin_a3"
               name="classwin_a3"
               class="gw-textarea"
-              placeholder="Escribe tu respuesta aquí..."
+              placeholder="Ejemplo: Espero desarrollar habilidades de liderazgo, aprender sobre diferentes realidades sociales..."
               required
             ></textarea>
+            <div class="gw-char-counter">
+              <span id="count_a3">0</span>/500 caracteres
+            </div>
           </div>
         </div>
       </div>
 
       <div class="gw-form-actions">
         <button type="submit" class="gw-btn-primary" id="gw-submit-classwin">
-          <span class="gw-btn-text">Guardar respuestas</span>
+          <span class="gw-btn-text">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+            Guardar mis respuestas
+          </span>
           <span class="gw-btn-loading" style="display:none;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -4277,39 +4505,93 @@ function gw_step_8_documentos($user_id) {
   var txt = btn ? btn.querySelector('.gw-btn-text') : null;
   var load = btn ? btn.querySelector('.gw-btn-loading') : null;
 
+  // Contadores de caracteres
+  function setupCharCounter(textarea, counterId) {
+    var counter = document.getElementById(counterId);
+    if (!textarea || !counter) return;
+    
+    function updateCount() {
+      var count = textarea.value.length;
+      counter.textContent = count;
+      counter.style.color = count > 450 ? '#dc3232' : count > 400 ? '#f56500' : '#6b7280';
+    }
+    
+    textarea.addEventListener('input', updateCount);
+    updateCount();
+  }
+  
+  setupCharCounter(a1, 'count_a1');
+  setupCharCounter(a2, 'count_a2');
+  setupCharCounter(a3, 'count_a3');
+
+  // Toast notification
+  function toast(msg, type) {
+    var el = document.createElement('div');
+    el.textContent = msg;
+    var bgColor = type === 'success' ? '#059669' : type === 'error' ? '#dc2626' : '#111';
+    el.style.cssText = 'position:fixed;top:20px;right:20px;background:' + bgColor + ';color:#fff;padding:12px 20px;border-radius:12px;z-index:999999;box-shadow:0 4px 20px rgba(0,0,0,0.15);font-weight:600;';
+    document.body.appendChild(el);
+    setTimeout(function(){ 
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(100%)';
+      el.style.transition = 'all 0.3s ease';
+      setTimeout(function(){ el.remove(); }, 300);
+    }, 3000);
+  }
+
   // Mensaje inline bajo el botón
   var statusEl = document.createElement('div');
   statusEl.id = 'gw-classwin-inline-status';
-  statusEl.style.cssText = 'margin-top:8px;font-size:13px;color:#059669;font-weight:600;display:none;';
+  statusEl.style.cssText = 'margin-top:12px;font-size:14px;color:#059669;font-weight:600;display:none;text-align:center;padding:8px;background:#f0f9ff;border:1px solid #7dd3fc;border-radius:8px;';
   var actions = form.querySelector('.gw-form-actions') || form;
   actions.appendChild(statusEl);
 
-  // Clave de storage por usuario
+  // LocalStorage para borradores
   var KEY = 'gw_classwin_' + <?php echo intval($user_id); ?>;
 
-  // Prefill desde localStorage
+  // Cargar borradores guardados
   try{
     var saved = JSON.parse(localStorage.getItem(KEY) || '{}');
     if(saved.a1 && !a1.value) a1.value = saved.a1;
     if(saved.a2 && !a2.value) a2.value = saved.a2;
     if(saved.a3 && !a3.value) a3.value = saved.a3;
     if(saved.ts){
-      statusEl.textContent = 'Borrador recuperado ('+ new Date(saved.ts).toLocaleTimeString() +')';
+      statusEl.innerHTML = '📝 Borrador recuperado del ' + new Date(saved.ts).toLocaleDateString() + ' a las ' + new Date(saved.ts).toLocaleTimeString();
       statusEl.style.display = 'block';
+      // Actualizar contadores después de cargar
+      setupCharCounter(a1, 'count_a1');
+      setupCharCounter(a2, 'count_a2');
+      setupCharCounter(a3, 'count_a3');
     }
   }catch(e){}
 
-  function showStatus(msg, ok){
-    statusEl.textContent = msg + ' • ' + new Date().toLocaleTimeString();
-    statusEl.style.color = ok===false ? '#b91c1c' : '#059669';
+  function showStatus(msg, isSuccess) {
+    statusEl.innerHTML = msg + ' • ' + new Date().toLocaleTimeString();
+    statusEl.style.color = isSuccess ? '#059669' : '#dc2626';
+    statusEl.style.backgroundColor = isSuccess ? '#f0f9ff' : '#fef2f2';
+    statusEl.style.borderColor = isSuccess ? '#7dd3fc' : '#fecaca';
     statusEl.style.display = 'block';
   }
 
-  // Autosave (500ms tras escribir)
-  var t;
-  function queueSave(){
-    clearTimeout(t);
-    t = setTimeout(function(){
+  function setLoading(on) {
+    if(on) {
+      if(txt) txt.style.display = 'none';
+      if(load) load.style.display = 'inline-flex';
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+    } else {
+      if(txt) txt.style.display = 'inline-flex';
+      if(load) load.style.display = 'none';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
+
+  // Autosave cada 2 segundos
+  var autoSaveTimeout;
+  function queueAutoSave() {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(function(){
       var data = {
         a1: a1 ? a1.value : '',
         a2: a2 ? a2.value : '',
@@ -4317,107 +4599,345 @@ function gw_step_8_documentos($user_id) {
         ts: Date.now()
       };
       localStorage.setItem(KEY, JSON.stringify(data));
-      showStatus('Guardado localmente');
-    }, 500);
+      showStatus('💾 Borrador guardado automáticamente', true);
+    }, 2000);
   }
-  [a1,a2,a3].forEach(function(el){ el && el.addEventListener('input', queueSave); });
 
-  // Envío AJAX (mantiene tu endpoint)
+  [a1, a2, a3].forEach(function(el) { 
+    if(el) el.addEventListener('input', queueAutoSave); 
+  });
+
+  // Envío del formulario
   form.addEventListener('submit', function(ev){
     ev.preventDefault();
     if(!btn) return;
-    if(txt) txt.style.display = 'none';
-    if(load) load.style.display = 'inline-flex';
-    btn.disabled = true;
+    
+    // Validación básica
+    var errors = [];
+    if(!a1.value.trim()) errors.push('Respuesta 1 es requerida');
+    if(!a2.value.trim()) errors.push('Respuesta 2 es requerida'); 
+    if(!a3.value.trim()) errors.push('Respuesta 3 es requerida');
+    
+    if(errors.length > 0) {
+      toast('❌ ' + errors.join(', '), 'error');
+      return;
+    }
+    
+    setLoading(true);
+    showStatus('📤 Enviando tus respuestas...', true);
 
     var fd = new FormData(form);
     fd.append('action','gw_step8_save_answers');
     fd.append('nonce','<?php echo wp_create_nonce('gw_step8'); ?>');
 
-    fetch('<?php echo admin_url('admin-ajax.php'); ?>', {method:'POST', credentials:'same-origin', body: fd})
-      .then(function(r){return r.json();})
-      .then(function(res){
-        if(txt) txt.style.display = '';
-        if(load) load.style.display = 'none';
-        btn.disabled = false;
-        if(res && res.success){
-          localStorage.removeItem(KEY);
-          showStatus('Respuestas guardadas', true);
-        } else {
-          showStatus('No se pudo guardar', false);
-        }
-      })
-      .catch(function(){
-        if(txt) txt.style.display = '';
-        if(load) load.style.display = 'none';
-        btn.disabled = false;
-        showStatus('Error de red', false);
-      });
+    fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+      method:'POST', 
+      credentials:'same-origin', 
+      body: fd
+    })
+    .then(function(r){return r.json();})
+    .then(function(res){
+      setLoading(false);
+      if(res && res.success){
+        localStorage.removeItem(KEY);
+        showStatus('✅ Respuestas guardadas exitosamente', true);
+        toast('🎉 Tus respuestas han sido guardadas correctamente', 'success');
+      } else {
+        showStatus('❌ Error: No se pudieron guardar las respuestas', false);
+        toast('❌ Hubo un error al guardar. Inténtalo de nuevo.', 'error');
+      }
+    })
+    .catch(function(){
+      setLoading(false);
+      showStatus('❌ Error de conexión', false);
+      toast('🌐 Error de conexión. Verifica tu internet e inténtalo de nuevo.', 'error');
+    });
   });
 })();
 </script>
 
-    <script>
-    (function(){
-      var form = document.getElementById('gw-classwin-form');
-      var submitBtn = document.getElementById('gw-submit-classwin');
-      if(!form || !submitBtn) return;
+<style>
+/* Formulario de preguntas mejorado */
+.gw-classwin-form-wrap {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
 
-      var AJAX  = "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>";
-      var NONCE = "<?php echo esc_js( wp_create_nonce('gw_step8') ); ?>";
+.gw-classwin-form-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #c0c34d 0%, #a5b344 50%, #8ca63d 100%);
+}
 
-      function setLoading(on){
-        var txt  = submitBtn.querySelector('.gw-btn-text');
-        var load = submitBtn.querySelector('.gw-btn-loading');
-        if(on){
-          if(txt)  txt.style.display = 'none';
-          if(load) load.style.display = 'inline-flex';
-          submitBtn.disabled = true;
-        } else {
-          if(txt)  txt.style.display = '';
-          if(load) load.style.display = 'none';
-          submitBtn.disabled = false;
-        }
-      }
+.gw-classwin-header {
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+}
 
-      function toast(msg){
-        var el = document.createElement('div');
-        el.textContent = msg;
-        el.style.cssText = 'position:fixed;top:16px;right:16px;background:#111;color:#fff;padding:10px 14px;border-radius:8px;z-index:999999;opacity:.95';
-        document.body.appendChild(el);
-        setTimeout(function(){ el.remove(); }, 2000);
-      }
+.gw-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #c0c34d 0%, #a5b344 100%);
+  border-radius: 50%;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 16px rgba(192, 195, 77, 0.3);
+}
 
-      submitBtn.addEventListener('click', function(ev){
-        ev.preventDefault();
+.gw-header-icon svg {
+  color: white;
+}
 
-        var a1 = form.querySelector('[name="classwin_a1"]') ? form.querySelector('[name="classwin_a1"]').value : '';
-        var a2 = form.querySelector('[name="classwin_a2"]') ? form.querySelector('[name="classwin_a2"]').value : '';
-        var a3 = form.querySelector('[name="classwin_a3"]') ? form.querySelector('[name="classwin_a3"]').value : '';
+.gw-classwin-header h2 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #1e293b;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
-        setLoading(true);
+.gw-classwin-header p {
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
 
-        var fd = new FormData();
-        fd.append('action', 'gw_step8_save_answers');
-        fd.append('nonce', NONCE);
-        fd.append('answers[pregunta_1]', a1);
-        fd.append('answers[pregunta_2]', a2);
-        fd.append('answers[pregunta_3]', a3);
+.gw-qa-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
 
-        fetch(AJAX, {method:'POST', credentials:'same-origin', body:fd})
-          .then(function(r){ return r.json(); })
-          .then(function(res){
-            setLoading(false);
-            if(res && res.success){ toast('Respuestas guardadas'); }
-            else { toast('No se pudieron guardar'); }
-          })
-          .catch(function(){
-            setLoading(false);
-            toast('Error de conexión');
-          });
-      });
-    })();
-    </script>
+.gw-qa-row {
+  display: grid;
+  gap: 24px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(15, 23, 42, 0.04);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.gw-qa-row:hover {
+  box-shadow: 0 8px 25px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+@media (min-width: 768px) {
+  .gw-qa-row {
+    grid-template-columns: 1fr 1.2fr;
+    gap: 32px;
+  }
+}
+
+.gw-question-side {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.gw-question-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #c0c34d;
+}
+
+.gw-question-icon svg {
+  color: #c0c34d;
+}
+
+.gw-question-content {
+  flex: 1;
+}
+
+.gw-field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #1e293b;
+  font-size: 16px;
+}
+
+.gw-question-text {
+  color: #64748b;
+  line-height: 1.6;
+  font-size: 14px;
+  margin: 0;
+}
+
+.gw-required {
+  color: #dc2626;
+  font-weight: 900;
+}
+
+.gw-answer-side {
+  position: relative;
+}
+
+.gw-textarea {
+  width: 100%;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 15px;
+  color: #1e293b;
+  background: #ffffff;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  min-height: 120px;
+  resize: vertical;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+.gw-textarea::placeholder {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.gw-textarea:focus {
+  border-color: #c0c34d;
+  box-shadow: 0 0 0 3px rgba(192, 195, 77, 0.1);
+  outline: none;
+  background: #ffffff;
+}
+
+.gw-char-counter {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 12px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.gw-form-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+.gw-btn-primary {
+  border: none;
+  border-radius: 16px;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, #c0c34d 0%, #a5b344 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(192, 195, 77, 0.4);
+  min-width: 220px;
+  justify-content: center;
+}
+
+.gw-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #a5b344 0%, #8ca63d 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(192, 195, 77, 0.5);
+}
+
+.gw-btn-primary:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gw-btn-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gw-btn-loading svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive móvil */
+@media (max-width: 767px) {
+  .gw-classwin-form-wrap {
+    padding: 20px;
+    margin-bottom: 24px;
+    border-radius: 16px;
+  }
+  
+  .gw-classwin-header h2 {
+    font-size: 22px;
+  }
+  
+  .gw-header-icon {
+    width: 56px;
+    height: 56px;
+  }
+  
+  .gw-qa-row {
+    padding: 20px;
+    gap: 20px;
+  }
+  
+  .gw-question-side {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .gw-question-icon {
+    width: 40px;
+    height: 40px;
+    align-self: flex-start;
+  }
+  
+  .gw-textarea {
+    min-height: 100px;
+    padding: 14px;
+    font-size: 14px;
+  }
+  
+  .gw-btn-primary {
+    width: 100%;
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+}
+</style>
   </div>
 <?php endif; ?>
 
@@ -5200,6 +5720,262 @@ function gw_step_8_documentos($user_id) {
                                         </button>
                                     </div>
                                 </form>
+                                <script>
+// ========= Botón "Agregar otra foto" CON PERSISTENCIA =========
+(function(){
+    var addBtn = document.getElementById('add-photo-btn');
+    if (!addBtn) return;
+
+    var STORAGE_KEY = 'gw_docs_temp_<?php echo $user_id; ?>';
+
+    // Guardar estado en localStorage
+    function saveToStorage() {
+        var data = {
+            docs: [],
+            timestamp: Date.now()
+        };
+        
+        document.querySelectorAll('.gw-document-upload').forEach(function(upload) {
+            var docNum = upload.getAttribute('data-doc');
+            var input = upload.querySelector('.gw-file-input');
+            var preview = upload.querySelector('.gw-document-preview img');
+            
+            if (input && input.files && input.files[0] && preview) {
+                data.docs.push({
+                    docNum: docNum,
+                    fileName: input.files[0].name,
+                    previewSrc: preview.src
+                });
+            }
+        });
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // Restaurar desde localStorage
+    function restoreFromStorage() {
+        try {
+            var stored = localStorage.getItem(STORAGE_KEY);
+            if (!stored) return;
+            
+            var data = JSON.parse(stored);
+            // Solo restaurar si es reciente (menos de 1 hora)
+            if (Date.now() - data.timestamp > 3600000) {
+                localStorage.removeItem(STORAGE_KEY);
+                return;
+            }
+            
+            data.docs.forEach(function(doc) {
+                if (doc.docNum > 2) { // Solo restaurar docs 3 y 4 agregados dinámicamente
+                    createDocumentSlot(doc.docNum, doc.fileName, doc.previewSrc);
+                }
+            });
+        } catch(e) {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+    }
+
+    // Crear slot de documento con datos restaurados
+    function createDocumentSlot(docNum, fileName, previewSrc) {
+        var container = document.getElementById('documents-container');
+        if (!container || container.querySelector('[data-doc="' + docNum + '"]')) return;
+
+        var html = `
+<div class="gw-document-upload optional-doc" data-doc="${docNum}" style="display:flex;">
+    <label class="gw-upload-label">
+        <span class="gw-label-text">Documento adicional (Foto ${docNum})</span>
+        <span style="color:#ffb900;font-size:10px;font-weight:bold;margin-left:10px;">PENDIENTE</span>
+    </label>
+    
+    <div class="gw-document-preview">
+        <img src="${previewSrc}" alt="Documento ${docNum}">
+        <div class="gw-document-status" style="background:#ffb900;">⏳ En revisión</div>
+    </div>
+
+    <div class="gw-file-upload">
+        <input type="file" 
+               name="documento_${docNum}" 
+               id="documento_${docNum}" 
+               accept="image/*" 
+               class="gw-file-input">
+        <label for="documento_${docNum}" class="gw-file-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7,10 12,15 17,10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Cambiar archivo</span>
+        </label>
+    </div>
+</div>`;
+
+        container.insertAdjacentHTML('beforeend', html);
+        
+        var newUpload = container.querySelector('[data-doc="' + docNum + '"]');
+        var newInput = newUpload.querySelector('.gw-file-input');
+        
+        bindFileInput(newInput);
+        addRemoveButton(newUpload);
+        
+        // Actualizar estado del botón
+        updateAddButton();
+    }
+
+    // Función para enlazar eventos a inputs
+    function bindFileInput(input){
+        if (!input || input._gwBound) return;
+        input._gwBound = true;
+
+        input.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                alert('Por favor selecciona una imagen válida (JPG, PNG, GIF, WEBP)');
+                this.value = '';
+                return;
+            }
+
+            // Crear preview
+            const wrapper = this.closest('.gw-document-upload');
+            if (wrapper) {
+                let preview = wrapper.querySelector('.gw-document-preview');
+                if (!preview) {
+                    preview = document.createElement('div');
+                    preview.className = 'gw-document-preview';
+                    preview.innerHTML = '<img alt="Previsualización" /><div class="gw-document-status" style="background:#ffb900;">⏳ En revisión</div>';
+                    const uploadBlock = wrapper.querySelector('.gw-file-upload');
+                    wrapper.insertBefore(preview, uploadBlock);
+                }
+                const img = preview.querySelector('img');
+                if (img) {
+                    img.src = URL.createObjectURL(file);
+                    // Guardar después de cargar la imagen
+                    img.onload = function() {
+                        saveToStorage();
+                    };
+                }
+            }
+
+            // Actualizar label
+            const label = this.nextElementSibling;
+            if (label) {
+                const span = label.querySelector('span');
+                if (span) span.textContent = file.name;
+            }
+        });
+    }
+
+    // Botón eliminar
+    function addRemoveButton(documentUpload) {
+        if (documentUpload.querySelector('.gw-remove-btn')) return;
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'gw-remove-btn';
+        removeBtn.innerHTML = '× Eliminar';
+        removeBtn.style.cssText = 'position:absolute;top:10px;right:10px;background:#dc3232;color:white;border:none;padding:5px 10px;border-radius:4px;font-size:12px;cursor:pointer;z-index:10;';
+        
+        removeBtn.addEventListener('click', function() {
+            if (confirm('¿Estás seguro de eliminar esta foto?')) {
+                documentUpload.remove();
+                saveToStorage();
+                updateAddButton();
+            }
+        });
+        
+        documentUpload.style.position = 'relative';
+        documentUpload.appendChild(removeBtn);
+    }
+
+    // Actualizar estado del botón agregar
+    function updateAddButton() {
+        const container = document.getElementById('documents-container');
+        if (!container) return;
+        
+        const hasDoc3 = container.querySelector('[data-doc="3"]');
+        const hasDoc4 = container.querySelector('[data-doc="4"]');
+        
+        if (hasDoc3 && hasDoc4) {
+            addBtn.disabled = true;
+            addBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                </svg>
+                Has agregado todas las fotos
+            `;
+        } else {
+            addBtn.disabled = false;
+            addBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Agregar otra foto
+            `;
+        }
+    }
+
+    // Click del botón agregar
+    addBtn.addEventListener('click', function(){
+        var container = document.getElementById('documents-container');
+        if (!container) return;
+
+        var next = !container.querySelector('[data-doc="3"]') ? 3 :
+                   (!container.querySelector('[data-doc="4"]') ? 4 : null);
+
+        if (!next) return;
+
+        var html = `
+<div class="gw-document-upload optional-doc" data-doc="${next}" style="display:flex;">
+    <label class="gw-upload-label">
+        <span class="gw-label-text">Documento adicional (Foto ${next})</span>
+        <span style="color:#ffb900;font-size:10px;font-weight:bold;margin-left:10px;">PENDIENTE</span>
+    </label>
+
+    <div class="gw-file-upload">
+        <input type="file" 
+               name="documento_${next}" 
+               id="documento_${next}" 
+               accept="image/*" 
+               class="gw-file-input">
+        <label for="documento_${next}" class="gw-file-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7,10 12,15 17,10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Seleccionar archivo</span>
+        </label>
+    </div>
+</div>`;
+
+        container.insertAdjacentHTML('beforeend', html);
+
+        var newInput = container.querySelector('#documento_' + next);
+        var newUpload = container.querySelector('[data-doc="' + next + '"]');
+        
+        bindFileInput(newInput);
+        addRemoveButton(newUpload);
+        updateAddButton();
+
+        newUpload.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    // Limpiar localStorage al enviar formulario
+    document.getElementById('gw-documents-form').addEventListener('submit', function() {
+        localStorage.removeItem(STORAGE_KEY);
+    });
+
+    // Inicializar
+    document.querySelectorAll('.gw-file-input').forEach(bindFileInput);
+    restoreFromStorage();
+    updateAddButton();
+})();
+</script>
+
+
                             </div>
                         <?php endif; ?>
                     <?php endif; ?>
@@ -5424,62 +6200,79 @@ function gw_step_8_documentos($user_id) {
     document.querySelectorAll('.gw-file-input').forEach(bindFileInput);
 
     // ========= Botón "Agregar otra foto" (añade doc_3 y luego doc_4) =========
-    (function(){
-        var addBtn = document.getElementById('add-photo-btn');
-        if (!addBtn) return;
+    // REEMPLAZA el script que tienes actualmente con este:
 
-        addBtn.addEventListener('click', function(){
-            // Preferimos insertar dentro del recuadro punteado del botón
-            var hostSection = document.getElementById('add-photo-btn') ? document.getElementById('add-photo-btn').closest('.gw-add-photos-section') : null;
-            var container = hostSection || document.getElementById('documents-container');
-            if (!container) return;
+// ========= Botón "Agregar otra foto" (CORREGIDO) =========
+(function(){
+    var addBtn = document.getElementById('add-photo-btn');
+    if (!addBtn) return;
 
-            // Siguiente slot disponible: 3 primero, luego 4
-            var next = !container.querySelector('#documento_3') ? 3 :
-                       (!container.querySelector('#documento_4') ? 4 : null);
+    addBtn.addEventListener('click', function(){
+        var container = document.getElementById('documents-container');
+        if (!container) return;
 
-            if (!next){
-                addBtn.disabled = true;
-                addBtn.textContent = 'Has agregado todas las fotos';
-                return;
-            }
+        // Siguiente slot disponible: 3 primero, luego 4
+        var next = !container.querySelector('[data-doc="3"]') ? 3 :
+                   (!container.querySelector('[data-doc="4"]') ? 4 : null);
 
-            var html = `
-  <div class="gw-document-upload optional-doc" data-doc="${next}" style="display:flex;">
+        if (!next){
+            addBtn.disabled = true;
+            addBtn.textContent = 'Has agregado todas las fotos';
+            return;
+        }
+
+        // Crear el HTML con el MISMO diseño que los documentos 1 y 2
+        var html = `
+<div class="gw-document-upload optional-doc" data-doc="${next}" style="display:flex;">
     <label class="gw-upload-label">
-      <span class="gw-label-text">Documento adicional (Foto ${next})</span>
-      <span style="color:#ffb900;font-size:10px;font-weight:bold;margin-left:10px;">PENDIENTE</span>
+        <span class="gw-label-text">Documento adicional (Foto ${next})</span>
+        <span style="color:#ffb900;font-size:10px;font-weight:bold;margin-left:10px;">PENDIENTE</span>
     </label>
 
     <div class="gw-file-upload">
-      <input type="file" name="documento_${next}" id="documento_${next}" accept="image/*" class="gw-file-input">
-      <label for="documento_${next}" class="gw-file-label">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-          <polyline points="7,10 12,15 17,10"></polyline>
-          <line x1="12" y1="15" x2="12" y2="3"></line>
-        </svg>
-        <span>Seleccionar archivo</span>
-      </label>
+        <input type="file" 
+               name="documento_${next}" 
+               id="documento_${next}" 
+               accept="image/*" 
+               class="gw-file-input">
+        <label for="documento_${next}" class="gw-file-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7,10 12,15 17,10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Seleccionar archivo</span>
+        </label>
     </div>
-  </div>`;
+</div>`;
 
-            // Insertar al final del recuadro punteado, debajo del texto de ayuda
-            container.insertAdjacentHTML('beforeend', html);
+        // Insertar DENTRO del documents-container
+        container.insertAdjacentHTML('beforeend', html);
 
-            // Enlazar eventos de compresión/preview al nuevo input
-            var newInput = container.querySelector('#documento_' + next);
-            bindFileInput(newInput);
+        // Enlazar eventos de compresión/preview al nuevo input
+        var newInput = container.querySelector('#documento_' + next);
+        if (newInput && window.bindFileInput) {
+            window.bindFileInput(newInput);
+        }
 
-            // Si ya se agregaron 3 y 4, desactivar botón (buscar dentro del mismo contenedor)
-            var scope = hostSection || container;
-            if (scope.querySelector('#documento_3') && scope.querySelector('#documento_4')){
-                addBtn.disabled = true;
-                addBtn.textContent = 'Has agregado todas las fotos';
-            }
+        // Si ya se agregaron 3 y 4, desactivar botón
+        if (container.querySelector('[data-doc="3"]') && container.querySelector('[data-doc="4"]')){
+            addBtn.disabled = true;
+            addBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                </svg>
+                Has agregado todas las fotos
+            `;
+        }
+
+        // Scroll suave al nuevo elemento
+        newInput.closest('.gw-document-upload').scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
         });
-    })();
-    
+    });
+})();
     // VALIDACIÓN DEL FORMULARIO
     function validateForm() {
         const consent1 = document.getElementById('consentimiento1');
